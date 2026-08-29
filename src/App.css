@@ -178,3 +178,19 @@
 .score-zero {
   color: var(--text-muted);
 }
+
+.score-success-circle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(52, 211, 153, 0.7);
+  background-color: rgba(52, 211, 153, 0.12);
+  color: #34d399 !important;
+  font-weight: 700;
+  padding: 0 4px;
+  box-shadow: 0 0 6px rgba(52, 211, 153, 0.15);
+}
+

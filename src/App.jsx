@@ -943,12 +943,18 @@ export default function App() {
                                 <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                                   B:{pScore.bid} / W:{pScore.won}
                                 </div>
-                                <div style={{ fontWeight: '600', marginTop: '2px' }}>
-                                  <span className={pScore.score_change > 0 ? 'score-positive' : pScore.score_change < 0 ? 'score-negative' : 'score-zero'}>
-                                    {pScore.score_change > 0 ? `+${pScore.score_change}` : pScore.score_change}
-                                  </span>
+                                <div style={{ fontWeight: '600', marginTop: '2px', display: 'flex', justifyContent: 'center' }}>
+                                  {pScore.bid === pScore.won ? (
+                                    <span className="score-success-circle">
+                                      {pScore.score_change >= 0 ? `+${pScore.score_change}` : pScore.score_change}
+                                    </span>
+                                  ) : (
+                                    <span className={pScore.score_change > 0 ? 'score-positive' : pScore.score_change < 0 ? 'score-negative' : 'score-zero'}>
+                                      {pScore.score_change > 0 ? `+${pScore.score_change}` : pScore.score_change}
+                                    </span>
+                                  )}
                                 </div>
-                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '1px' }}>
+                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
                                   Total: {pScore.score_cumulative}
                                 </div>
                               </td>
