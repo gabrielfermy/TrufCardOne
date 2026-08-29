@@ -922,13 +922,18 @@ export default function App() {
                   <tbody>
                     {rounds.map(round => {
                       const scores = scoresByRound[round.id] || []
+                      const totalRoundBid = scores.reduce((sum, s) => sum + s.bid, 0)
+                      const displayMode = round.play_mode || (totalRoundBid > 13 ? 'atas' : totalRoundBid < 13 ? 'bawah' : null)
                       return (
                         <tr key={round.id}>
                           <td>
                             <strong>R{round.round_number}</strong>
-                            {round.play_mode && (
-                              <div style={{ fontSize: '0.65rem', color: round.play_mode === 'atas' ? 'var(--primary)' : 'var(--success)', fontWeight: '600', marginTop: '2px' }}>
-                                {round.play_mode === 'atas' ? 'ATAS' : 'BWH'}
+                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                              Bid: {totalRoundBid}
+                            </div>
+                            {displayMode && (
+                              <div style={{ fontSize: '0.65rem', color: displayMode === 'atas' ? 'var(--primary)' : 'var(--success)', fontWeight: '600', marginTop: '2px' }}>
+                                {displayMode === 'atas' ? 'ATAS' : 'BWH'}
                               </div>
                             )}
                           </td>
