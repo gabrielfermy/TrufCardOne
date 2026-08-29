@@ -45,6 +45,7 @@ create table public.game_rounds (
   round_number integer not null,
   dealer_index integer not null check (dealer_index between 0 and 3),
   truf_suit_index integer not null check (truf_suit_index between 0 and 4), -- 0: Spade, 1: Heart, 2: Diamond, 3: Club, 4: No Truf
+  play_mode text check (play_mode in ('atas', 'bawah')), -- Custom decision for bid 13
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   unique (session_id, round_number)
 );

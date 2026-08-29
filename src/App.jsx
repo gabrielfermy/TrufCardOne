@@ -27,7 +27,8 @@ export default function App() {
   const [settings, setSettings] = useState({
     multiplier: 10, // x10 is standard in Indonesia (e.g. Bid 3 = 30 points)
     bid0Bonus: 10,  // Bonus points for bid 0 success
-    prevent13: true,
+    prevent13: false, // Default false now that we have bid 13 decision
+    bid13Decision: true, // Default true for decision rule
     atasLackMult: -2,
     atasExcessMult: 1,
     bawahLackMult: -1,
@@ -41,6 +42,13 @@ export default function App() {
   const [trufSuit, setTrufSuit] = useState(4) // 0: Spade, 1: Heart, 2: Diamond, 3: Club, 4: No Truf
   const [inputPhase, setInputPhase] = useState('bid') // 'bid' | 'won'
   const [playError, setPlayError] = useState('')
+
+  // Bid 13 rule states
+  const [showBid13Modal, setShowBid13Modal] = useState(false)
+  const [bid13Decider, setBid13Decider] = useState('')
+  const [bid13DeciderIndex, setBid13DeciderIndex] = useState(-1)
+  const [forcedPlayMode, setForcedPlayMode] = useState(null) // 'atas' | 'bawah' | null
+  const [originalBidsBeforeAdjustment, setOriginalBidsBeforeAdjustment] = useState(null)
 
   // Suits Constant
   const SUITS = [
@@ -169,6 +177,11 @@ export default function App() {
     setTrufSuit(4)
     setInputPhase('bid')
     setPlayError('')
+    setShowBid13Modal(false)
+    setBid13Decider('')
+    setBid13DeciderIndex(-1)
+    setForcedPlayMode(null)
+    setOriginalBidsBeforeAdjustment(null)
   }
 
   // Calculate current round dealer index (rotates clockwise)
@@ -208,8 +221,9 @@ export default function App() {
   // Scoring logic calculation
   const calculateScoresForSubmission = () => {
     const totalBid = bids.reduce((a, b) => a + b, 0)
-    const isMainAtas = totalBid > 13
-    const isMainBawah = totalBid < 13
+    // Check if there was a forced play mode from the decider (for bid 13)
+    const isMainAtas = forcedPlayMode ? (forcedPlayMode === 'atas') : (totalBid > 13)
+    const isMainBawah = forcedPlayMode ? (forcedPlayMode === 'bawah') : (totalBid < 13)
     const mult = currentSession.settings.multiplier
     const bonus0 = currentSession.settings.bid0Bonus
 
@@ -266,11 +280,59 @@ export default function App() {
   // Handle Bid Phase Next
   const handleBidNext = () => {
     const totalBid = bids.reduce((a, b) => a + b, 0)
-    if (currentSession.settings.prevent13 && totalBid === 13) {
-      setPlayError("Total Bid tidak boleh tepat 13 (Aturan Atas/Bawah wajib)!")
-      return
+    if (totalBid === 13) {
+      if (currentSession.settings.prevent13) {
+        setPlayError("Total Bid tidak boleh tepat 13 (Aturan Atas/Bawah wajib)!")
+        return
+      }
+      if (currentSession.settings.bid13Decision) {
+        // Find player with highest bid
+        let maxBid = -1
+        let maxIndices = []
+        bids.forEach((bid, idx) => {
+          if (bid > maxBid) {
+            maxBid = bid
+            maxIndices = [idx]
+          } else if (bid === maxBid) {
+            maxIndices.push(idx)
+          }
+        })
+        
+        // Tiebreaker: pick dealer if in tie, else first index
+        const dealerIdx = getDealerIndex()
+        let deciderIdx = maxIndices[0]
+        if (maxIndices.includes(dealerIdx)) {
+          deciderIdx = dealerIdx
+        }
+        
+        setBid13Decider(playerNames[deciderIdx])
+        setBid13DeciderIndex(deciderIdx)
+        setOriginalBidsBeforeAdjustment([...bids])
+        setShowBid13Modal(true)
+        setPlayError('')
+        return
+      }
     }
     setPlayError('')
+    setInputPhase('won')
+  }
+
+  // Handle choice when Bid Total is 13
+  const handleBid13Decision = (choice) => {
+    setForcedPlayMode(choice)
+    setShowBid13Modal(false)
+    
+    // Adjust bids:
+    // - Main Atas: all bids -1 (clamped to 0)
+    // - Main Bawah: all bids +1
+    const adjustedBids = originalBidsBeforeAdjustment.map(bid => {
+      if (choice === 'atas') {
+        return Math.max(0, bid - 1)
+      } else {
+        return bid + 1
+      }
+    })
+    setBids(adjustedBids)
     setInputPhase('won')
   }
 
@@ -293,7 +355,8 @@ export default function App() {
         nextRoundNumber,
         dealerIndex,
         trufSuit,
-        calculatedData
+        calculatedData,
+        forcedPlayMode
       )
 
       // Reload session details to update state from DB
@@ -589,7 +652,24 @@ export default function App() {
                   <input 
                     type="checkbox" 
                     checked={settings.prevent13} 
-                    onChange={e => setSettings({ ...settings, prevent13: e.target.checked })}
+                    onChange={e => {
+                      const val = e.target.checked
+                      setSettings({ 
+                        ...settings, 
+                        prevent13: val,
+                        bid13Decision: val ? false : settings.bid13Decision
+                      })
+                    }}
+                    style={{ width: '20px', height: '20px' }}
+                  />
+                </div>
+                <div className="flex-row justify-between" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <label className="text-secondary" style={{ fontSize: '0.875rem' }}>Bid 13: Pemutus Memilih Atas/Bawah</label>
+                  <input 
+                    type="checkbox" 
+                    checked={settings.bid13Decision} 
+                    disabled={settings.prevent13}
+                    onChange={e => setSettings({ ...settings, bid13Decision: e.target.checked })}
                     style={{ width: '20px', height: '20px' }}
                   />
                 </div>
@@ -606,7 +686,47 @@ export default function App() {
 
       {/* GAME PLAY VIEW */}
       {view === 'play' && currentSession && (
-        <div className="flex-col gap-16 animate-fade-in">
+        <div className="flex-col gap-16 animate-fade-in" style={{ position: 'relative' }}>
+          {/* Bid 13 Decision Modal */}
+          {showBid13Modal && (
+            <div style={{
+              position: 'fixed',
+              top: 0, left: 0, right: 0, bottom: 0,
+              backgroundColor: 'rgba(0,0,0,0.85)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '24px',
+              zIndex: 1000,
+              backdropFilter: 'blur(8px)'
+            }}>
+              <div className="glass-panel flex-col gap-16 w-full animate-fade-in" style={{ maxWidth: '400px' }}>
+                <h3 className="text-center" style={{ color: 'var(--warning)' }}>Total Bid Tepat 13!</h3>
+                <p className="text-center" style={{ fontSize: '0.95rem' }}>
+                  Pemain dengan bid tertinggi adalah <strong>{bid13Decider}</strong> (Bid {originalBidsBeforeAdjustment ? originalBidsBeforeAdjustment[bid13DeciderIndex] : ''}). 
+                  Beliau berhak memutuskan jenis permainan ronde ini:
+                </p>
+                <div className="flex-col gap-12 mt-8">
+                  <button onClick={() => handleBid13Decision('atas')} className="btn-primary w-full">
+                    Main Atas (Semua Bid -1)
+                  </button>
+                  <button onClick={() => handleBid13Decision('bawah')} className="btn-primary w-full" style={{ backgroundColor: 'var(--success)', boxShadow: '0 4px 14px 0 var(--success-glow)' }}>
+                    Main Bawah (Semua Bid +1)
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setShowBid13Modal(false)
+                      setOriginalBidsBeforeAdjustment(null)
+                    }} 
+                    className="btn-secondary w-full"
+                  >
+                    Batal
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Header */}
           <div className="flex-row justify-between align-center glass-panel" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <button 
@@ -804,7 +924,14 @@ export default function App() {
                       const scores = scoresByRound[round.id] || []
                       return (
                         <tr key={round.id}>
-                          <td><strong>R{round.round_number}</strong></td>
+                          <td>
+                            <strong>R{round.round_number}</strong>
+                            {round.play_mode && (
+                              <div style={{ fontSize: '0.65rem', color: round.play_mode === 'atas' ? 'var(--primary)' : 'var(--success)', fontWeight: '600', marginTop: '2px' }}>
+                                {round.play_mode === 'atas' ? 'ATAS' : 'BWH'}
+                              </div>
+                            )}
+                          </td>
                           <td style={{ color: SUITS[round.truf_suit_index]?.color || '#fff', fontSize: '1.1rem' }}>
                             {SUITS[round.truf_suit_index]?.label || '🚫'}
                           </td>

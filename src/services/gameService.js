@@ -85,7 +85,7 @@ export const gameService = {
   },
 
   // Save a round with all 4 players' scores
-  async saveRoundWithScores(sessionId, roundNumber, dealerIndex, trufSuitIndex, playersData) {
+  async saveRoundWithScores(sessionId, roundNumber, dealerIndex, trufSuitIndex, playersData, playMode = null) {
     // 1. Insert the round
     const { data: round, error: roundError } = await supabase
       .from('game_rounds')
@@ -93,7 +93,8 @@ export const gameService = {
         session_id: sessionId,
         round_number: roundNumber,
         dealer_index: dealerIndex,
-        truf_suit_index: trufSuitIndex
+        truf_suit_index: trufSuitIndex,
+        play_mode: playMode
       })
       .select()
       .single()
