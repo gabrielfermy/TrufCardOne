@@ -21,11 +21,11 @@ create table public.game_sessions (
   player3_name text not null,
   player4_name text not null,
   settings jsonb not null default '{
-    "multiplier": 1,
+    "multiplier": 10,
     "bid0Bonus": 10,
-    "prevent13": true,
+    "prevent13": false,
     "atasLackMult": -2,
-    "atasExcessMult": 1,
+    "atasExcessMult": -1,
     "bawahLackMult": -1,
     "bawahExcessMult": -2
   }'::jsonb,

@@ -30,7 +30,7 @@ export default function App() {
     prevent13: false, // Default false now that we have bid 13 decision
     bid13Decision: true, // Default true for decision rule
     atasLackMult: -2,
-    atasExcessMult: 1,
+    atasExcessMult: -1,
     bawahLackMult: -1,
     bawahExcessMult: -2
   })
