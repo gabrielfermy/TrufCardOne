@@ -1,0 +1,180 @@
+/* Component-specific classes */
+
+/* Auth screen */
+.auth-container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 80vh;
+}
+
+.social-login-btn {
+  background-color: #ffffff;
+  color: #1f2937;
+  border: 1px solid #e5e7eb;
+}
+
+.social-login-btn:hover {
+  background-color: #f9fafb;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.divider:not(:empty)::before {
+  margin-right: .5em;
+}
+
+.divider:not(:empty)::after {
+  margin-left: .5em;
+}
+
+/* Dashboard */
+.session-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  background-color: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  transition: var(--transition-smooth);
+}
+
+.session-card:hover {
+  border-color: var(--primary);
+  background-color: rgba(139, 92, 246, 0.04);
+}
+
+.session-status {
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.status-active {
+  background-color: var(--warning-glow);
+  color: var(--warning);
+}
+
+.status-completed {
+  background-color: var(--success-glow);
+  color: var(--success);
+}
+
+/* Leaderboard */
+.leaderboard-row {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-color);
+  margin-bottom: 8px;
+}
+
+.leaderboard-rank {
+  font-weight: 700;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  margin-right: 12px;
+  font-size: 0.875rem;
+}
+
+.rank-1 { background-color: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid #f59e0b; }
+.rank-2 { background-color: rgba(156, 163, 175, 0.2); color: #d1d5db; border: 1px solid #9ca3af; }
+.rank-3 { background-color: rgba(180, 83, 9, 0.2); color: #f59e0b; border: 1px solid #b45309; }
+.rank-4 { background: rgba(255, 255, 255, 0.05); color: var(--text-secondary); }
+
+/* Play Screen */
+.suit-btn {
+  padding: 8px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-color);
+  font-size: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  transition: var(--transition-smooth);
+}
+
+.suit-btn.active {
+  background-color: var(--primary-glow);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.dealer-badge {
+  background-color: var(--primary-glow);
+  color: var(--primary);
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+/* History table */
+.history-table-container {
+  overflow-x: auto;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+}
+
+.history-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.history-table th {
+  background-color: rgba(17, 19, 26, 0.8);
+  padding: 10px;
+  font-weight: 600;
+  text-align: center;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.history-table td {
+  padding: 10px;
+  text-align: center;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.history-table tr:last-child td {
+  border-bottom: none;
+}
+
+.score-positive {
+  color: var(--success);
+  font-weight: 600;
+}
+
+.score-negative {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.score-zero {
+  color: var(--text-muted);
+}
