@@ -42,6 +42,7 @@ export default function App() {
   const [trufSuit, setTrufSuit] = useState(4) // 0: Spade, 1: Heart, 2: Diamond, 3: Club, 4: No Truf
   const [inputPhase, setInputPhase] = useState('bid') // 'bid' | 'won'
   const [playError, setPlayError] = useState('')
+  const [firstRoundDealerIndex, setFirstRoundDealerIndex] = useState(0)
 
   // Bid 13 rule states
   const [showBid13Modal, setShowBid13Modal] = useState(false)
@@ -145,6 +146,7 @@ export default function App() {
       setCurrentSession(session)
       setRounds([])
       setScoresByRound({})
+      setFirstRoundDealerIndex(0)
       resetPlayInputs()
       setView('play')
       loadUserSessions(user.id)
@@ -161,6 +163,14 @@ export default function App() {
       setCurrentSession(details.session)
       setRounds(details.rounds)
       setScoresByRound(details.scoresByRound)
+      if (details.rounds.length === 0) {
+        setFirstRoundDealerIndex(0)
+      } else {
+        const firstRound = details.rounds[0]
+        if (firstRound) {
+          setFirstRoundDealerIndex(firstRound.dealer_index)
+        }
+      }
       resetPlayInputs(details.rounds)
       setView('play')
     } catch (err) {
@@ -184,10 +194,27 @@ export default function App() {
     setOriginalBidsBeforeAdjustment(null)
   }
 
-  // Calculate current round dealer index (rotates clockwise)
+  // Calculate current round dealer index (first round is selectable, subsequent rounds lowest score deals)
   const getDealerIndex = () => {
-    const nextRoundNumber = rounds.length + 1
-    return (nextRoundNumber - 1) % 4
+    if (rounds.length === 0) {
+      return firstRoundDealerIndex
+    }
+
+    const lastRound = rounds[rounds.length - 1]
+    const lastScores = scoresByRound[lastRound.id] || []
+    if (lastScores.length === 0) {
+      return 0
+    }
+
+    let minScore = Infinity
+    let minIdx = 0
+    lastScores.forEach(score => {
+      if (score.score_cumulative < minScore) {
+        minScore = score.score_cumulative
+        minIdx = score.player_index
+      }
+    })
+    return minIdx
   }
 
   // Calculate Truf Suit suggestion based on highest bid
@@ -772,9 +799,29 @@ export default function App() {
                 <h2>Ronde {rounds.length + 1}</h2>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span className="text-muted" style={{ fontSize: '0.8rem' }}>Dealer:</span>
-                  <span className="dealer-badge">
-                    {playerNames[getDealerIndex()]}
-                  </span>
+                  {rounds.length === 0 ? (
+                    <select
+                      value={firstRoundDealerIndex}
+                      onChange={e => setFirstRoundDealerIndex(parseInt(e.target.value))}
+                      style={{
+                        padding: '4px 8px',
+                        borderRadius: '6px',
+                        backgroundColor: 'var(--card-bg)',
+                        color: '#fff',
+                        border: '1px solid var(--border-color)',
+                        fontSize: '0.85rem',
+                        fontWeight: '600'
+                      }}
+                    >
+                      {playerNames.map((name, idx) => (
+                        <option key={idx} value={idx}>{name}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <span className="dealer-badge">
+                      {playerNames[getDealerIndex()]}
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -782,15 +829,18 @@ export default function App() {
 
               {/* Suit Picker */}
               <div className="flex-col gap-8">
-                <span className="text-secondary" style={{ fontSize: '0.85rem' }}>Pilih Kartu Truf Ronde Ini:</span>
-                <div className="flex-row gap-8" style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  {SUITS.map(suit => (
+                <span className="text-secondary" style={{ fontSize: '0.85rem' }}>
+                  {inputPhase === 'won' ? 'Kartu Truf Ronde Ini:' : 'Pilih Kartu Truf Ronde Ini:'}
+                </span>
+                <div className="flex-row gap-8" style={{ display: 'flex', justifyContent: inputPhase === 'won' ? 'center' : 'space-between' }}>
+                  {SUITS.filter(suit => inputPhase !== 'won' || suit.id === trufSuit).map(suit => (
                     <button 
                       key={suit.id}
                       onClick={() => setTrufSuit(suit.id)}
                       className={`suit-btn ${trufSuit === suit.id ? 'active' : ''}`}
                       style={{ color: suit.color }}
                       title={suit.name}
+                      disabled={inputPhase === 'won'}
                     >
                       {suit.label}
                     </button>
@@ -856,6 +906,13 @@ export default function App() {
                     </span>
                   </div>
 
+                  <div className="flex-row justify-between" style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0' }}>
+                    <span style={{ fontWeight: '600' }}>Mode Permainan:</span>
+                    <span style={{ fontWeight: '700', color: bids.reduce((a, b) => a + b, 0) > 13 ? 'var(--primary)' : bids.reduce((a, b) => a + b, 0) < 13 ? 'var(--success)' : 'var(--warning)' }}>
+                      {bids.reduce((a, b) => a + b, 0) > 13 ? 'Main Besar (Atas)' : bids.reduce((a, b) => a + b, 0) < 13 ? 'Main Kecil (Bawah)' : 'Menunggu Keputusan...'}
+                    </span>
+                  </div>
+
                   <button onClick={handleBidNext} className="btn-primary w-full mt-8">
                     Lanjut ke Input Hasil (Won) →
                   </button>
@@ -865,6 +922,19 @@ export default function App() {
               {/* Won Input */}
               {inputPhase === 'won' && (
                 <div className="flex-col gap-12">
+                  <div className="glass-panel text-center" style={{ 
+                    backgroundColor: (forcedPlayMode ? forcedPlayMode === 'atas' : bids.reduce((a, b) => a + b, 0) > 13) ? 'rgba(96, 165, 250, 0.15)' : 'rgba(52, 211, 153, 0.15)',
+                    borderColor: (forcedPlayMode ? forcedPlayMode === 'atas' : bids.reduce((a, b) => a + b, 0) > 13) ? 'var(--primary)' : 'var(--success)',
+                    borderWidth: '1px',
+                    borderStyle: 'solid',
+                    padding: '10px', 
+                    borderRadius: '8px', 
+                    fontSize: '0.95rem',
+                    fontWeight: 'bold',
+                    color: '#fff'
+                  }}>
+                    Mode Ronde Ini: {(forcedPlayMode ? forcedPlayMode === 'atas' : bids.reduce((a, b) => a + b, 0) > 13) ? 'Main Besar (Atas)' : 'Main Kecil (Bawah)'}
+                  </div>
                   {playerNames.map((name, idx) => (
                     <div key={idx} className="flex-row justify-between" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <div className="flex-col">
