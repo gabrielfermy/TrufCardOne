@@ -1,7 +1,6 @@
--- Fix game_sessions settings default constraints and change atasExcessMult to negative 1
 ALTER TABLE public.game_sessions ALTER COLUMN settings SET DEFAULT '{
-  "multiplier": 10,
-  "bid0Bonus": 10,
+  "multiplier": 1,
+  "bid0Bonus": 0,
   "prevent13": false,
   "atasLackMult": -2,
   "atasExcessMult": -1,
@@ -13,8 +12,11 @@ ALTER TABLE public.game_sessions ALTER COLUMN settings SET DEFAULT '{
 UPDATE public.game_sessions 
 SET settings = jsonb_set(
   jsonb_set(
-    jsonb_set(settings, '{atasExcessMult}', '-1'::jsonb),
-    '{multiplier}', '10'::jsonb
+    jsonb_set(
+      jsonb_set(settings, '{atasExcessMult}', '-1'::jsonb),
+      '{multiplier}', '1'::jsonb
+    ),
+    '{prevent13}', 'false'::jsonb
   ),
-  '{prevent13}', 'false'::jsonb
+  '{bid0Bonus}', '0'::jsonb
 );

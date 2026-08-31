@@ -21,8 +21,8 @@ create table public.game_sessions (
   player3_name text not null,
   player4_name text not null,
   settings jsonb not null default '{
-    "multiplier": 10,
-    "bid0Bonus": 10,
+    "multiplier": 1,
+    "bid0Bonus": 0,
     "prevent13": false,
     "atasLackMult": -2,
     "atasExcessMult": -1,

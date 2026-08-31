@@ -25,8 +25,8 @@ export default function App() {
   // Game Setup Inputs
   const [playerNames, setPlayerNames] = useState(['Pemain 1', 'Pemain 2', 'Pemain 3', 'Pemain 4'])
   const [settings, setSettings] = useState({
-    multiplier: 10, // x10 is standard in Indonesia (e.g. Bid 3 = 30 points)
-    bid0Bonus: 10,  // Bonus points for bid 0 success
+    multiplier: 1, // Default multiplier x1
+    bid0Bonus: 0,  // Bonus success bid 0 = 0
     prevent13: false, // Default false now that we have bid 13 decision
     bid13Decision: true, // Default true for decision rule
     atasLackMult: -2,
