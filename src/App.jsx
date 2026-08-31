@@ -829,15 +829,18 @@ export default function App() {
 
               {/* Suit Picker */}
               <div className="flex-col gap-8">
-                <span className="text-secondary" style={{ fontSize: '0.85rem' }}>Pilih Kartu Truf Ronde Ini:</span>
-                <div className="flex-row gap-8" style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  {SUITS.map(suit => (
+                <span className="text-secondary" style={{ fontSize: '0.85rem' }}>
+                  {inputPhase === 'won' ? 'Kartu Truf Ronde Ini:' : 'Pilih Kartu Truf Ronde Ini:'}
+                </span>
+                <div className="flex-row gap-8" style={{ display: 'flex', justifyContent: inputPhase === 'won' ? 'center' : 'space-between' }}>
+                  {SUITS.filter(suit => inputPhase !== 'won' || suit.id === trufSuit).map(suit => (
                     <button 
                       key={suit.id}
                       onClick={() => setTrufSuit(suit.id)}
                       className={`suit-btn ${trufSuit === suit.id ? 'active' : ''}`}
                       style={{ color: suit.color }}
                       title={suit.name}
+                      disabled={inputPhase === 'won'}
                     >
                       {suit.label}
                     </button>
