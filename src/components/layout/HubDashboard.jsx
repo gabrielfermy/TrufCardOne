@@ -1,10 +1,22 @@
-import React, { useState } from 'react'
-import { useTranslation } from '../../i18n/I18nContext'
-
-export default function HubDashboard({ onSelectTool, recentSessions, onRematch, onShareSession, onOpenPricing, onJoinRoom }) {
+export default function HubDashboard({ 
+  onSelectTool, 
+  recentSessions = [], 
+  onRematch, 
+  onShareSession, 
+  onOpenPricing, 
+  onJoinRoom,
+  onOpenSession,
+  onViewRecap,
+  onCompleteSession,
+  onDeleteSession
+}) {
   const { t } = useTranslation()
   const [roomInput, setRoomInput] = useState('')
   const [joining, setJoining] = useState(false)
+  const [diaryTab, setDiaryTab] = useState('active') // 'active' | 'completed'
+
+  const activeSessions = recentSessions.filter(s => !s.is_completed)
+  const completedSessions = recentSessions.filter(s => s.is_completed)
 
   const handleJoin = async (e) => {
     e.preventDefault()
@@ -233,52 +245,171 @@ export default function HubDashboard({ onSelectTool, recentSessions, onRematch, 
         </div>
       )}
 
-      {/* 4. Recent Game Night Diary Widget */}
-      <div className="section-label" style={{ marginTop: '24px' }}>
-        {t('hub.recent_games')}
+      {/* 4. Match Management Diary Section */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '28px', marginBottom: '12px' }}>
+        <div className="section-label" style={{ margin: 0 }}>
+          {t('hub.recent_games')}
+        </div>
+        <div style={{ display: 'flex', gap: '6px' }}>
+          <button
+            className={`btn btn-sm ${diaryTab === 'active' ? 'btn-primary' : 'btn-secondary'}`}
+            style={{ fontSize: '0.78rem', padding: '4px 10px', fontWeight: 800 }}
+            onClick={() => setDiaryTab('active')}
+          >
+            🟢 Aktif ({activeSessions.length})
+          </button>
+          <button
+            className={`btn btn-sm ${diaryTab === 'completed' ? 'btn-primary' : 'btn-secondary'}`}
+            style={{ fontSize: '0.78rem', padding: '4px 10px', fontWeight: 800 }}
+            onClick={() => setDiaryTab('completed')}
+          >
+            🏁 Selesai ({completedSessions.length})
+          </button>
+        </div>
       </div>
-      {recentSessions && recentSessions.length > 0 ? (
+
+      {/* Tab: Active Ongoing Matches */}
+      {diaryTab === 'active' && (
         <div className="diary-list">
-          {recentSessions.slice(0, 5).map(session => (
-            <div key={session.id} className="diary-card">
-              <div className="diary-left">
-                <span className="diary-icon">
-                  {session.game_type === 'truf' ? '🃏' : session.game_type === 'remi' ? '🎴' : session.game_type === 'omben' ? '🍺' : '📊'}
-                </span>
-                <div>
-                  <div className="diary-title">
-                    {session.title || `${session.game_type?.toUpperCase()} Match`}
+          {activeSessions.length > 0 ? (
+            activeSessions.slice(0, 8).map(session => {
+              const roundsCount = session.game_rounds?.length || session.rounds?.length || 0
+              return (
+                <div key={session.id} className="diary-card" style={{ borderLeft: '4px solid #34D399' }}>
+                  <div className="diary-left">
+                    <span className="diary-icon">
+                      {session.game_type === 'truf' ? '🃏' : session.game_type === 'remi' ? '🎴' : session.game_type === 'omben' ? '🍺' : '📊'}
+                    </span>
+                    <div>
+                      <div className="diary-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span>{session.title || `${session.game_type?.toUpperCase()} Match`}</span>
+                        {session.room_code && (
+                          <span style={{ fontSize: '0.72rem', color: '#A855F7', background: 'rgba(168, 85, 247, 0.15)', padding: '2px 6px', borderRadius: '4px' }}>
+                            🔗 {session.room_code}
+                          </span>
+                        )}
+                      </div>
+                      <div className="diary-meta">
+                        Ronde {roundsCount + 1} • {session.player_names?.join(', ')}
+                      </div>
+                    </div>
                   </div>
-                  <div className="diary-meta">
-                    {new Date(session.created_at).toLocaleDateString()} • {session.player_names?.join(', ')}
+                  <div className="diary-right">
+                    {onOpenSession && (
+                      <button 
+                        className="btn btn-sm btn-primary"
+                        onClick={() => onOpenSession(session)}
+                        style={{ fontWeight: 800 }}
+                      >
+                        ▶️ Lanjut
+                      </button>
+                    )}
+                    {onCompleteSession && (
+                      <button 
+                        className="btn btn-sm btn-secondary"
+                        onClick={() => {
+                          if (confirm('Selesaikan game ini dan simpan ke riwayat selesai?')) {
+                            onCompleteSession(session.id)
+                          }
+                        }}
+                        title="Selesaikan Game"
+                      >
+                        🏁
+                      </button>
+                    )}
+                    {onDeleteSession && (
+                      <button 
+                        className="btn btn-sm btn-danger"
+                        onClick={() => {
+                          if (confirm('Hapus game ini?')) {
+                            onDeleteSession(session.id)
+                          }
+                        }}
+                        title="Hapus"
+                      >
+                        🗑️
+                      </button>
+                    )}
                   </div>
                 </div>
-              </div>
-              <div className="diary-right">
-                {onShareSession && (
-                  <button 
-                    className="btn btn-sm btn-secondary"
-                    onClick={() => onShareSession(session)}
-                    title="Bagikan Kartu Story 9:16"
-                  >
-                    📸 9:16
-                  </button>
-                )}
-                {onRematch && (
-                  <button 
-                    className="btn btn-sm btn-primary"
-                    onClick={() => onRematch(session)}
-                  >
-                    🔄 Rematch
-                  </button>
-                )}
-              </div>
+              )
+            })
+          ) : (
+            <div className="glass-panel" style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>
+              <p style={{ margin: 0 }}>Tidak ada game yang sedang aktif berjalan.</p>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-dim)', marginTop: '4px' }}>Pilih game di atas untuk membuat meja baru!</p>
             </div>
-          ))}
+          )}
         </div>
-      ) : (
-        <div className="glass-panel" style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>
-          <p>{t('hub.no_recent_games')}</p>
+      )}
+
+      {/* Tab: Completed Finished Matches */}
+      {diaryTab === 'completed' && (
+        <div className="diary-list">
+          {completedSessions.length > 0 ? (
+            completedSessions.slice(0, 8).map(session => (
+              <div key={session.id} className="diary-card" style={{ borderLeft: '4px solid #F59E0B' }}>
+                <div className="diary-left">
+                  <span className="diary-icon">
+                    {session.game_type === 'truf' ? '🃏' : session.game_type === 'remi' ? '🎴' : session.game_type === 'omben' ? '🍺' : '📊'}
+                  </span>
+                  <div>
+                    <div className="diary-title">
+                      {session.title || `${session.game_type?.toUpperCase()} Match`}
+                    </div>
+                    <div className="diary-meta">
+                      {new Date(session.created_at).toLocaleDateString()} • {session.player_names?.join(', ')}
+                    </div>
+                  </div>
+                </div>
+                <div className="diary-right">
+                  {onViewRecap && (
+                    <button 
+                      className="btn btn-sm btn-secondary"
+                      onClick={() => onViewRecap(session)}
+                      title="Lihat Rekap Hasil"
+                    >
+                      📊 Rekap
+                    </button>
+                  )}
+                  {onShareSession && (
+                    <button 
+                      className="btn btn-sm btn-secondary"
+                      onClick={() => onShareSession(session)}
+                      title="Bagikan Kartu Story 9:16"
+                    >
+                      📸 9:16
+                    </button>
+                  )}
+                  {onRematch && (
+                    <button 
+                      className="btn btn-sm btn-primary"
+                      onClick={() => onRematch(session)}
+                    >
+                      🔄
+                    </button>
+                  )}
+                  {onDeleteSession && (
+                    <button 
+                      className="btn btn-sm btn-danger"
+                      onClick={() => {
+                        if (confirm('Hapus riwayat pertandingan ini?')) {
+                          onDeleteSession(session.id)
+                        }
+                      }}
+                      title="Hapus"
+                    >
+                      🗑️
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="glass-panel" style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>
+              <p style={{ margin: 0 }}>Belum ada riwayat game yang diselesaikan.</p>
+            </div>
+          )}
         </div>
       )}
     </div>

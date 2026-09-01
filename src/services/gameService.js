@@ -280,6 +280,26 @@ export const gameService = {
     return true
   },
 
+  // 7. Delete Session
+  async deleteSession(sessionId) {
+    if (sessionId?.startsWith('guest-session')) {
+      const guestList = JSON.parse(localStorage.getItem(GUEST_STORAGE_KEY) || '[]')
+      const updated = guestList.filter(s => s.id !== sessionId)
+      localStorage.setItem(GUEST_STORAGE_KEY, JSON.stringify(updated))
+      return true
+    }
+
+    const { error } = await supabase
+      .from('game_sessions')
+      .delete()
+      .eq('id', sessionId)
+
+    if (error) {
+      console.warn('Cloud delete session warning:', error)
+    }
+    return true
+  },
+
   // 7. Claim Seat by a Logged-In User
   async claimSeat(sessionId, playerIndex, userId) {
     const { data: session } = await supabase

@@ -8,6 +8,8 @@ import BottomNav from './components/layout/BottomNav'
 import HubDashboard from './components/layout/HubDashboard'
 import AuthModal from './components/common/AuthModal'
 import StoryCardModal from './components/common/StoryCardModal'
+import SessionRecapModal from './components/common/SessionRecapModal'
+import GameLobby from './components/common/GameLobby'
 
 // Game Modules
 import TrufSetup from './tools/truf/TrufSetup'
@@ -30,6 +32,8 @@ function MainApp() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
   const [isShareModalOpen, setIsShareModalOpen] = useState(false)
   const [isPricingModalOpen, setIsPricingModalOpen] = useState(false)
+  const [isRecapModalOpen, setIsRecapModalOpen] = useState(false)
+  const [selectedRecapSession, setSelectedRecapSession] = useState(null)
   const [shareData, setShareData] = useState(null)
 
   // Navigation View State
@@ -40,6 +44,7 @@ function MainApp() {
       return 'hub'
     }
   })
+  const [gameMode, setGameMode] = useState('lobby') // 'lobby' | 'setup' | 'play'
   const [utilitiesTab, setUtilitiesTab] = useState('dice')
 
   // Active Game Session State (Persisted in LocalStorage)
@@ -95,8 +100,9 @@ function MainApp() {
     const session = await gameService.getSession(null, roomCode.toUpperCase())
     if (session) {
       setActiveSession(session)
-      setSessionRounds(session.game_rounds || [])
+      setSessionRounds(session.game_rounds || session.rounds || [])
       setCurrentView(session.game_type)
+      setGameMode('play')
       return true
     }
     return false
@@ -109,8 +115,51 @@ function MainApp() {
     const refreshed = await gameService.getSession(activeSession.id)
     if (refreshed) {
       setActiveSession(refreshed)
-      setSessionRounds(refreshed.game_rounds || [])
+      setSessionRounds(refreshed.game_rounds || refreshed.rounds || [])
     }
+  }
+
+  // Open an Existing Session (from Lobby or Hub)
+  const handleOpenSession = async (session) => {
+    const fullSession = await gameService.getSession(session.id) || session
+    setActiveSession(fullSession)
+    setSessionRounds(fullSession.game_rounds || fullSession.rounds || [])
+    setCurrentView(fullSession.game_type)
+    setGameMode('play')
+  }
+
+  // Start Setup Mode for a Game Type
+  const handleStartSetup = (gameType) => {
+    setCurrentView(gameType)
+    setGameMode('setup')
+  }
+
+  // Open Detailed Match Recap Modal
+  const handleViewRecap = async (session) => {
+    const fullSession = await gameService.getSession(session.id) || session
+    setSelectedRecapSession(fullSession)
+    setIsRecapModalOpen(true)
+  }
+
+  // Complete Session and Move to Completed List
+  const handleCompleteSession = async (sessionId) => {
+    await gameService.completeSession(sessionId)
+    if (activeSession?.id === sessionId) {
+      setActiveSession(prev => prev ? { ...prev, is_completed: true } : null)
+      setGameMode('lobby')
+    }
+    loadUserSessions(user?.id)
+  }
+
+  // Delete Session
+  const handleDeleteSession = async (sessionId) => {
+    await gameService.deleteSession(sessionId)
+    if (activeSession?.id === sessionId) {
+      setActiveSession(null)
+      setSessionRounds([])
+      setGameMode('lobby')
+    }
+    loadUserSessions(user?.id)
   }
 
   // Initialize Auth, Deep Links & Auto-Join from URL
@@ -173,6 +222,9 @@ function MainApp() {
     if (viewId === 'utilities') {
       setUtilitiesTab(extraTab)
     }
+    if (viewId === 'truf' || viewId === 'remi' || viewId === 'omben') {
+      setGameMode('lobby')
+    }
     setCurrentView(viewId)
   }
 
@@ -189,6 +241,7 @@ function MainApp() {
     setActiveSession(session)
     setSessionRounds([])
     setCurrentView(gameType)
+    setGameMode('play')
     loadUserSessions(user?.id)
   }
 
@@ -257,8 +310,9 @@ function MainApp() {
 
   // 6. Open Share Modal for Past Session
   const handleShareSession = (session) => {
+    const rounds = session.game_rounds || session.rounds || []
     const scores = Array(session.player_names?.length || 4).fill(0)
-    session.game_rounds?.forEach(r => {
+    rounds.forEach(r => {
       r.player_scores?.forEach(ps => {
         scores[ps.player_index] += (ps.score_change || 0)
       })
@@ -300,17 +354,35 @@ function MainApp() {
             onShareSession={handleShareSession}
             onOpenPricing={() => setIsPricingModalOpen(true)}
             onJoinRoom={handleJoinRoom}
+            onOpenSession={handleOpenSession}
+            onViewRecap={handleViewRecap}
+            onCompleteSession={handleCompleteSession}
+            onDeleteSession={handleDeleteSession}
           />
         )}
 
         {/* Truf Views */}
-        {currentView === 'truf' && !activeSession && (
-          <TrufSetup
-            onStartGame={setup => handleStartGame('truf', setup)}
+        {currentView === 'truf' && gameMode === 'lobby' && (
+          <GameLobby
+            gameType="truf"
+            sessions={recentSessions}
+            onStartNewGame={() => handleStartSetup('truf')}
+            onOpenSession={handleOpenSession}
+            onCompleteSession={handleCompleteSession}
+            onDeleteSession={handleDeleteSession}
+            onShareSession={handleShareSession}
+            onRematch={handleRematch}
+            onViewRecap={handleViewRecap}
             onBack={() => setCurrentView('hub')}
           />
         )}
-        {currentView === 'truf' && activeSession && (
+        {currentView === 'truf' && gameMode === 'setup' && (
+          <TrufSetup
+            onStartGame={setup => handleStartGame('truf', setup)}
+            onBack={() => setGameMode('lobby')}
+          />
+        )}
+        {currentView === 'truf' && gameMode === 'play' && activeSession && (
           <TrufPlay
             session={activeSession}
             rounds={sessionRounds}
@@ -318,19 +390,34 @@ function MainApp() {
             onUndoRound={handleUndoRound}
             onFinalizeGame={handleFinalizeGame}
             onOpenShareModal={handleFinalizeGame}
+            onBackToLobby={() => setGameMode('lobby')}
             user={user}
             onClaimSeat={handleClaimSeat}
           />
         )}
 
         {/* Remi Views */}
-        {currentView === 'remi' && !activeSession && (
-          <RemiSetup
-            onStartGame={setup => handleStartGame('remi', setup)}
+        {currentView === 'remi' && gameMode === 'lobby' && (
+          <GameLobby
+            gameType="remi"
+            sessions={recentSessions}
+            onStartNewGame={() => handleStartSetup('remi')}
+            onOpenSession={handleOpenSession}
+            onCompleteSession={handleCompleteSession}
+            onDeleteSession={handleDeleteSession}
+            onShareSession={handleShareSession}
+            onRematch={handleRematch}
+            onViewRecap={handleViewRecap}
             onBack={() => setCurrentView('hub')}
           />
         )}
-        {currentView === 'remi' && activeSession && (
+        {currentView === 'remi' && gameMode === 'setup' && (
+          <RemiSetup
+            onStartGame={setup => handleStartGame('remi', setup)}
+            onBack={() => setGameMode('lobby')}
+          />
+        )}
+        {currentView === 'remi' && gameMode === 'play' && activeSession && (
           <RemiPlay
             session={activeSession}
             rounds={sessionRounds}
@@ -338,19 +425,34 @@ function MainApp() {
             onUndoRound={handleUndoRound}
             onFinalizeGame={handleFinalizeGame}
             onOpenShareModal={handleFinalizeGame}
+            onBackToLobby={() => setGameMode('lobby')}
             user={user}
             onClaimSeat={handleClaimSeat}
           />
         )}
 
         {/* Omben Views */}
-        {currentView === 'omben' && !activeSession && (
-          <OmbenSetup
-            onStartGame={setup => handleStartGame('omben', setup)}
+        {currentView === 'omben' && gameMode === 'lobby' && (
+          <GameLobby
+            gameType="omben"
+            sessions={recentSessions}
+            onStartNewGame={() => handleStartSetup('omben')}
+            onOpenSession={handleOpenSession}
+            onCompleteSession={handleCompleteSession}
+            onDeleteSession={handleDeleteSession}
+            onShareSession={handleShareSession}
+            onRematch={handleRematch}
+            onViewRecap={handleViewRecap}
             onBack={() => setCurrentView('hub')}
           />
         )}
-        {currentView === 'omben' && activeSession && (
+        {currentView === 'omben' && gameMode === 'setup' && (
+          <OmbenSetup
+            onStartGame={setup => handleStartGame('omben', setup)}
+            onBack={() => setGameMode('lobby')}
+          />
+        )}
+        {currentView === 'omben' && gameMode === 'play' && activeSession && (
           <OmbenPlay
             session={activeSession}
             rounds={sessionRounds}
@@ -358,6 +460,7 @@ function MainApp() {
             onUndoRound={handleUndoRound}
             onFinalizeGame={handleFinalizeGame}
             onOpenShareModal={handleFinalizeGame}
+            onBackToLobby={() => setGameMode('lobby')}
             user={user}
             onClaimSeat={handleClaimSeat}
           />
@@ -421,6 +524,15 @@ function MainApp() {
         isOpen={isShareModalOpen}
         onClose={() => setIsShareModalOpen(false)}
         sessionData={shareData}
+      />
+
+      {/* Match Detailed Recap Modal */}
+      <SessionRecapModal
+        isOpen={isRecapModalOpen}
+        onClose={() => setIsRecapModalOpen(false)}
+        session={selectedRecapSession}
+        onShareStory={handleShareSession}
+        onRematch={handleRematch}
       />
 
       {/* Pricing / Tiers Modal */}

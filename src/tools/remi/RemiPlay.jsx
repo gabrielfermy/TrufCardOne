@@ -12,6 +12,7 @@ export default function RemiPlay({
   onUndoRound, 
   onFinalizeGame, 
   onOpenShareModal,
+  onBackToLobby,
   user,
   onClaimSeat
 }) {
@@ -99,7 +100,18 @@ export default function RemiPlay({
       {/* Header */}
       <div className="glass-panel" style={{ padding: '14px 18px', marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+            {onBackToLobby && (
+              <button 
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={onBackToLobby}
+                style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '6px' }}
+                title="Kembali ke Lobby Remi"
+              >
+                ← Lobby
+              </button>
+            )}
             <span style={{ fontSize: '0.8rem', color: 'var(--text-dim)', fontWeight: 700, textTransform: 'uppercase' }}>
               {session?.title || 'Remi Session'}
             </span>
