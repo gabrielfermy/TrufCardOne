@@ -194,5 +194,20 @@
     "make_admin": "Grant Admin",
     "remove_admin": "Revoke Admin",
     "access_denied": "Access Denied: This area is restricted to Administrators."
+  },
+  "pricing": {
+    "title": "Choose Your Plan",
+    "subtitle": "Pick the ideal companion tier for casual game nights or cafe leagues",
+    "monthly": "Monthly",
+    "yearly": "Yearly",
+    "current_plan": "Current Plan",
+    "free_name": "Free Starter",
+    "free_desc": "Perfect for casual games at home with friends",
+    "pro_name": "Game Night Pro",
+    "pro_desc": "For passionate players who want to flex stats & unlimited history",
+    "venue_name": "Venue Edition (B2B)",
+    "venue_desc": "For board game cafes, warkops, and tournament organizers",
+    "upgrade_pro": "Upgrade to Pro",
+    "contact_sales": "Start Cafe Trial"
   }
 }

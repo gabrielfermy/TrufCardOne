@@ -23,12 +23,13 @@ dist-ssr
 *.sln
 *.sw?
 
-# Environment variables
+# Environment variables & Google Secrets
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+*client_secret*.json
 
 # Supabase local config
 supabase/.temp/

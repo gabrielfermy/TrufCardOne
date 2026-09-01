@@ -1,7 +1,7 @@
 import React from 'react'
 import { useTranslation } from '../../i18n/I18nContext'
 
-export default function AppHeader({ user, onOpenAuth, onNavigate, currentView }) {
+export default function AppHeader({ user, onOpenAuth, onNavigate, currentView, onOpenPricing }) {
   const { locale, toggleLocale, t } = useTranslation()
 
   return (
@@ -12,6 +12,26 @@ export default function AppHeader({ user, onOpenAuth, onNavigate, currentView })
       </div>
 
       <div className="header-actions">
+        {/* Pricing / Upgrade Button */}
+        <button
+          className="btn btn-sm"
+          onClick={onOpenPricing}
+          style={{
+            background: 'linear-gradient(90deg, rgba(139, 92, 246, 0.2), rgba(236, 72, 153, 0.2))',
+            border: '1px solid rgba(139, 92, 246, 0.4)',
+            color: '#C084FC',
+            fontWeight: 800,
+            fontSize: '0.78rem',
+            padding: '5px 10px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px'
+          }}
+        >
+          <span>⭐</span>
+          <span>Pro</span>
+        </button>
+
         {/* Language Switcher */}
         <button 
           className="btn-lang" 
