@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { authService } from '../../services/authService'
 import { useTranslation } from '../../i18n/I18nContext'
 
@@ -10,6 +10,22 @@ export default function AuthModal({ isOpen, onClose, user, onAuthSuccess }) {
   const [displayName, setDisplayName] = useState('')
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
+  const googleBtnRef = useRef(null)
+
+  useEffect(() => {
+    if (isOpen && !user && googleBtnRef.current) {
+      authService.renderGoogleButton(
+        googleBtnRef.current,
+        () => {
+          if (onAuthSuccess) onAuthSuccess()
+          onClose()
+        },
+        (err) => {
+          setErrorMsg(err.message || 'Gagal masuk dengan Google.')
+        }
+      )
+    }
+  }, [isOpen, user, isRegistering, onAuthSuccess, onClose])
 
   if (!isOpen) return null
 
@@ -34,7 +50,7 @@ export default function AuthModal({ isOpen, onClose, user, onAuthSuccess }) {
     }
   }
 
-  const handleGoogleAuth = async () => {
+  const handleFallbackGoogleAuth = async () => {
     setErrorMsg('')
     try {
       await authService.signInWithGoogle()
@@ -83,20 +99,26 @@ export default function AuthModal({ isOpen, onClose, user, onAuthSuccess }) {
               </div>
             )}
 
-            {/* 1-Tap Google SSO */}
-            <button 
-              className="btn btn-block btn-secondary" 
-              onClick={handleGoogleAuth}
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', marginBottom: '18px' }}
-            >
-              <span style={{ fontSize: '1.1rem' }}>🌐</span>
-              <span>{t('auth.google_sso')}</span>
-            </button>
+            {/* Official Native Google Sign-In Button (In-Page on gns.avl.my.id) */}
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px', minHeight: '44px' }}>
+              <div ref={googleBtnRef} style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+                {/* Fallback button if Google script is loading */}
+                <button 
+                  type="button"
+                  className="btn btn-block btn-secondary" 
+                  onClick={handleFallbackGoogleAuth}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}
+                >
+                  <span style={{ fontSize: '1.1rem' }}>🌐</span>
+                  <span>{t('auth.google_sso')}</span>
+                </button>
+              </div>
+            </div>
 
             <div style={{ textAlign: 'center', position: 'relative', margin: '18px 0' }}>
               <hr style={{ borderColor: 'var(--border-glass)' }} />
               <span style={{ position: 'absolute', top: '-10px', left: '50%', transform: 'translateX(-50%)', background: '#151828', padding: '0 10px', fontSize: '0.75rem', color: 'var(--text-dim)' }}>
-                ATAU
+                ATAU EMAIL
               </span>
             </div>
 
