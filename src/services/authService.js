@@ -120,23 +120,42 @@ export const authService = {
     return subscription
   },
 
-  // Get Current Authenticated User & Profile
+  // Get Current Authenticated User & Profile (Auto-Provision)
   async getCurrentUser() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return null
 
-    const { data: profile } = await supabase
+    let { data: profile } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', user.id)
-      .single()
+      .maybeSingle()
+
+    if (!profile) {
+      const displayName = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'Player'
+      const newProfile = {
+        id: user.id,
+        display_name: displayName,
+        email: user.email,
+        avatar_url: user.user_metadata?.avatar_url || null,
+        role: 'user',
+      }
+      try {
+        const { data: created } = await supabase
+          .from('profiles')
+          .upsert([newProfile])
+          .select()
+          .maybeSingle()
+        profile = created || newProfile
+      } catch (err) {
+        console.warn('Profile upsert warning:', err)
+        profile = newProfile
+      }
+    }
 
     return {
       ...user,
-      profile: profile || {
-        display_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
-        role: 'user',
-      }
+      profile
     }
   },
 

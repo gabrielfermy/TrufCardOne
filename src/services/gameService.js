@@ -290,5 +290,12 @@ export const gameService = {
       .subscribe()
 
     return channel
+  },
+
+  // 9. Unsubscribe Live Room
+  unsubscribeLiveRoom(channel) {
+    if (channel) {
+      supabase.removeChannel(channel)
+    }
   }
 }
