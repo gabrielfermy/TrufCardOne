@@ -381,7 +381,12 @@ export default function TrufPlay({
       {/* Leaderboard & Ledger Table */}
       <div className="glass-panel" style={{ padding: '20px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-          <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>📊 {t('truf.leaderboard')}</h3>
+          <div>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>📊 {t('truf.leaderboard')}</h3>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              Set putaran per 4 ronde • Detail skor (+/-) & bid tiap ronde
+            </span>
+          </div>
           <div style={{ display: 'flex', gap: '8px' }}>
             {localRounds.length > 0 && onUndoRound && (
               <button className="btn btn-danger btn-sm" onClick={handleUndo}>
@@ -401,18 +406,48 @@ export default function TrufPlay({
           </div>
         </div>
 
-        {/* Scoreboard Table */}
+        {/* Scoreboard Table with Set Rounding */}
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', fontSize: '0.9rem' }}>
+          <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '2px', textAlign: 'center', fontSize: '0.88rem' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border-glass)' }}>
-                <th style={{ padding: '8px', textAlign: 'left' }}>Pemain</th>
-                <th style={{ padding: '8px' }}>Skor Total</th>
-                {localRounds.map((r, i) => (
-                  <th key={i} style={{ padding: '8px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                    R{r.round_number}
-                  </th>
-                ))}
+                <th style={{ padding: '10px 8px', textAlign: 'left', minWidth: '100px' }}>Pemain</th>
+                <th style={{ padding: '10px 8px', minWidth: '85px', background: 'rgba(255,255,255,0.03)' }}>Skor Total</th>
+                {localRounds.map((r, i) => {
+                  const rNum = r.round_number
+                  const isSetEnd = rNum % 4 === 0
+                  const rSuit = SUITS.find(s => s.id === (r.round_data?.trufSuit ?? 4))
+                  return (
+                    <React.Fragment key={i}>
+                      <th style={{ 
+                        padding: '8px 6px', 
+                        minWidth: '85px',
+                        background: 'rgba(0,0,0,0.2)',
+                        borderRadius: '6px'
+                      }}>
+                        <div style={{ fontSize: '0.82rem', fontWeight: 800 }}>R{rNum}</div>
+                        <div style={{ fontSize: '0.7rem', color: rSuit?.color || 'var(--text-muted)' }}>
+                          {rSuit?.symbol} {rSuit?.name}
+                        </div>
+                      </th>
+                      {/* Set Rounding Column at every 4th round */}
+                      {isSetEnd && (
+                        <th style={{
+                          padding: '8px 6px',
+                          minWidth: '95px',
+                          background: 'rgba(168, 85, 247, 0.18)',
+                          border: '1.5px solid rgba(168, 85, 247, 0.45)',
+                          borderRadius: '8px',
+                          color: '#C084FC',
+                          fontWeight: 800
+                        }}>
+                          <div style={{ fontSize: '0.82rem' }}>⭕ Set {rNum / 4}</div>
+                          <div style={{ fontSize: '0.68rem', color: '#E9D5FF' }}>Akumulasi</div>
+                        </th>
+                      )}
+                    </React.Fragment>
+                  )
+                })}
               </tr>
             </thead>
             <tbody>
@@ -421,16 +456,53 @@ export default function TrufPlay({
                 return (
                   <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                     <td style={{ padding: '10px 8px', textAlign: 'left', fontWeight: 700 }}>{name}</td>
-                    <td style={{ padding: '10px 8px', fontWeight: 800, color: total >= 0 ? '#34D399' : '#F87171' }}>
+                    <td style={{ padding: '10px 8px', fontWeight: 800, fontSize: '1rem', color: total >= 0 ? '#34D399' : '#F87171', background: 'rgba(255,255,255,0.03)', borderRadius: '6px' }}>
                       {total > 0 ? `+${total}` : total}
                     </td>
                     {localRounds.map((r, rIdx) => {
+                      const rNum = r.round_number
+                      const isSetEnd = rNum % 4 === 0
                       const ps = r.player_scores?.find(p => p.player_index === idx)
-                      const change = ps?.score_change || 0
+                      const change = ps?.score_change ?? 0
+                      const cumScore = ps?.score_cumulative ?? 0
+                      const bid = ps?.stats?.bid ?? 0
+                      const won = ps?.stats?.won ?? 0
+
                       return (
-                        <td key={rIdx} style={{ padding: '8px', fontSize: '0.82rem', color: change >= 0 ? '#38BDF8' : '#F87171' }}>
-                          {change > 0 ? `+${change}` : change}
-                        </td>
+                        <React.Fragment key={rIdx}>
+                          <td style={{ padding: '6px 4px', background: 'rgba(0,0,0,0.15)', borderRadius: '6px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                              <span style={{ 
+                                fontWeight: 800, 
+                                fontSize: '0.85rem',
+                                color: change >= 0 ? '#34D399' : '#F87171',
+                                padding: '1px 6px',
+                                borderRadius: '4px',
+                                background: change >= 0 ? 'rgba(52, 211, 153, 0.15)' : 'rgba(248, 113, 113, 0.15)'
+                              }}>
+                                {change > 0 ? `+${change}` : change}
+                              </span>
+                              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                                B:<strong style={{ color: '#FCD34D' }}>{bid}</strong> / T:<strong style={{ color: '#38BDF8' }}>{won}</strong>
+                              </span>
+                            </div>
+                          </td>
+
+                          {/* Set Rounding Total Cell */}
+                          {isSetEnd && (
+                            <td style={{
+                              padding: '6px 4px',
+                              background: 'rgba(168, 85, 247, 0.12)',
+                              border: '1.5px solid rgba(168, 85, 247, 0.35)',
+                              borderRadius: '8px',
+                              fontWeight: 800,
+                              fontSize: '0.95rem',
+                              color: cumScore >= 0 ? '#A7F3D0' : '#FECACA'
+                            }}>
+                              {cumScore > 0 ? `+${cumScore}` : cumScore}
+                            </td>
+                          )}
+                        </React.Fragment>
                       )
                     })}
                   </tr>
@@ -440,6 +512,115 @@ export default function TrufPlay({
           </table>
         </div>
       </div>
+
+      {/* Detailed Round Breakdown Cards */}
+      {localRounds.length > 0 && (
+        <div className="glass-panel" style={{ padding: '20px', marginTop: '16px' }}>
+          <h4 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span>📋</span>
+            <span>Rincian Ronde & Bid Masing-Masing Pemain</span>
+          </h4>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {localRounds.slice().reverse().map((round, rIndex) => {
+              const rNum = round.round_number
+              const setNum = Math.ceil(rNum / 4)
+              const rDealerIdx = round.round_data?.dealerIndex ?? ((firstDealer + rNum - 1) % 4)
+              const rSuitId = round.round_data?.trufSuit ?? 4
+              const rSuitObj = SUITS.find(s => s.id === rSuitId)
+              const isSetEnd = rNum % 4 === 0
+
+              return (
+                <div 
+                  key={rIndex}
+                  style={{
+                    padding: '12px 14px',
+                    borderRadius: '12px',
+                    background: isSetEnd ? 'rgba(168, 85, 247, 0.08)' : 'rgba(0,0,0,0.25)',
+                    border: isSetEnd ? '1.5px solid rgba(168, 85, 247, 0.4)' : '1px solid var(--border-glass)'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '6px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ 
+                        fontWeight: 800, 
+                        color: '#A855F7', 
+                        fontSize: '0.9rem',
+                        background: 'rgba(168, 85, 247, 0.15)',
+                        padding: '2px 8px',
+                        borderRadius: '6px'
+                      }}>
+                        Ronde {rNum}
+                      </span>
+                      <span style={{ fontSize: '0.78rem', color: isSetEnd ? '#C084FC' : '#93C5FD', fontWeight: 700 }}>
+                        ⭕ Set {setNum} {isSetEnd ? '(Akhir Set)' : ''}
+                      </span>
+                    </div>
+
+                    <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'flex', gap: '10px' }}>
+                      <span>Dealer: <strong>{playerNames[rDealerIdx]}</strong> 🎲</span>
+                      <span>Truf: <strong style={{ color: rSuitObj?.color || '#A855F7' }}>{rSuitObj?.name || 'No Truf'}</strong></span>
+                    </div>
+                  </div>
+
+                  {/* 4 Players details grid */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px' }}>
+                    {playerNames.map((name, pIdx) => {
+                      const ps = round.player_scores?.find(p => p.player_index === pIdx)
+                      const bid = ps?.stats?.bid ?? 0
+                      const won = ps?.stats?.won ?? 0
+                      const change = ps?.score_change ?? 0
+                      const cumScore = ps?.score_cumulative ?? 0
+                      const isPass = bid === won
+                      const diff = won - bid
+
+                      return (
+                        <div
+                          key={pIdx}
+                          style={{
+                            padding: '8px 10px',
+                            borderRadius: '8px',
+                            background: 'rgba(255, 255, 255, 0.03)',
+                            border: '1px solid rgba(255, 255, 255, 0.06)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '3px'
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontWeight: 700, fontSize: '0.82rem' }}>{name}</span>
+                            <span style={{ 
+                              fontWeight: 800, 
+                              fontSize: '0.85rem',
+                              color: change >= 0 ? '#34D399' : '#F87171'
+                            }}>
+                              {change > 0 ? `+${change}` : change}
+                            </span>
+                          </div>
+
+                          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'flex', justifyContent: 'space-between' }}>
+                            <span>Bid: <strong style={{ color: '#FCD34D' }}>{bid}</strong></span>
+                            <span>Trik: <strong style={{ color: '#38BDF8' }}>{won}</strong></span>
+                          </div>
+
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.7rem', marginTop: '2px' }}>
+                            <span style={{ color: isPass ? '#34D399' : '#F87171', fontWeight: 600 }}>
+                              {isPass ? '✓ Pas' : diff > 0 ? `Lebih +${diff}` : `Kurang ${diff}`}
+                            </span>
+                            <span style={{ color: 'var(--text-dim)', fontSize: '0.68rem' }}>
+                              Total: <strong>{cumScore}</strong>
+                            </span>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Bid 13 Modal */}
       {showBid13Modal && (
