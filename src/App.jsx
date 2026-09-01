@@ -26,6 +26,40 @@ import PricingModal from './components/pricing/PricingModal'
 
 import './App.css'
 
+function getViewFromPath(pathname) {
+  const cleanPath = pathname.replace(/^\//, '').toLowerCase().split('/')[0]
+  const validViews = ['truf', 'remi', 'omben', 'chess', 'scoreboard', 'utilities', 'admin']
+  if (validViews.includes(cleanPath)) {
+    return cleanPath
+  }
+  return 'hub'
+}
+
+function updateBrowserUrl(view, mode, session, extraTab) {
+  try {
+    let path = '/'
+    const params = new URLSearchParams()
+
+    if (view && view !== 'hub') {
+      path = `/${view}`
+      if (mode === 'play' && session?.room_code) {
+        params.set('room', session.room_code)
+      } else if (view === 'utilities' && extraTab && extraTab !== 'dice') {
+        params.set('tab', extraTab)
+      }
+    }
+
+    const search = params.toString() ? `?${params.toString()}` : ''
+    const targetUrl = `${path}${search}`
+
+    if (window.location.pathname + window.location.search !== targetUrl) {
+      window.history.pushState({ view, mode, sessionCode: session?.room_code }, '', targetUrl)
+    }
+  } catch (e) {
+    console.warn('History pushState error:', e)
+  }
+}
+
 function MainApp() {
   const { t } = useTranslation()
   const [user, setUser] = useState(null)
@@ -36,16 +70,32 @@ function MainApp() {
   const [selectedRecapSession, setSelectedRecapSession] = useState(null)
   const [shareData, setShareData] = useState(null)
 
-  // Navigation View State
+  // Navigation View State (Synced with Browser URL & LocalStorage)
   const [currentView, setCurrentView] = useState(() => {
     try {
+      const pathView = getViewFromPath(window.location.pathname)
+      if (pathView !== 'hub') return pathView
       return localStorage.getItem('gns_current_view') || 'hub'
     } catch {
       return 'hub'
     }
   })
-  const [gameMode, setGameMode] = useState('lobby') // 'lobby' | 'setup' | 'play'
-  const [utilitiesTab, setUtilitiesTab] = useState('dice')
+  const [gameMode, setGameMode] = useState(() => {
+    try {
+      const urlParams = new URLSearchParams(window.location.search)
+      return urlParams.get('room') ? 'play' : 'lobby'
+    } catch {
+      return 'lobby'
+    }
+  })
+  const [utilitiesTab, setUtilitiesTab] = useState(() => {
+    try {
+      const urlParams = new URLSearchParams(window.location.search)
+      return urlParams.get('tab') || 'dice'
+    } catch {
+      return 'dice'
+    }
+  })
 
   // Active Game Session State (Persisted in LocalStorage)
   const [activeSession, setActiveSession] = useState(() => {
@@ -189,10 +239,35 @@ function MainApp() {
       handleJoinRoom(roomParam)
     }
 
+    // Handle Browser Back / Forward buttons & URL changes
+    const handlePopState = async () => {
+      const pathView = getViewFromPath(window.location.pathname)
+      const currentParams = new URLSearchParams(window.location.search)
+      const room = currentParams.get('room')
+      const tab = currentParams.get('tab')
+
+      if (tab) setUtilitiesTab(tab)
+
+      if (room) {
+        await handleJoinRoom(room)
+      } else {
+        setCurrentView(pathView)
+        setGameMode('lobby')
+      }
+    }
+
+    window.addEventListener('popstate', handlePopState)
+
     return () => {
       if (subscription) subscription.unsubscribe()
+      window.removeEventListener('popstate', handlePopState)
     }
   }, [])
+
+  // Seamlessly keep Browser Address Bar URL in sync with Navigation & Room Codes
+  useEffect(() => {
+    updateBrowserUrl(currentView, gameMode, activeSession, utilitiesTab)
+  }, [currentView, gameMode, activeSession?.id, activeSession?.room_code, utilitiesTab])
 
   // Subscribe to Realtime Live Room Changes for Active Session
   useEffect(() => {
