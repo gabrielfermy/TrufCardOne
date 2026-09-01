@@ -1,3 +1,6 @@
+import React, { useState } from 'react'
+import { useTranslation } from '../../i18n/I18nContext'
+
 export default function HubDashboard({ 
   onSelectTool, 
   recentSessions = [], 
