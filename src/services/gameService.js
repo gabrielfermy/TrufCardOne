@@ -12,6 +12,15 @@ function generateRoomCode(gameType = 'TRUF') {
   return `${prefix}-${code}`
 }
 
+function normalizeRoomCode(input) {
+  if (!input) return ''
+  let cleaned = input.trim().toUpperCase().replace(/\s+/g, '')
+  if (/^[A-Z]{3}[A-Z0-9]{4}$/.test(cleaned)) {
+    cleaned = `${cleaned.substring(0, 3)}-${cleaned.substring(3)}`
+  }
+  return cleaned
+}
+
 export const gameService = {
   // 1. Create a Game Session (Cloud First, Accessible across all devices)
   async createSession({ userId, gameType = 'truf', playerNames, settings, title }) {
@@ -42,11 +51,19 @@ export const gameService = {
         return data
       }
 
-      if (error && isRealUser) {
-        // Fallback: Retry with user_id = null if foreign key to profile wasn't ready
+      if (error) {
+        console.warn('Supabase primary session insert error, trying minimal payload:', error)
+        // Fallback: Try insert with minimal columns in case extra columns had constraints
+        const minimalPayload = {
+          user_id: null,
+          game_type: gameType,
+          room_code: roomCode,
+          title: sessionPayload.title,
+          player_names: playerNames
+        }
         const { data: retryData, error: retryError } = await supabase
           .from('game_sessions')
-          .insert([{ ...sessionPayload, user_id: null }])
+          .insert([minimalPayload])
           .select()
           .single()
 
@@ -55,7 +72,7 @@ export const gameService = {
         }
       }
     } catch (err) {
-      console.warn('Cloud session save error, falling back to local storage:', err)
+      console.warn('Cloud session save exception, falling back to local storage:', err)
     }
 
     // 2. Offline / Local fallback
@@ -132,28 +149,37 @@ export const gameService = {
       if (sessionId) {
         query = query.eq('id', sessionId)
       } else if (roomCode) {
-        const rawCode = roomCode.trim().toUpperCase()
-        query = query.or(`room_code.eq.${rawCode},room_code.ilike.%${rawCode}%`)
+        const code = normalizeRoomCode(roomCode)
+        if (code.includes('-')) {
+          query = query.eq('room_code', code)
+        } else {
+          query = query.ilike('room_code', `%${code}`)
+        }
       }
 
-      const { data, error } = await query
-        .order('round_number', { referencedTable: 'game_rounds', ascending: true })
-        .maybeSingle()
+      const { data, error } = await query.maybeSingle()
 
       if (error) {
-        console.warn('getSession error:', error)
+        console.warn('getSession query error:', error)
         if (roomCode) {
           const guestList = JSON.parse(localStorage.getItem(GUEST_STORAGE_KEY) || '[]')
-          return guestList.find(s => s.room_code === roomCode.trim().toUpperCase()) || null
+          const code = normalizeRoomCode(roomCode)
+          return guestList.find(s => s.room_code === code) || null
         }
         return null
       }
+
+      if (data && Array.isArray(data.game_rounds)) {
+        data.game_rounds.sort((a, b) => a.round_number - b.round_number)
+      }
+
       return data
     } catch (err) {
       console.warn('Error fetching session:', err)
       if (roomCode) {
         const guestList = JSON.parse(localStorage.getItem(GUEST_STORAGE_KEY) || '[]')
-        return guestList.find(s => s.room_code === roomCode.trim().toUpperCase()) || null
+        const code = normalizeRoomCode(roomCode)
+        return guestList.find(s => s.room_code === code) || null
       }
       return null
     }
