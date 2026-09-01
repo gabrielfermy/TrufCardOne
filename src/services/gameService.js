@@ -13,11 +13,13 @@ function generateRoomCode(gameType = 'TRUF') {
 }
 
 export const gameService = {
-  // 1. Create a Game Session (Cloud or Local Guest)
+  // 1. Create a Game Session (Cloud First, Accessible across all devices)
   async createSession({ userId, gameType = 'truf', playerNames, settings, title }) {
     const roomCode = generateRoomCode(gameType)
+    const isRealUser = userId && userId !== 'guest-user'
+
     const sessionPayload = {
-      user_id: userId || 'guest-user',
+      user_id: isRealUser ? userId : null,
       game_type: gameType,
       room_code: roomCode,
       title: title || `${gameType.toUpperCase()} Match - ${new Date().toLocaleDateString()}`,
@@ -28,30 +30,41 @@ export const gameService = {
       created_at: new Date().toISOString()
     }
 
-    if (!userId || userId === 'guest-user') {
-      // Local Guest Storage
-      const guestId = `guest-session-${Date.now()}`
-      const guestSession = { ...sessionPayload, id: guestId, rounds: [], scores: {} }
-      const existing = JSON.parse(localStorage.getItem(GUEST_STORAGE_KEY) || '[]')
-      existing.unshift(guestSession)
-      localStorage.setItem(GUEST_STORAGE_KEY, JSON.stringify(existing.slice(0, 20)))
-      return guestSession
+    // 1. Always attempt saving to Supabase so roomCode is globally joinable across devices
+    try {
+      const { data, error } = await supabase
+        .from('game_sessions')
+        .insert([sessionPayload])
+        .select()
+        .single()
+
+      if (!error && data) {
+        return data
+      }
+
+      if (error && isRealUser) {
+        // Fallback: Retry with user_id = null if foreign key to profile wasn't ready
+        const { data: retryData, error: retryError } = await supabase
+          .from('game_sessions')
+          .insert([{ ...sessionPayload, user_id: null }])
+          .select()
+          .single()
+
+        if (!retryError && retryData) {
+          return retryData
+        }
+      }
+    } catch (err) {
+      console.warn('Cloud session save error, falling back to local storage:', err)
     }
 
-    // Supabase Cloud Storage
-    const { data, error } = await supabase
-      .from('game_sessions')
-      .insert([sessionPayload])
-      .select()
-      .single()
-
-    if (error) {
-      console.warn('Supabase session save error, falling back to local', error)
-      const guestId = `guest-session-${Date.now()}`
-      const guestSession = { ...sessionPayload, id: guestId, rounds: [], scores: {} }
-      return guestSession
-    }
-    return data
+    // 2. Offline / Local fallback
+    const guestId = `guest-session-${Date.now()}`
+    const guestSession = { ...sessionPayload, id: guestId, rounds: [], scores: {} }
+    const existing = JSON.parse(localStorage.getItem(GUEST_STORAGE_KEY) || '[]')
+    existing.unshift(guestSession)
+    localStorage.setItem(GUEST_STORAGE_KEY, JSON.stringify(existing.slice(0, 20)))
+    return guestSession
   },
 
   // 2. Fetch User Match Diary (Hosted + Participated)
@@ -119,15 +132,29 @@ export const gameService = {
       if (sessionId) {
         query = query.eq('id', sessionId)
       } else if (roomCode) {
-        query = query.eq('room_code', roomCode.toUpperCase())
+        const rawCode = roomCode.trim().toUpperCase()
+        query = query.or(`room_code.eq.${rawCode},room_code.ilike.%${rawCode}%`)
       }
 
       const { data, error } = await query
         .order('round_number', { referencedTable: 'game_rounds', ascending: true })
-        .single()
-      if (error) throw error
+        .maybeSingle()
+
+      if (error) {
+        console.warn('getSession error:', error)
+        if (roomCode) {
+          const guestList = JSON.parse(localStorage.getItem(GUEST_STORAGE_KEY) || '[]')
+          return guestList.find(s => s.room_code === roomCode.trim().toUpperCase()) || null
+        }
+        return null
+      }
       return data
-    } catch {
+    } catch (err) {
+      console.warn('Error fetching session:', err)
+      if (roomCode) {
+        const guestList = JSON.parse(localStorage.getItem(GUEST_STORAGE_KEY) || '[]')
+        return guestList.find(s => s.room_code === roomCode.trim().toUpperCase()) || null
+      }
       return null
     }
   },
