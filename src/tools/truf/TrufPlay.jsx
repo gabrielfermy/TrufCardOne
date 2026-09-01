@@ -3,6 +3,7 @@ import { SUITS, calculateTrufRoundScores } from './trufLogic'
 import { soundService } from '../../services/soundService'
 import { hapticsService } from '../../services/hapticsService'
 import { useTranslation } from '../../i18n/I18nContext'
+import RoomInviteModal from '../../components/common/RoomInviteModal'
 
 export default function TrufPlay({ 
   session, 
@@ -10,7 +11,9 @@ export default function TrufPlay({
   onSaveRound, 
   onUndoRound, 
   onFinalizeGame,
-  onOpenShareModal 
+  onOpenShareModal,
+  user,
+  onClaimSeat
 }) {
   const { t } = useTranslation()
   const playerNames = session?.player_names || ['Pemain 1', 'Pemain 2', 'Pemain 3', 'Pemain 4']
@@ -27,6 +30,7 @@ export default function TrufPlay({
   const [inputPhase, setInputPhase] = useState('bid') // 'bid' | 'won'
   const [forcedPlayMode, setForcedPlayMode] = useState(null)
   const [showBid13Modal, setShowBid13Modal] = useState(false)
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
 
   const totalBid = bids.reduce((a, b) => a + b, 0)
@@ -34,6 +38,7 @@ export default function TrufPlay({
 
   // Stepper handlers
   const handleBidStep = (playerIdx, delta) => {
+    setErrorMsg('')
     hapticsService.light()
     soundService.playTick()
     setBids(prev => {
@@ -44,6 +49,7 @@ export default function TrufPlay({
   }
 
   const handleWonStep = (playerIdx, delta) => {
+    setErrorMsg('')
     hapticsService.light()
     soundService.playTick()
     setWons(prev => {
@@ -66,7 +72,8 @@ export default function TrufPlay({
   }
 
   // Handle Save Round
-  const handleSaveRoundSubmit = () => {
+  const handleSaveRoundSubmit = async () => {
+    setErrorMsg('')
     if (totalWon !== 13) {
       hapticsService.warning()
       setErrorMsg(t('truf.validation_won_13'))
@@ -94,24 +101,29 @@ export default function TrufPlay({
     hapticsService.success()
     soundService.playVictory()
 
-    onSaveRound({
-      roundNumber: currentRoundNumber,
-      roundData: {
-        dealerIndex,
-        trufSuit,
-        forcedPlayMode,
-        totalBid
-      },
-      playerScores: scoreRecords
-    })
+    try {
+      await onSaveRound({
+        roundNumber: currentRoundNumber,
+        roundData: {
+          dealerIndex,
+          trufSuit,
+          forcedPlayMode,
+          totalBid
+        },
+        playerScores: scoreRecords
+      })
 
-    // Reset for next round
-    setBids([0, 0, 0, 0])
-    setWons([0, 0, 0, 0])
-    setTrufSuit(4)
-    setInputPhase('bid')
-    setForcedPlayMode(null)
-    setErrorMsg('')
+      // Reset for next round
+      setBids([0, 0, 0, 0])
+      setWons([0, 0, 0, 0])
+      setTrufSuit(4)
+      setInputPhase('bid')
+      setForcedPlayMode(null)
+      setErrorMsg('')
+    } catch (err) {
+      console.error('Save round error:', err)
+      setErrorMsg('Gagal menyimpan ronde. Silakan coba lagi.')
+    }
   }
 
   // Cumulative Leaderboard
@@ -129,11 +141,33 @@ export default function TrufPlay({
   return (
     <div style={{ maxWidth: '640px', margin: '0 auto' }}>
       {/* Round Header & Status */}
-      <div className="glass-panel" style={{ padding: '16px 20px', marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div className="glass-panel" style={{ padding: '14px 18px', marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
         <div>
-          <span style={{ fontSize: '0.8rem', color: 'var(--text-dim)', fontWeight: 700, textTransform: 'uppercase' }}>
-            {session?.title || 'Truf Session'}
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-dim)', fontWeight: 700, textTransform: 'uppercase' }}>
+              {session?.title || 'Truf Session'}
+            </span>
+            <button 
+              type="button"
+              className="btn btn-sm"
+              onClick={() => setIsInviteModalOpen(true)}
+              style={{
+                fontSize: '0.72rem',
+                padding: '2px 8px',
+                background: 'rgba(139, 92, 246, 0.15)',
+                border: '1px solid rgba(139, 92, 246, 0.35)',
+                color: '#C084FC',
+                fontWeight: 700,
+                borderRadius: '6px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+            >
+              <span>🔗</span>
+              <span>{session?.room_code || 'Undang'}</span>
+            </button>
+          </div>
           <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--primary)' }}>
             {t('truf.round', { num: currentRoundNumber })}
           </h2>
@@ -311,8 +345,12 @@ export default function TrufPlay({
             <button className="btn btn-secondary" onClick={() => setInputPhase('bid')}>
               ← Ubah Bid
             </button>
-            <button className="btn btn-success" style={{ flex: 1 }} onClick={handleSaveRoundSubmit}>
-              💾 {t('truf.save_round')}
+            <button 
+              className={`btn ${totalWon === 13 ? 'btn-success' : 'btn-secondary'}`} 
+              style={{ flex: 1, fontWeight: 800 }} 
+              onClick={handleSaveRoundSubmit}
+            >
+              {totalWon === 13 ? `💾 ${t('truf.save_round')} & Lanjut` : `⚠️ Trik: ${totalWon} / 13 (Harus 13)`}
             </button>
           </div>
         )}
@@ -416,6 +454,14 @@ export default function TrufPlay({
           </div>
         </div>
       )}
+      {/* Room Invite & Multiplayer Seat Claim Modal */}
+      <RoomInviteModal
+        isOpen={isInviteModalOpen}
+        onClose={() => setIsInviteModalOpen(false)}
+        session={session}
+        user={user}
+        onClaimSeat={onClaimSeat}
+      />
     </div>
   )
 }

@@ -132,7 +132,7 @@ export const gameService = {
 
   // 4. Save a Game Round + Player Scores
   async saveRound({ sessionId, roundNumber, roundData, playerScores }) {
-    if (sessionId?.startsWith('guest-session')) {
+    if (!sessionId || sessionId.startsWith('guest-session')) {
       const guestList = JSON.parse(localStorage.getItem(GUEST_STORAGE_KEY) || '[]')
       const session = guestList.find(s => s.id === sessionId)
       if (session) {
@@ -159,35 +159,54 @@ export const gameService = {
       return null
     }
 
-    // 1. Insert game round
-    const { data: round, error: roundError } = await supabase
-      .from('game_rounds')
-      .insert([{
+    try {
+      // 1. Insert game round
+      const { data: round, error: roundError } = await supabase
+        .from('game_rounds')
+        .insert([{
+          session_id: sessionId,
+          round_number: roundNumber,
+          round_data: roundData
+        }])
+        .select()
+        .single()
+
+      if (roundError) throw roundError
+
+      // 2. Insert player scores
+      const scoreRecords = playerScores.map((ps, idx) => ({
+        round_id: round.id,
+        player_index: idx,
+        stats: ps.stats || {},
+        score_change: ps.score_change,
+        score_cumulative: ps.score_cumulative
+      }))
+
+      const { error: scoresError } = await supabase
+        .from('player_scores')
+        .insert(scoreRecords)
+
+      if (scoresError) throw scoresError
+
+      return { ...round, player_scores: scoreRecords }
+    } catch (err) {
+      console.warn('Cloud saveRound error, falling back locally so game progress is preserved:', err)
+      const roundId = `local-round-${Date.now()}`
+      return {
+        id: roundId,
         session_id: sessionId,
         round_number: roundNumber,
-        round_data: roundData
-      }])
-      .select()
-      .single()
-
-    if (roundError) throw roundError
-
-    // 2. Insert player scores
-    const scoreRecords = playerScores.map((ps, idx) => ({
-      round_id: round.id,
-      player_index: idx,
-      stats: ps.stats || {},
-      score_change: ps.score_change,
-      score_cumulative: ps.score_cumulative
-    }))
-
-    const { error: scoresError } = await supabase
-      .from('player_scores')
-      .insert(scoreRecords)
-
-    if (scoresError) throw scoresError
-
-    return { ...round, player_scores: scoreRecords }
+        round_data: roundData,
+        created_at: new Date().toISOString(),
+        player_scores: playerScores.map((ps, idx) => ({
+          id: `ps-${roundId}-${idx}`,
+          player_index: idx,
+          stats: ps.stats || {},
+          score_change: ps.score_change,
+          score_cumulative: ps.score_cumulative
+        }))
+      }
+    }
   },
 
   // 5. Undo / Delete Round

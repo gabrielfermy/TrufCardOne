@@ -1,8 +1,21 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { useTranslation } from '../../i18n/I18nContext'
 
-export default function HubDashboard({ onSelectTool, recentSessions, onRematch, onShareSession, onOpenPricing }) {
+export default function HubDashboard({ onSelectTool, recentSessions, onRematch, onShareSession, onOpenPricing, onJoinRoom }) {
   const { t } = useTranslation()
+  const [roomInput, setRoomInput] = useState('')
+  const [joining, setJoining] = useState(false)
+
+  const handleJoin = async (e) => {
+    e.preventDefault()
+    if (!roomInput.trim()) return
+    setJoining(true)
+    const success = await onJoinRoom(roomInput.trim().toUpperCase())
+    if (!success) {
+      alert('Room tidak ditemukan. Pastikan kode room sudah benar.')
+    }
+    setJoining(false)
+  }
 
   const cardGames = [
     {
@@ -89,6 +102,28 @@ export default function HubDashboard({ onSelectTool, recentSessions, onRematch, 
         <h1 className="hub-title">{t('hub.title')}</h1>
         <p className="hub-subtitle">{t('hub.subtitle')}</p>
       </div>
+
+      {/* Quick Join Room by Code */}
+      {onJoinRoom && (
+        <form onSubmit={handleJoin} style={{ display: 'flex', gap: '8px', marginBottom: '24px', maxWidth: '500px' }}>
+          <input 
+            type="text" 
+            className="form-input"
+            value={roomInput}
+            onChange={e => setRoomInput(e.target.value.toUpperCase())}
+            placeholder="Masukkan Kode Room (misal: TRU-8K2N)"
+            style={{ textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 700 }}
+          />
+          <button 
+            type="submit" 
+            className="btn btn-primary"
+            disabled={joining || !roomInput.trim()}
+            style={{ whiteSpace: 'nowrap', padding: '0 20px' }}
+          >
+            {joining ? '...' : '🚪 Gabung'}
+          </button>
+        </form>
+      )}
 
       {/* 1. Card Games Section */}
       <div className="section-label">{t('hub.card_games')}</div>

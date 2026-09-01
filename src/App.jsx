@@ -46,7 +46,31 @@ function MainApp() {
     setRecentSessions(data || [])
   }
 
-  // Initialize Auth & Deep Links
+  // Join Room by Code or Link
+  const handleJoinRoom = async (roomCode) => {
+    if (!roomCode) return false
+    const session = await gameService.getSession(null, roomCode.toUpperCase())
+    if (session) {
+      setActiveSession(session)
+      setSessionRounds(session.game_rounds || [])
+      setCurrentView(session.game_type)
+      return true
+    }
+    return false
+  }
+
+  // Claim a Seat at the Table
+  const handleClaimSeat = async (playerIndex) => {
+    if (!activeSession || !user) return
+    await gameService.claimSeat(activeSession.id, playerIndex, user.id)
+    const refreshed = await gameService.getSession(activeSession.id)
+    if (refreshed) {
+      setActiveSession(refreshed)
+      setSessionRounds(refreshed.game_rounds || [])
+    }
+  }
+
+  // Initialize Auth, Deep Links & Auto-Join from URL
   useEffect(() => {
     authService.initMobileDeepLinks()
 
@@ -66,10 +90,32 @@ function MainApp() {
       }
     })
 
+    // Check if user clicked a shared invite link (?room=CODE)
+    const urlParams = new URLSearchParams(window.location.search)
+    const roomParam = urlParams.get('room')
+    if (roomParam) {
+      handleJoinRoom(roomParam)
+    }
+
     return () => {
       if (subscription) subscription.unsubscribe()
     }
   }, [])
+
+  // Subscribe to Realtime Live Room Changes for Active Session
+  useEffect(() => {
+    if (!activeSession?.id) return
+    const channel = gameService.subscribeToLiveRoom(activeSession.id, async () => {
+      const refreshed = await gameService.getSession(activeSession.id)
+      if (refreshed) {
+        setActiveSession(refreshed)
+        setSessionRounds(refreshed.game_rounds || [])
+      }
+    })
+    return () => {
+      if (channel) gameService.unsubscribeLiveRoom(channel)
+    }
+  }, [activeSession?.id])
 
   // Navigation Handler
   const handleNavigate = (viewId, extraTab = 'dice') => {
@@ -206,6 +252,7 @@ function MainApp() {
             onRematch={handleRematch}
             onShareSession={handleShareSession}
             onOpenPricing={() => setIsPricingModalOpen(true)}
+            onJoinRoom={handleJoinRoom}
           />
         )}
 
@@ -224,6 +271,8 @@ function MainApp() {
             onUndoRound={handleUndoRound}
             onFinalizeGame={handleFinalizeGame}
             onOpenShareModal={handleFinalizeGame}
+            user={user}
+            onClaimSeat={handleClaimSeat}
           />
         )}
 
@@ -242,6 +291,8 @@ function MainApp() {
             onUndoRound={handleUndoRound}
             onFinalizeGame={handleFinalizeGame}
             onOpenShareModal={handleFinalizeGame}
+            user={user}
+            onClaimSeat={handleClaimSeat}
           />
         )}
 
@@ -260,6 +311,8 @@ function MainApp() {
             onUndoRound={handleUndoRound}
             onFinalizeGame={handleFinalizeGame}
             onOpenShareModal={handleFinalizeGame}
+            user={user}
+            onClaimSeat={handleClaimSeat}
           />
         )}
 

@@ -3,6 +3,7 @@ import { calculateOmbenRoundScores } from './ombenLogic'
 import { soundService } from '../../services/soundService'
 import { hapticsService } from '../../services/hapticsService'
 import { useTranslation } from '../../i18n/I18nContext'
+import RoomInviteModal from '../../components/common/RoomInviteModal'
 
 export default function OmbenPlay({ 
   session, 
@@ -10,7 +11,9 @@ export default function OmbenPlay({
   onSaveRound, 
   onUndoRound, 
   onFinalizeGame, 
-  onOpenShareModal 
+  onOpenShareModal,
+  user,
+  onClaimSeat
 }) {
   const { t } = useTranslation()
   const playerNames = session?.player_names || ['Pemain 1', 'Pemain 2', 'Pemain 3', 'Pemain 4']
@@ -20,6 +23,7 @@ export default function OmbenPlay({
   // Finishing rank selection for current round (1 = Winner, N = Omben Loser)
   const [ranks, setRanks] = useState(() => playerNames.map((_, i) => i + 1))
   const [cardsLeft, setCardsLeft] = useState(() => Array(playerNames.length).fill(0))
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false)
 
   // Cumulative Omben Losses & Wins
   const ombenLosses = Array(playerNames.length).fill(0)
@@ -84,11 +88,33 @@ export default function OmbenPlay({
   return (
     <div style={{ maxWidth: '640px', margin: '0 auto' }}>
       {/* Header */}
-      <div className="glass-panel" style={{ padding: '16px 20px', marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div className="glass-panel" style={{ padding: '14px 18px', marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
         <div>
-          <span style={{ fontSize: '0.8rem', color: 'var(--text-dim)', fontWeight: 700, textTransform: 'uppercase' }}>
-            {session?.title || 'Omben Session'}
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-dim)', fontWeight: 700, textTransform: 'uppercase' }}>
+              {session?.title || 'Omben Session'}
+            </span>
+            <button 
+              type="button"
+              className="btn btn-sm"
+              onClick={() => setIsInviteModalOpen(true)}
+              style={{
+                fontSize: '0.72rem',
+                padding: '2px 8px',
+                background: 'rgba(249, 115, 22, 0.15)',
+                border: '1px solid rgba(249, 115, 22, 0.35)',
+                color: '#FB923C',
+                fontWeight: 700,
+                borderRadius: '6px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+            >
+              <span>🔗</span>
+              <span>{session?.room_code || 'Undang'}</span>
+            </button>
+          </div>
           <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#F97316' }}>
             {t('omben.round', { num: currentRoundNumber })}
           </h2>
@@ -221,6 +247,15 @@ export default function OmbenPlay({
           })}
         </div>
       </div>
+
+      {/* Room Invite Modal */}
+      <RoomInviteModal
+        isOpen={isInviteModalOpen}
+        onClose={() => setIsInviteModalOpen(false)}
+        session={session}
+        user={user}
+        onClaimSeat={onClaimSeat}
+      />
     </div>
   )
 }
