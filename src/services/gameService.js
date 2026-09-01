@@ -122,7 +122,9 @@ export const gameService = {
         query = query.eq('room_code', roomCode.toUpperCase())
       }
 
-      const { data, error } = await query.single()
+      const { data, error } = await query
+        .order('round_number', { referencedTable: 'game_rounds', ascending: true })
+        .single()
       if (error) throw error
       return data
     } catch {
