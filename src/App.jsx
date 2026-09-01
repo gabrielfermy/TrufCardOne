@@ -237,6 +237,14 @@ function MainApp() {
     const roomParam = urlParams.get('room')
     if (roomParam) {
       handleJoinRoom(roomParam)
+    } else if (activeSession?.id && !activeSession.id.startsWith('guest-session')) {
+      // Re-synchronize active cloud session on page load/refresh
+      gameService.getSession(activeSession.id).then(refreshed => {
+        if (refreshed) {
+          setActiveSession(refreshed)
+          setSessionRounds(refreshed.game_rounds || refreshed.rounds || [])
+        }
+      })
     }
 
     // Handle Browser Back / Forward buttons & URL changes

@@ -275,13 +275,36 @@ export const gameService = {
         play_mode: roundData?.forcedPlayMode ?? null
       }
 
-      const { data: round, error: roundError } = await supabase
+      let { data: round, error: roundError } = await supabase
         .from('game_rounds')
         .insert([roundPayload])
         .select()
         .single()
 
-      if (roundError) throw roundError
+      // Fallback: If round_data column missing in DB, retry with legacy columns only
+      if (roundError) {
+        console.warn('Primary game_rounds insert error, trying legacy schema:', roundError.message)
+        const legacyRoundPayload = {
+          session_id: sessionId,
+          round_number: roundNumber,
+          dealer_index: roundData?.dealerIndex ?? 0,
+          truf_suit_index: roundData?.trufSuit ?? 4,
+          play_mode: roundData?.forcedPlayMode ?? null
+        }
+        const { data: retryRound, error: retryRoundError } = await supabase
+          .from('game_rounds')
+          .insert([legacyRoundPayload])
+          .select()
+          .single()
+
+        if (!retryRoundError && retryRound) {
+          round = retryRound
+          roundError = null
+        } else {
+          console.error('❌ Supabase game_rounds insert failed:', retryRoundError || roundError)
+          throw retryRoundError || roundError
+        }
+      }
 
       // 2. Insert player scores (supports both new stats JSONB and legacy bid/won)
       const scoreRecords = playerScores.map((ps, idx) => ({
@@ -294,12 +317,34 @@ export const gameService = {
         score_cumulative: ps.score_cumulative
       }))
 
-      const { error: scoresError } = await supabase
+      let { error: scoresError } = await supabase
         .from('player_scores')
         .insert(scoreRecords)
 
-      if (scoresError) throw scoresError
+      // Fallback: If stats column missing in DB, retry with legacy columns only
+      if (scoresError) {
+        console.warn('Primary player_scores insert error, trying legacy schema:', scoresError.message)
+        const legacyScoreRecords = playerScores.map((ps, idx) => ({
+          round_id: round.id,
+          player_index: idx,
+          bid: ps.stats?.bid ?? (ps.bid ?? 0),
+          won: ps.stats?.won ?? (ps.won ?? 0),
+          score_change: ps.score_change,
+          score_cumulative: ps.score_cumulative
+        }))
+        const { error: retryScoresError } = await supabase
+          .from('player_scores')
+          .insert(legacyScoreRecords)
 
+        if (!retryScoresError) {
+          scoresError = null
+        } else {
+          console.error('❌ Supabase player_scores insert failed:', retryScoresError)
+          throw retryScoresError
+        }
+      }
+
+      console.log('✅ Round & scores saved successfully to Supabase Cloud:', round.id, 'Round:', roundNumber)
       return { ...round, player_scores: scoreRecords }
     } catch (err) {
       console.warn('Cloud saveRound error, falling back locally so game progress is preserved:', err)
