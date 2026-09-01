@@ -64,10 +64,11 @@ export default function TrufPlay({
     })
   }
 
-  // Subscribe to Realtime Live Room (Instant Broadcast + DB Changes)
+  // Subscribe to Realtime Live Room (Instant Broadcast + DB Changes + Smart Polling Fallback)
   useEffect(() => {
     if (!session?.id || session.id.startsWith('guest-session')) return
 
+    // 1. WebSocket Realtime Sync (Instant < 50ms)
     const channel = gameService.subscribeToLiveRoom(session.id, {
       onLiveState: (payload) => {
         if (payload?.senderId && payload.senderId !== clientId) {
@@ -104,7 +105,26 @@ export default function TrufPlay({
 
     realtimeChannelRef.current = channel
 
+    // 2. High-Reliability Liveness Polling Fallback (every 2.5s)
+    const pollInterval = setInterval(async () => {
+      try {
+        const refreshed = await gameService.getSession(session.id)
+        if (refreshed?.game_rounds && refreshed.game_rounds.length > 0) {
+          setLocalRounds(prev => {
+            if (refreshed.game_rounds.length > prev.length) {
+              console.log('🔄 Polling synchronized new rounds from cloud:', refreshed.game_rounds.length)
+              return refreshed.game_rounds
+            }
+            return prev
+          })
+        }
+      } catch (e) {
+        // Silent catch for background polling
+      }
+    }, 2500)
+
     return () => {
+      clearInterval(pollInterval)
       if (channel) gameService.unsubscribeLiveRoom(channel)
     }
   }, [session?.id])

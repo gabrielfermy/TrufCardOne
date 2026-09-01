@@ -61,7 +61,7 @@ export default function RemiPlay({
     })
   }
 
-  // Subscribe to Realtime Live Room
+  // Subscribe to Realtime Live Room (Instant Broadcast + DB Changes + Smart Polling Fallback)
   useEffect(() => {
     if (!session?.id || session.id.startsWith('guest-session')) return
 
@@ -97,7 +97,23 @@ export default function RemiPlay({
 
     realtimeChannelRef.current = channel
 
+    // Polling fallback
+    const pollInterval = setInterval(async () => {
+      try {
+        const refreshed = await gameService.getSession(session.id)
+        if (refreshed?.game_rounds && refreshed.game_rounds.length > 0) {
+          setLocalRounds(prev => {
+            if (refreshed.game_rounds.length > prev.length) {
+              return refreshed.game_rounds
+            }
+            return prev
+          })
+        }
+      } catch (e) {}
+    }, 2500)
+
     return () => {
+      clearInterval(pollInterval)
       if (channel) gameService.unsubscribeLiveRoom(channel)
     }
   }, [session?.id])
