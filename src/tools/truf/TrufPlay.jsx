@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { SUITS, calculateTrufRoundScores } from './trufLogic'
 import { soundService } from '../../services/soundService'
 import { hapticsService } from '../../services/hapticsService'
@@ -19,7 +19,16 @@ export default function TrufPlay({
   const playerNames = session?.player_names || ['Pemain 1', 'Pemain 2', 'Pemain 3', 'Pemain 4']
   const settings = session?.settings || { multiplier: 1, bid0Bonus: 0, bid13Decision: true }
 
-  const currentRoundNumber = rounds.length + 1
+  // Optimistic local state for rounds to guarantee instant Round advancement
+  const [localRounds, setLocalRounds] = useState(rounds || [])
+
+  useEffect(() => {
+    if (rounds && rounds.length >= localRounds.length) {
+      setLocalRounds(rounds)
+    }
+  }, [rounds])
+
+  const currentRoundNumber = localRounds.length + 1
   const firstDealer = session?.first_dealer || 0
   const dealerIndex = (firstDealer + (currentRoundNumber - 1)) % 4
 
@@ -71,7 +80,7 @@ export default function TrufPlay({
     setInputPhase('won')
   }
 
-  // Handle Save Round
+  // Handle Save Round (Instant Optimistic UI)
   const handleSaveRoundSubmit = async () => {
     setErrorMsg('')
     if (totalWon !== 13) {
@@ -82,10 +91,10 @@ export default function TrufPlay({
 
     const calculatedScores = calculateTrufRoundScores(bids, wons, settings, totalBid, forcedPlayMode)
     
-    // Compute cumulative scores
+    // Compute cumulative scores from localRounds
     const lastCumulative = [0, 0, 0, 0]
-    if (rounds.length > 0) {
-      const lastRound = rounds[rounds.length - 1]
+    if (localRounds.length > 0) {
+      const lastRound = localRounds[localRounds.length - 1]
       lastRound.player_scores?.forEach(ps => {
         lastCumulative[ps.player_index] = ps.score_cumulative
       })
@@ -98,38 +107,51 @@ export default function TrufPlay({
       score_cumulative: lastCumulative[idx] + change
     }))
 
+    const newRoundPayload = {
+      id: `local-round-${Date.now()}`,
+      round_number: currentRoundNumber,
+      roundNumber: currentRoundNumber,
+      round_data: {
+        dealerIndex,
+        trufSuit,
+        forcedPlayMode,
+        totalBid
+      },
+      player_scores: scoreRecords,
+      playerScores: scoreRecords
+    }
+
+    // 1. Instantly advance UI to next round without blocking
+    setLocalRounds(prev => [...prev, newRoundPayload])
+    setBids([0, 0, 0, 0])
+    setWons([0, 0, 0, 0])
+    setTrufSuit(4)
+    setInputPhase('bid')
+    setForcedPlayMode(null)
+    setErrorMsg('')
+
     hapticsService.success()
     soundService.playVictory()
 
+    // 2. Background async sync to server/storage
     try {
-      await onSaveRound({
-        roundNumber: currentRoundNumber,
-        roundData: {
-          dealerIndex,
-          trufSuit,
-          forcedPlayMode,
-          totalBid
-        },
-        playerScores: scoreRecords
-      })
-
-      // Reset for next round
-      setBids([0, 0, 0, 0])
-      setWons([0, 0, 0, 0])
-      setTrufSuit(4)
-      setInputPhase('bid')
-      setForcedPlayMode(null)
-      setErrorMsg('')
+      if (onSaveRound) {
+        await onSaveRound(newRoundPayload)
+      }
     } catch (err) {
-      console.error('Save round error:', err)
-      setErrorMsg('Gagal menyimpan ronde. Silakan coba lagi.')
+      console.warn('Background round sync note:', err)
     }
+  }
+
+  const handleUndo = () => {
+    setLocalRounds(prev => prev.slice(0, -1))
+    if (onUndoRound) onUndoRound()
   }
 
   // Cumulative Leaderboard
   const latestScores = [0, 0, 0, 0]
-  if (rounds.length > 0) {
-    const lastRound = rounds[rounds.length - 1]
+  if (localRounds.length > 0) {
+    const lastRound = localRounds[localRounds.length - 1]
     lastRound.player_scores?.forEach(ps => {
       latestScores[ps.player_index] = ps.score_cumulative
     })
@@ -361,17 +383,17 @@ export default function TrufPlay({
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
           <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>📊 {t('truf.leaderboard')}</h3>
           <div style={{ display: 'flex', gap: '8px' }}>
-            {rounds.length > 0 && onUndoRound && (
-              <button className="btn btn-danger btn-sm" onClick={onUndoRound}>
+            {localRounds.length > 0 && onUndoRound && (
+              <button className="btn btn-danger btn-sm" onClick={handleUndo}>
                 ↩️ Undo
               </button>
             )}
-            {onOpenShareModal && rounds.length > 0 && (
+            {onOpenShareModal && localRounds.length > 0 && (
               <button className="btn btn-secondary btn-sm" onClick={onOpenShareModal}>
                 📸 9:16 Share
               </button>
             )}
-            {onFinalizeGame && rounds.length > 0 && (
+            {onFinalizeGame && localRounds.length > 0 && (
               <button className="btn btn-primary btn-sm" onClick={onFinalizeGame}>
                 🏁 Selesai
               </button>
@@ -386,7 +408,7 @@ export default function TrufPlay({
               <tr style={{ borderBottom: '1px solid var(--border-glass)' }}>
                 <th style={{ padding: '8px', textAlign: 'left' }}>Pemain</th>
                 <th style={{ padding: '8px' }}>Skor Total</th>
-                {rounds.map((r, i) => (
+                {localRounds.map((r, i) => (
                   <th key={i} style={{ padding: '8px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                     R{r.round_number}
                   </th>
@@ -402,7 +424,7 @@ export default function TrufPlay({
                     <td style={{ padding: '10px 8px', fontWeight: 800, color: total >= 0 ? '#34D399' : '#F87171' }}>
                       {total > 0 ? `+${total}` : total}
                     </td>
-                    {rounds.map((r, rIdx) => {
+                    {localRounds.map((r, rIdx) => {
                       const ps = r.player_scores?.find(p => p.player_index === idx)
                       const change = ps?.score_change || 0
                       return (

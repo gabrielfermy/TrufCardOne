@@ -33,13 +33,56 @@ function MainApp() {
   const [shareData, setShareData] = useState(null)
 
   // Navigation View State
-  const [currentView, setCurrentView] = useState('hub') // 'hub' | 'truf' | 'remi' | 'omben' | 'chess' | 'scoreboard' | 'utilities' | 'admin'
+  const [currentView, setCurrentView] = useState(() => {
+    try {
+      return localStorage.getItem('gns_current_view') || 'hub'
+    } catch {
+      return 'hub'
+    }
+  })
   const [utilitiesTab, setUtilitiesTab] = useState('dice')
 
-  // Active Game Session State
-  const [activeSession, setActiveSession] = useState(null)
+  // Active Game Session State (Persisted in LocalStorage)
+  const [activeSession, setActiveSession] = useState(() => {
+    try {
+      const saved = localStorage.getItem('gns_active_session')
+      return saved ? JSON.parse(saved) : null
+    } catch {
+      return null
+    }
+  })
   const [recentSessions, setRecentSessions] = useState([])
-  const [sessionRounds, setSessionRounds] = useState([])
+  const [sessionRounds, setSessionRounds] = useState(() => {
+    try {
+      const saved = localStorage.getItem('gns_session_rounds')
+      return saved ? JSON.parse(saved) : []
+    } catch {
+      return []
+    }
+  })
+
+  // Synchronize Active Session & Rounds to LocalStorage
+  useEffect(() => {
+    try {
+      if (activeSession) {
+        localStorage.setItem('gns_active_session', JSON.stringify(activeSession))
+      } else {
+        localStorage.removeItem('gns_active_session')
+      }
+    } catch {}
+  }, [activeSession])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('gns_session_rounds', JSON.stringify(sessionRounds))
+    } catch {}
+  }, [sessionRounds])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('gns_current_view', currentView)
+    } catch {}
+  }, [currentView])
 
   const loadUserSessions = async (userId) => {
     const data = await gameService.getUserSessions(userId || 'guest-user')
