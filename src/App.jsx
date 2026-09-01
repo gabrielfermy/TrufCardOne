@@ -269,25 +269,6 @@ function MainApp() {
     updateBrowserUrl(currentView, gameMode, activeSession, utilitiesTab)
   }, [currentView, gameMode, activeSession?.id, activeSession?.room_code, utilitiesTab])
 
-  // Subscribe to Realtime Live Room Changes for Active Session
-  useEffect(() => {
-    if (!activeSession?.id || activeSession.id.startsWith('guest-session')) return
-    const channel = gameService.subscribeToLiveRoom(activeSession.id, async () => {
-      const refreshed = await gameService.getSession(activeSession.id)
-      if (refreshed && Array.isArray(refreshed.game_rounds) && refreshed.game_rounds.length > 0) {
-        setSessionRounds(prev => {
-          if (refreshed.game_rounds.length >= prev.length) {
-            return refreshed.game_rounds
-          }
-          return prev
-        })
-      }
-    })
-    return () => {
-      if (channel) gameService.unsubscribeLiveRoom(channel)
-    }
-  }, [activeSession?.id])
-
   // Navigation Handler
   const handleNavigate = (viewId, extraTab = 'dice') => {
     if (viewId === 'admin' && user?.profile?.role !== 'admin') {

@@ -186,28 +186,34 @@ export const gameService = {
         }
       }
 
-      // 2. Fetch Associated Game Rounds & Player Scores
+      // 2. Fetch Associated Game Rounds & Player Scores safely
       try {
-        const { data: rounds, error: roundsErr } = await supabase
+        const { data: rawRounds, error: roundsErr } = await supabase
           .from('game_rounds')
-          .select(`
-            id,
-            round_number,
-            round_data,
-            created_at,
-            player_scores (
-              id,
-              player_index,
-              stats,
-              score_change,
-              score_cumulative
-            )
-          `)
+          .select('*')
           .eq('session_id', session.id)
           .order('round_number', { ascending: true })
 
-        if (!roundsErr && rounds) {
-          session.game_rounds = rounds
+        if (!roundsErr && rawRounds && rawRounds.length > 0) {
+          const roundIds = rawRounds.map(r => r.id)
+          const { data: rawScores } = await supabase
+            .from('player_scores')
+            .select('*')
+            .in('round_id', roundIds)
+            .order('player_index', { ascending: true })
+
+          session.game_rounds = rawRounds.map(r => ({
+            ...r,
+            round_data: r.round_data || {
+              dealerIndex: r.dealer_index ?? 0,
+              trufSuit: r.truf_suit_index ?? 4,
+              forcedPlayMode: r.play_mode ?? null
+            },
+            player_scores: (rawScores || []).filter(s => s.round_id === r.id).map(s => ({
+              ...s,
+              stats: s.stats || { bid: s.bid, won: s.won }
+            }))
+          }))
         } else {
           session.game_rounds = []
         }
@@ -259,23 +265,30 @@ export const gameService = {
     }
 
     try {
-      // 1. Insert game round
+      // 1. Insert game round (supports both new JSONB round_data and legacy columns)
+      const roundPayload = {
+        session_id: sessionId,
+        round_number: roundNumber,
+        round_data: roundData || {},
+        dealer_index: roundData?.dealerIndex ?? 0,
+        truf_suit_index: roundData?.trufSuit ?? 4,
+        play_mode: roundData?.forcedPlayMode ?? null
+      }
+
       const { data: round, error: roundError } = await supabase
         .from('game_rounds')
-        .insert([{
-          session_id: sessionId,
-          round_number: roundNumber,
-          round_data: roundData
-        }])
+        .insert([roundPayload])
         .select()
         .single()
 
       if (roundError) throw roundError
 
-      // 2. Insert player scores
+      // 2. Insert player scores (supports both new stats JSONB and legacy bid/won)
       const scoreRecords = playerScores.map((ps, idx) => ({
         round_id: round.id,
         player_index: idx,
+        bid: ps.stats?.bid ?? (ps.bid ?? 0),
+        won: ps.stats?.won ?? (ps.won ?? 0),
         stats: ps.stats || {},
         score_change: ps.score_change,
         score_cumulative: ps.score_cumulative
@@ -396,46 +409,60 @@ export const gameService = {
   subscribeToLiveRoom(sessionId, handlers) {
     if (!sessionId || sessionId.startsWith('guest-session')) return null
 
-    const onDbUpdate = typeof handlers === 'function' ? handlers : handlers?.onDbUpdate
-    const onLiveState = typeof handlers === 'object' ? handlers?.onLiveState : null
-    const onRoundAdvance = typeof handlers === 'object' ? handlers?.onRoundAdvance : null
-
-    const channel = supabase.channel(`live-room:${sessionId}`, {
-      config: {
-        broadcast: { ack: false, self: false }
+    try {
+      const topic = `live-room:${sessionId}`
+      if (typeof supabase.getChannels === 'function') {
+        const existingChannels = supabase.getChannels() || []
+        const existing = existingChannels.find(ch => ch.topic === `realtime:${topic}` || ch.topic === topic)
+        if (existing) {
+          supabase.removeChannel(existing)
+        }
       }
-    })
 
-    if (onDbUpdate) {
-      channel.on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'game_rounds',
-        filter: `session_id=eq.${sessionId}`
-      }, (payload) => {
-        onDbUpdate(payload)
+      const onDbUpdate = typeof handlers === 'function' ? handlers : handlers?.onDbUpdate
+      const onLiveState = typeof handlers === 'object' ? handlers?.onLiveState : null
+      const onRoundAdvance = typeof handlers === 'object' ? handlers?.onRoundAdvance : null
+
+      const channel = supabase.channel(topic, {
+        config: {
+          broadcast: { ack: false, self: false }
+        }
       })
-    }
 
-    if (onLiveState) {
-      channel.on('broadcast', { event: 'live_state' }, ({ payload }) => {
-        onLiveState(payload)
-      })
-    }
-
-    if (onRoundAdvance) {
-      channel.on('broadcast', { event: 'round_advance' }, ({ payload }) => {
-        onRoundAdvance(payload)
-      })
-    }
-
-    channel.subscribe((status) => {
-      if (status === 'SUBSCRIBED') {
-        console.log(`🔌 Connected to Realtime Live Room: ${sessionId}`)
+      if (onDbUpdate) {
+        channel.on('postgres_changes', {
+          event: '*',
+          schema: 'public',
+          table: 'game_rounds',
+          filter: `session_id=eq.${sessionId}`
+        }, (payload) => {
+          onDbUpdate(payload)
+        })
       }
-    })
 
-    return channel
+      if (onLiveState) {
+        channel.on('broadcast', { event: 'live_state' }, ({ payload }) => {
+          onLiveState(payload)
+        })
+      }
+
+      if (onRoundAdvance) {
+        channel.on('broadcast', { event: 'round_advance' }, ({ payload }) => {
+          onRoundAdvance(payload)
+        })
+      }
+
+      channel.subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log(`🔌 Connected to Realtime Live Room: ${sessionId}`)
+        }
+      })
+
+      return channel
+    } catch (err) {
+      console.warn('Realtime subscribe safe error catch:', err)
+      return null
+    }
   },
 
   // 9. Broadcast Live Input State to Tabletop Peers
@@ -469,7 +496,9 @@ export const gameService = {
   // 11. Unsubscribe Live Room
   unsubscribeLiveRoom(channel) {
     if (channel) {
-      supabase.removeChannel(channel)
+      try {
+        supabase.removeChannel(channel)
+      } catch (e) {}
     }
   }
 }
