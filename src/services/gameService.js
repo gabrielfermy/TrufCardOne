@@ -1,175 +1,275 @@
 import { supabase } from './supabaseClient'
 
+const GUEST_STORAGE_KEY = 'gamenight_guest_sessions'
+
+function generateRoomCode(gameType = 'TRUF') {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  let code = ''
+  for (let i = 0; i < 4; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length))
+  }
+  const prefix = gameType.substring(0, 3).toUpperCase()
+  return `${prefix}-${code}`
+}
+
 export const gameService = {
-  // Create a new game session
-  async createSession(userId, playerNames, settings) {
+  // 1. Create a Game Session (Cloud or Local Guest)
+  async createSession({ userId, gameType = 'truf', playerNames, settings, title }) {
+    const roomCode = generateRoomCode(gameType)
+    const sessionPayload = {
+      user_id: userId || 'guest-user',
+      game_type: gameType,
+      room_code: roomCode,
+      title: title || `${gameType.toUpperCase()} Match - ${new Date().toLocaleDateString()}`,
+      player_names: playerNames,
+      player_user_ids: Array(playerNames.length).fill(null),
+      settings: settings || {},
+      is_completed: false,
+      created_at: new Date().toISOString()
+    }
+
+    if (!userId || userId === 'guest-user') {
+      // Local Guest Storage
+      const guestId = `guest-session-${Date.now()}`
+      const guestSession = { ...sessionPayload, id: guestId, rounds: [], scores: {} }
+      const existing = JSON.parse(localStorage.getItem(GUEST_STORAGE_KEY) || '[]')
+      existing.unshift(guestSession)
+      localStorage.setItem(GUEST_STORAGE_KEY, JSON.stringify(existing.slice(0, 20)))
+      return guestSession
+    }
+
+    // Supabase Cloud Storage
     const { data, error } = await supabase
       .from('game_sessions')
-      .insert({
-        user_id: userId,
-        player1_name: playerNames[0],
-        player2_name: playerNames[1],
-        player3_name: playerNames[2],
-        player4_name: playerNames[3],
-        settings: settings,
-        is_completed: false
-      })
+      .insert([sessionPayload])
       .select()
       .single()
 
-    if (error) throw error
+    if (error) {
+      console.warn('Supabase session save error, falling back to local', error)
+      const guestId = `guest-session-${Date.now()}`
+      const guestSession = { ...sessionPayload, id: guestId, rounds: [], scores: {} }
+      return guestSession
+    }
     return data
   },
 
-  // Get all sessions for a user
-  async getSessions(userId) {
-    const { data, error } = await supabase
-      .from('game_sessions')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-
-    if (error) throw error
-    return data
-  },
-
-  // Get full details of a session (session info, rounds, and scores)
-  async getSessionDetails(sessionId) {
-    // 1. Get session info
-    const { data: session, error: sessionError } = await supabase
-      .from('game_sessions')
-      .select('*')
-      .eq('id', sessionId)
-      .single()
-
-    if (sessionError) throw sessionError
-
-    // 2. Get rounds in this session
-    const { data: rounds, error: roundsError } = await supabase
-      .from('game_rounds')
-      .select('*')
-      .eq('session_id', sessionId)
-      .order('round_number', { ascending: true })
-
-    if (roundsError) throw roundsError
-
-    if (rounds.length === 0) {
-      return { session, rounds: [], scoresByRound: {} }
+  // 2. Fetch User Match Diary (Hosted + Participated)
+  async getUserSessions(userId) {
+    if (!userId || userId === 'guest-user') {
+      return JSON.parse(localStorage.getItem(GUEST_STORAGE_KEY) || '[]')
     }
 
-    const roundIds = rounds.map(r => r.id)
+    try {
+      // Fetch games where user is host OR claimed a seat
+      const { data, error } = await supabase
+        .from('game_sessions')
+        .select(`
+          *,
+          game_rounds (
+            id,
+            round_number,
+            round_data,
+            player_scores (
+              player_index,
+              stats,
+              score_change,
+              score_cumulative
+            )
+          )
+        `)
+        .or(`user_id.eq.${userId},player_user_ids.cs.["${userId}"]`)
+        .order('created_at', { ascending: false })
 
-    // 3. Get player scores for these rounds
-    const { data: scores, error: scoresError } = await supabase
-      .from('player_scores')
-      .select('*')
-      .in('round_id', roundIds)
-      .order('player_index', { ascending: true })
+      if (error) throw error
+      return data || []
+    } catch (err) {
+      console.warn('Error loading cloud sessions', err)
+      return JSON.parse(localStorage.getItem(GUEST_STORAGE_KEY) || '[]')
+    }
+  },
 
-    if (scoresError) throw scoresError
+  // 3. Fetch Single Session by ID or Room Code
+  async getSession(sessionId, roomCode) {
+    if (sessionId?.startsWith('guest-session')) {
+      const guestList = JSON.parse(localStorage.getItem(GUEST_STORAGE_KEY) || '[]')
+      return guestList.find(s => s.id === sessionId) || null
+    }
 
-    // Group scores by round_id
-    const scoresByRound = {}
-    scores.forEach(score => {
-      if (!scoresByRound[score.round_id]) {
-        scoresByRound[score.round_id] = []
+    try {
+      let query = supabase
+        .from('game_sessions')
+        .select(`
+          *,
+          game_rounds (
+            id,
+            round_number,
+            round_data,
+            created_at,
+            player_scores (
+              id,
+              player_index,
+              stats,
+              score_change,
+              score_cumulative
+            )
+          )
+        `)
+
+      if (sessionId) {
+        query = query.eq('id', sessionId)
+      } else if (roomCode) {
+        query = query.eq('room_code', roomCode.toUpperCase())
       }
-      scoresByRound[score.round_id].push(score)
-    })
 
-    return {
-      session,
-      rounds,
-      scoresByRound
+      const { data, error } = await query.single()
+      if (error) throw error
+      return data
+    } catch {
+      return null
     }
   },
 
-  // Save a round with all 4 players' scores
-  async saveRoundWithScores(sessionId, roundNumber, dealerIndex, trufSuitIndex, playersData, playMode = null) {
-    // 1. Insert the round
+  // 4. Save a Game Round + Player Scores
+  async saveRound({ sessionId, roundNumber, roundData, playerScores }) {
+    if (sessionId?.startsWith('guest-session')) {
+      const guestList = JSON.parse(localStorage.getItem(GUEST_STORAGE_KEY) || '[]')
+      const session = guestList.find(s => s.id === sessionId)
+      if (session) {
+        const roundId = `guest-round-${Date.now()}`
+        const newRound = {
+          id: roundId,
+          session_id: sessionId,
+          round_number: roundNumber,
+          round_data: roundData,
+          created_at: new Date().toISOString(),
+          player_scores: playerScores.map((ps, idx) => ({
+            id: `ps-${roundId}-${idx}`,
+            player_index: idx,
+            stats: ps.stats || {},
+            score_change: ps.score_change,
+            score_cumulative: ps.score_cumulative
+          }))
+        }
+        session.rounds = session.rounds || []
+        session.rounds.push(newRound)
+        localStorage.setItem(GUEST_STORAGE_KEY, JSON.stringify(guestList))
+        return newRound
+      }
+      return null
+    }
+
+    // 1. Insert game round
     const { data: round, error: roundError } = await supabase
       .from('game_rounds')
-      .insert({
+      .insert([{
         session_id: sessionId,
         round_number: roundNumber,
-        dealer_index: dealerIndex,
-        truf_suit_index: trufSuitIndex,
-        play_mode: playMode
-      })
+        round_data: roundData
+      }])
       .select()
       .single()
 
     if (roundError) throw roundError
 
-    // 2. Prepare score records
-    const scoreRecords = playersData.map((player, index) => ({
+    // 2. Insert player scores
+    const scoreRecords = playerScores.map((ps, idx) => ({
       round_id: round.id,
-      player_index: index,
-      bid: player.bid,
-      won: player.won,
-      score_change: player.scoreChange,
-      score_cumulative: player.scoreCumulative
+      player_index: idx,
+      stats: ps.stats || {},
+      score_change: ps.score_change,
+      score_cumulative: ps.score_cumulative
     }))
 
-    // 3. Insert scores in bulk
     const { error: scoresError } = await supabase
       .from('player_scores')
       .insert(scoreRecords)
 
-    if (scoresError) {
-      // Rollback the inserted round to preserve database integrity
-      await supabase.from('game_rounds').delete().eq('id', round.id)
-      throw scoresError
+    if (scoresError) throw scoresError
+
+    return { ...round, player_scores: scoreRecords }
+  },
+
+  // 5. Undo / Delete Round
+  async deleteRound(roundId, sessionId) {
+    if (sessionId?.startsWith('guest-session')) {
+      const guestList = JSON.parse(localStorage.getItem(GUEST_STORAGE_KEY) || '[]')
+      const session = guestList.find(s => s.id === sessionId)
+      if (session && session.rounds) {
+        session.rounds = session.rounds.filter(r => r.id !== roundId)
+        localStorage.setItem(GUEST_STORAGE_KEY, JSON.stringify(guestList))
+      }
+      return true
     }
 
-    return round
-  },
-
-  // Undo (delete) the last round in a session
-  async deleteLastRound(sessionId) {
-    // 1. Find the round with the highest round_number
-    const { data: rounds, error: findError } = await supabase
-      .from('game_rounds')
-      .select('id, round_number')
-      .eq('session_id', sessionId)
-      .order('round_number', { ascending: false })
-      .limit(1)
-
-    if (findError) throw findError
-    if (rounds.length === 0) return null // Nothing to delete
-
-    const lastRound = rounds[0]
-
-    // 2. Delete the round (cascade will delete the player_scores automatically)
-    const { error: deleteError } = await supabase
+    const { error } = await supabase
       .from('game_rounds')
       .delete()
-      .eq('id', lastRound.id)
-
-    if (deleteError) throw deleteError
-    return lastRound
-  },
-
-  // Complete a game session
-  async completeSession(sessionId) {
-    const { data, error } = await supabase
-      .from('game_sessions')
-      .update({ is_completed: true })
-      .eq('id', sessionId)
-      .select()
-      .single()
+      .eq('id', roundId)
 
     if (error) throw error
-    return data
+    return true
   },
 
-  // Delete an entire session
-  async deleteSession(sessionId) {
+  // 6. Complete Session
+  async completeSession(sessionId) {
+    if (sessionId?.startsWith('guest-session')) {
+      const guestList = JSON.parse(localStorage.getItem(GUEST_STORAGE_KEY) || '[]')
+      const session = guestList.find(s => s.id === sessionId)
+      if (session) {
+        session.is_completed = true
+        localStorage.setItem(GUEST_STORAGE_KEY, JSON.stringify(guestList))
+      }
+      return true
+    }
+
     const { error } = await supabase
       .from('game_sessions')
-      .delete()
+      .update({ is_completed: true, updated_at: new Date().toISOString() })
       .eq('id', sessionId)
 
     if (error) throw error
+    return true
+  },
+
+  // 7. Claim Seat by a Logged-In User
+  async claimSeat(sessionId, playerIndex, userId) {
+    const { data: session } = await supabase
+      .from('game_sessions')
+      .select('player_user_ids')
+      .eq('id', sessionId)
+      .single()
+
+    if (session) {
+      const userIds = [...(session.player_user_ids || [])]
+      userIds[playerIndex] = userId
+      const { error } = await supabase
+        .from('game_sessions')
+        .update({ player_user_ids: userIds })
+        .eq('id', sessionId)
+
+      if (error) throw error
+      return true
+    }
+    return false
+  },
+
+  // 8. Subscribe to Live Realtime Room Changes
+  subscribeToLiveRoom(sessionId, onUpdate) {
+    if (!sessionId || sessionId.startsWith('guest-session')) return null
+
+    const channel = supabase
+      .channel(`session-room:${sessionId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'game_rounds',
+        filter: `session_id=eq.${sessionId}`
+      }, (payload) => {
+        onUpdate(payload)
+      })
+      .subscribe()
+
+    return channel
   }
 }

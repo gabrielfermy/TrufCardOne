@@ -1,0 +1,24 @@
+{
+  "appId": "com.trufcard.gamenight",
+  "appName": "Game Night Companion",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https",
+    "cleartext": true
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1500,
+      "launchAutoHide": true,
+      "backgroundColor": "#0B0C14",
+      "showSpinner": false
+    },
+    "StatusBar": {
+      "style": "DARK",
+      "backgroundColor": "#0B0C14"
+    },
+    "KeepAwake": {
+      "supported": true
+    }
+  }
+}

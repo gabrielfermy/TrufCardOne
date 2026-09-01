@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient'
+import { App } from '@capacitor/app'
 
 export const authService = {
   // Sign Up with Email and Password
@@ -26,12 +27,21 @@ export const authService = {
     return data
   },
 
-  // Sign In with Google OAuth SSO
+  // Sign In with Google OAuth SSO (supports Web & Capacitor Deep Linking)
   async signInWithGoogle() {
+    const isNative = typeof window !== 'undefined' && window.Capacitor?.isNativePlatform()
+    const redirectTo = isNative
+      ? 'com.trufcard.gamenight://login-callback'
+      : window.location.origin
+
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.origin,
+        redirectTo,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        }
       },
     })
     if (error) throw error
@@ -52,10 +62,52 @@ export const authService = {
     return subscription
   },
 
-  // Get Current Active User
+  // Get Current Active User with Profile Data (role, display_name)
   async getCurrentUser() {
-    const { data: { user }, error } = await supabase.auth.getUser()
-    if (error) return null
-    return user
+    try {
+      const { data: { user }, error } = await supabase.auth.getUser()
+      if (error || !user) return null
+
+      // Fetch profile role and display name
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single()
+
+      return {
+        ...user,
+        profile: profile || {
+          id: user.id,
+          display_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Player',
+          role: 'user'
+        }
+      }
+    } catch {
+      return null
+    }
+  },
+
+  // Initialize Mobile Deep Linking for OAuth Callbacks
+  initMobileDeepLinks() {
+    try {
+      App.addListener('appUrlOpen', async (data) => {
+        if (data.url.includes('login-callback') || data.url.includes('#access_token=')) {
+          const url = new URL(data.url)
+          const hashParams = new URLSearchParams(url.hash.replace('#', '?'))
+          const accessToken = hashParams.get('access_token') || url.searchParams.get('access_token')
+          const refreshToken = hashParams.get('refresh_token') || url.searchParams.get('refresh_token')
+
+          if (accessToken && refreshToken) {
+            await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken
+            })
+          }
+        }
+      })
+    } catch {
+      // In web browser, ignore Capacitor listener errors
+    }
   }
 }
