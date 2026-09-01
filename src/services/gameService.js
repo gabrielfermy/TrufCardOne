@@ -48,34 +48,41 @@ export const gameService = {
         .single()
 
       if (!error && data) {
+        console.log('✅ Session created successfully in Supabase Cloud:', data.id, data.room_code)
         return data
       }
 
       if (error) {
-        console.warn('Supabase primary session insert error, trying minimal payload:', error)
-        // Fallback: Try insert with minimal columns in case extra columns had constraints
-        const minimalPayload = {
-          user_id: null,
-          game_type: gameType,
-          room_code: roomCode,
-          title: sessionPayload.title,
-          player_names: playerNames
-        }
-        const { data: retryData, error: retryError } = await supabase
-          .from('game_sessions')
-          .insert([minimalPayload])
-          .select()
-          .single()
+        console.error('❌ Supabase session insert failed:', {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint
+        })
 
-        if (!retryError && retryData) {
-          return retryData
+        // Fallback retry with user_id = null if user profile wasn't ready
+        if (sessionPayload.user_id) {
+          const { data: retryData, error: retryError } = await supabase
+            .from('game_sessions')
+            .insert([{ ...sessionPayload, user_id: null }])
+            .select()
+            .single()
+
+          if (!retryError && retryData) {
+            console.log('✅ Session created with user_id=null fallback:', retryData.id)
+            return retryData
+          }
+          if (retryError) {
+            console.error('❌ Retry without user_id also failed:', retryError.message)
+          }
         }
       }
     } catch (err) {
-      console.warn('Cloud session save exception, falling back to local storage:', err)
+      console.error('❌ Cloud session save exception:', err)
     }
 
     // 2. Offline / Local fallback
+    console.warn('⚠️ Falling back to browser LocalStorage for session', roomCode)
     const guestId = `guest-session-${Date.now()}`
     const guestSession = { ...sessionPayload, id: guestId, rounds: [], scores: {} }
     const existing = JSON.parse(localStorage.getItem(GUEST_STORAGE_KEY) || '[]')
