@@ -467,22 +467,47 @@ export default function TrufPlay({
                       const cumScore = ps?.score_cumulative ?? 0
                       const bid = ps?.stats?.bid ?? 0
                       const won = ps?.stats?.won ?? 0
+                      const isPass = bid === won
 
                       return (
                         <React.Fragment key={rIdx}>
-                          <td style={{ padding: '6px 4px', background: 'rgba(0,0,0,0.15)', borderRadius: '6px' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
-                              <span style={{ 
-                                fontWeight: 800, 
-                                fontSize: '0.85rem',
-                                color: change >= 0 ? '#34D399' : '#F87171',
-                                padding: '1px 6px',
-                                borderRadius: '4px',
-                                background: change >= 0 ? 'rgba(52, 211, 153, 0.15)' : 'rgba(248, 113, 113, 0.15)'
-                              }}>
-                                {change > 0 ? `+${change}` : change}
-                              </span>
-                              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                          <td style={{ padding: '8px 4px', background: 'rgba(0,0,0,0.15)', borderRadius: '6px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
+                              {/* Bulatan Skor Ronde: Dilingkari jika Pas/Dapat Bid */}
+                              {isPass ? (
+                                <div 
+                                  title="Pas / Dapat Bid (Dibulatkan)"
+                                  style={{
+                                    width: '32px',
+                                    height: '32px',
+                                    borderRadius: '50%',
+                                    border: '2.5px solid #34D399',
+                                    background: 'rgba(52, 211, 153, 0.22)',
+                                    color: '#34D399',
+                                    fontWeight: 900,
+                                    fontSize: '0.85rem',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    boxShadow: '0 0 10px rgba(52, 211, 153, 0.35)'
+                                  }}
+                                >
+                                  {change > 0 ? `+${change}` : change}
+                                </div>
+                              ) : (
+                                <div style={{
+                                  height: '32px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  color: '#F87171',
+                                  fontWeight: 800,
+                                  fontSize: '0.88rem'
+                                }}>
+                                  {change}
+                                </div>
+                              )}
+                              <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
                                 B:<strong style={{ color: '#FCD34D' }}>{bid}</strong> / T:<strong style={{ color: '#38BDF8' }}>{won}</strong>
                               </span>
                             </div>
@@ -589,13 +614,36 @@ export default function TrufPlay({
                         >
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <span style={{ fontWeight: 700, fontSize: '0.82rem' }}>{name}</span>
-                            <span style={{ 
-                              fontWeight: 800, 
-                              fontSize: '0.85rem',
-                              color: change >= 0 ? '#34D399' : '#F87171'
-                            }}>
-                              {change > 0 ? `+${change}` : change}
-                            </span>
+                            {/* Bulatan Skor di Kartu Rincian */}
+                            {isPass ? (
+                              <span 
+                                title="Pas (Dibulatkan)"
+                                style={{ 
+                                  width: '28px',
+                                  height: '28px',
+                                  borderRadius: '50%',
+                                  border: '2px solid #34D399',
+                                  background: 'rgba(52, 211, 153, 0.22)',
+                                  color: '#34D399',
+                                  fontWeight: 900, 
+                                  fontSize: '0.82rem',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  boxShadow: '0 0 8px rgba(52, 211, 153, 0.35)'
+                                }}
+                              >
+                                {change > 0 ? `+${change}` : change}
+                              </span>
+                            ) : (
+                              <span style={{ 
+                                fontWeight: 800, 
+                                fontSize: '0.88rem',
+                                color: '#F87171'
+                              }}>
+                                {change}
+                              </span>
+                            )}
                           </div>
 
                           <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'flex', justifyContent: 'space-between' }}>
