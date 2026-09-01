@@ -392,26 +392,81 @@ export const gameService = {
     return false
   },
 
-  // 8. Subscribe to Live Realtime Room Changes
-  subscribeToLiveRoom(sessionId, onUpdate) {
+  // 8. Subscribe to Live Realtime Room Changes (Postgres Changes + Instant Broadcast)
+  subscribeToLiveRoom(sessionId, handlers) {
     if (!sessionId || sessionId.startsWith('guest-session')) return null
 
-    const channel = supabase
-      .channel(`session-room:${sessionId}`)
-      .on('postgres_changes', {
+    const onDbUpdate = typeof handlers === 'function' ? handlers : handlers?.onDbUpdate
+    const onLiveState = typeof handlers === 'object' ? handlers?.onLiveState : null
+    const onRoundAdvance = typeof handlers === 'object' ? handlers?.onRoundAdvance : null
+
+    const channel = supabase.channel(`live-room:${sessionId}`, {
+      config: {
+        broadcast: { ack: false, self: false }
+      }
+    })
+
+    if (onDbUpdate) {
+      channel.on('postgres_changes', {
         event: '*',
         schema: 'public',
         table: 'game_rounds',
         filter: `session_id=eq.${sessionId}`
       }, (payload) => {
-        onUpdate(payload)
+        onDbUpdate(payload)
       })
-      .subscribe()
+    }
+
+    if (onLiveState) {
+      channel.on('broadcast', { event: 'live_state' }, ({ payload }) => {
+        onLiveState(payload)
+      })
+    }
+
+    if (onRoundAdvance) {
+      channel.on('broadcast', { event: 'round_advance' }, ({ payload }) => {
+        onRoundAdvance(payload)
+      })
+    }
+
+    channel.subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        console.log(`🔌 Connected to Realtime Live Room: ${sessionId}`)
+      }
+    })
 
     return channel
   },
 
-  // 9. Unsubscribe Live Room
+  // 9. Broadcast Live Input State to Tabletop Peers
+  broadcastLiveState(channel, statePayload) {
+    if (!channel) return
+    try {
+      channel.send({
+        type: 'broadcast',
+        event: 'live_state',
+        payload: statePayload
+      })
+    } catch (e) {
+      console.warn('broadcastLiveState error:', e)
+    }
+  },
+
+  // 10. Broadcast Round Advance to Tabletop Peers
+  broadcastRoundAdvance(channel, roundPayload) {
+    if (!channel) return
+    try {
+      channel.send({
+        type: 'broadcast',
+        event: 'round_advance',
+        payload: roundPayload
+      })
+    } catch (e) {
+      console.warn('broadcastRoundAdvance error:', e)
+    }
+  },
+
+  // 11. Unsubscribe Live Room
   unsubscribeLiveRoom(channel) {
     if (channel) {
       supabase.removeChannel(channel)

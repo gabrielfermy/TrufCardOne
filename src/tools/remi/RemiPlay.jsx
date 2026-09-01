@@ -1,7 +1,8 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { CARD_VALUES, calculateRemiRoundScores } from './remiLogic'
 import { soundService } from '../../services/soundService'
 import { hapticsService } from '../../services/hapticsService'
+import { gameService } from '../../services/gameService'
 import { useTranslation } from '../../i18n/I18nContext'
 import RoomInviteModal from '../../components/common/RoomInviteModal'
 
@@ -19,7 +20,19 @@ export default function RemiPlay({
   const { t } = useTranslation()
   const playerNames = session?.player_names || ['Pemain 1', 'Pemain 2', 'Pemain 3', 'Pemain 4']
   const targetPenalty = session?.settings?.targetPenalty || 500
-  const currentRoundNumber = rounds.length + 1
+
+  const clientId = useRef(`peer-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`).current
+  const realtimeChannelRef = useRef(null)
+
+  const [localRounds, setLocalRounds] = useState(rounds || [])
+
+  useEffect(() => {
+    if (rounds && rounds.length >= localRounds.length) {
+      setLocalRounds(rounds)
+    }
+  }, [rounds])
+
+  const currentRoundNumber = localRounds.length + 1
 
   const [closerIndex, setCloserIndex] = useState(0)
   const [isTutupMurni, setIsTutupMurni] = useState(false)
@@ -29,11 +42,65 @@ export default function RemiPlay({
 
   // Compute latest cumulative scores
   const cumulativeScores = Array(playerNames.length).fill(0)
-  rounds.forEach(r => {
+  localRounds.forEach(r => {
     r.player_scores?.forEach(ps => {
       cumulativeScores[ps.player_index] += ps.score_change
     })
   })
+
+  // Broadcast helper
+  const broadcastState = (overrides = {}) => {
+    if (!realtimeChannelRef.current) return
+    gameService.broadcastLiveState(realtimeChannelRef.current, {
+      senderId: clientId,
+      closerIndex,
+      isTutupMurni,
+      penalties,
+      activeKeypadPlayer,
+      ...overrides
+    })
+  }
+
+  // Subscribe to Realtime Live Room
+  useEffect(() => {
+    if (!session?.id || session.id.startsWith('guest-session')) return
+
+    const channel = gameService.subscribeToLiveRoom(session.id, {
+      onLiveState: (payload) => {
+        if (payload?.senderId && payload.senderId !== clientId) {
+          if (payload.closerIndex !== undefined) setCloserIndex(payload.closerIndex)
+          if (payload.isTutupMurni !== undefined) setIsTutupMurni(payload.isTutupMurni)
+          if (Array.isArray(payload.penalties)) setPenalties(payload.penalties)
+          if (payload.activeKeypadPlayer !== undefined) setActiveKeypadPlayer(payload.activeKeypadPlayer)
+        }
+      },
+      onRoundAdvance: (payload) => {
+        if (payload?.round) {
+          setLocalRounds(prev => {
+            const exists = prev.some(r => r.round_number === payload.round.round_number)
+            if (exists) return prev
+            return [...prev, payload.round]
+          })
+          setPenalties(Array(playerNames.length).fill(0))
+          setIsTutupMurni(false)
+          setActiveKeypadPlayer(null)
+          soundService.playVictory()
+        }
+      },
+      onDbUpdate: async () => {
+        const refreshed = await gameService.getSession(session.id)
+        if (refreshed?.game_rounds && refreshed.game_rounds.length >= localRounds.length) {
+          setLocalRounds(refreshed.game_rounds)
+        }
+      }
+    })
+
+    realtimeChannelRef.current = channel
+
+    return () => {
+      if (channel) gameService.unsubscribeLiveRoom(channel)
+    }
+  }, [session?.id])
 
   // Add Card Value in Keypad
   const handleAddCard = (pts) => {
@@ -43,6 +110,7 @@ export default function RemiPlay({
     setPenalties(prev => {
       const next = [...prev]
       next[activeKeypadPlayer] = (next[activeKeypadPlayer] || 0) + pts
+      broadcastState({ penalties: next })
       return next
     })
   }
@@ -54,6 +122,7 @@ export default function RemiPlay({
     setPenalties(prev => {
       const next = [...prev]
       next[activeKeypadPlayer] = 0
+      broadcastState({ penalties: next })
       return next
     })
   }
@@ -72,22 +141,33 @@ export default function RemiPlay({
       score_cumulative: cumulativeScores[idx] + change
     }))
 
-    hapticsService.success()
-    soundService.playVictory()
-
-    onSaveRound({
+    const newRoundPayload = {
+      id: `local-round-${Date.now()}`,
+      round_number: currentRoundNumber,
       roundNumber: currentRoundNumber,
-      roundData: {
+      round_data: {
         closerIndex,
         isTutupMurni
       },
+      player_scores: scoreRecords,
       playerScores: scoreRecords
-    })
+    }
 
-    // Reset inputs
+    setLocalRounds(prev => [...prev, newRoundPayload])
     setPenalties(Array(playerNames.length).fill(0))
     setIsTutupMurni(false)
     setActiveKeypadPlayer(null)
+
+    hapticsService.success()
+    soundService.playVictory()
+
+    if (realtimeChannelRef.current) {
+      gameService.broadcastRoundAdvance(realtimeChannelRef.current, { round: newRoundPayload })
+    }
+
+    if (onSaveRound) {
+      onSaveRound(newRoundPayload)
+    }
   }
 
   // Check for players eliminated

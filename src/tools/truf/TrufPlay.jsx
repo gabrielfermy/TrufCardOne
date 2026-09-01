@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { SUITS, calculateTrufRoundScores } from './trufLogic'
 import { soundService } from '../../services/soundService'
 import { hapticsService } from '../../services/hapticsService'
+import { gameService } from '../../services/gameService'
 import { useTranslation } from '../../i18n/I18nContext'
 import RoomInviteModal from '../../components/common/RoomInviteModal'
 
@@ -19,6 +20,9 @@ export default function TrufPlay({
   const { t } = useTranslation()
   const playerNames = session?.player_names || ['Pemain 1', 'Pemain 2', 'Pemain 3', 'Pemain 4']
   const settings = session?.settings || { multiplier: 1, bid0Bonus: 0, bid13Decision: true }
+
+  const clientId = useRef(`peer-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`).current
+  const realtimeChannelRef = useRef(null)
 
   // Optimistic local state for rounds to guarantee instant Round advancement
   const [localRounds, setLocalRounds] = useState(rounds || [])
@@ -46,6 +50,65 @@ export default function TrufPlay({
   const totalBid = bids.reduce((a, b) => a + b, 0)
   const totalWon = wons.reduce((a, b) => a + b, 0)
 
+  // Broadcast helper to sync live tabletop state across phones
+  const broadcastState = (overrides = {}) => {
+    if (!realtimeChannelRef.current) return
+    gameService.broadcastLiveState(realtimeChannelRef.current, {
+      senderId: clientId,
+      bids,
+      wons,
+      trufSuit,
+      inputPhase,
+      forcedPlayMode,
+      ...overrides
+    })
+  }
+
+  // Subscribe to Realtime Live Room (Instant Broadcast + DB Changes)
+  useEffect(() => {
+    if (!session?.id || session.id.startsWith('guest-session')) return
+
+    const channel = gameService.subscribeToLiveRoom(session.id, {
+      onLiveState: (payload) => {
+        if (payload?.senderId && payload.senderId !== clientId) {
+          if (Array.isArray(payload.bids)) setBids(payload.bids)
+          if (Array.isArray(payload.wons)) setWons(payload.wons)
+          if (payload.trufSuit !== undefined) setTrufSuit(payload.trufSuit)
+          if (payload.inputPhase) setInputPhase(payload.inputPhase)
+          if (payload.forcedPlayMode !== undefined) setForcedPlayMode(payload.forcedPlayMode)
+        }
+      },
+      onRoundAdvance: (payload) => {
+        if (payload?.round) {
+          setLocalRounds(prev => {
+            const exists = prev.some(r => r.round_number === payload.round.round_number)
+            if (exists) return prev
+            return [...prev, payload.round]
+          })
+          setBids([0, 0, 0, 0])
+          setWons([0, 0, 0, 0])
+          setTrufSuit(4)
+          setInputPhase('bid')
+          setForcedPlayMode(null)
+          setErrorMsg('')
+          soundService.playVictory()
+        }
+      },
+      onDbUpdate: async () => {
+        const refreshed = await gameService.getSession(session.id)
+        if (refreshed?.game_rounds && refreshed.game_rounds.length >= localRounds.length) {
+          setLocalRounds(refreshed.game_rounds)
+        }
+      }
+    })
+
+    realtimeChannelRef.current = channel
+
+    return () => {
+      if (channel) gameService.unsubscribeLiveRoom(channel)
+    }
+  }, [session?.id])
+
   // Stepper handlers
   const handleBidStep = (playerIdx, delta) => {
     setErrorMsg('')
@@ -54,6 +117,7 @@ export default function TrufPlay({
     setBids(prev => {
       const next = [...prev]
       next[playerIdx] = Math.max(0, Math.min(13, next[playerIdx] + delta))
+      broadcastState({ bids: next })
       return next
     })
   }
@@ -65,6 +129,7 @@ export default function TrufPlay({
     setWons(prev => {
       const next = [...prev]
       next[playerIdx] = Math.max(0, Math.min(13, next[playerIdx] + delta))
+      broadcastState({ wons: next })
       return next
     })
   }
@@ -79,9 +144,10 @@ export default function TrufPlay({
     hapticsService.medium()
     soundService.playCardFlip()
     setInputPhase('won')
+    broadcastState({ inputPhase: 'won' })
   }
 
-  // Handle Save Round (Instant Optimistic UI)
+  // Handle Save Round (Instant Optimistic UI & Broadcast)
   const handleSaveRoundSubmit = async () => {
     setErrorMsg('')
     if (totalWon !== 13) {
@@ -122,7 +188,7 @@ export default function TrufPlay({
       playerScores: scoreRecords
     }
 
-    // 1. Instantly advance UI to next round without blocking
+    // 1. Instantly advance UI locally
     setLocalRounds(prev => [...prev, newRoundPayload])
     setBids([0, 0, 0, 0])
     setWons([0, 0, 0, 0])
@@ -134,7 +200,12 @@ export default function TrufPlay({
     hapticsService.success()
     soundService.playVictory()
 
-    // 2. Background async sync to server/storage
+    // 2. Broadcast round advance to all other phones in 0ms!
+    if (realtimeChannelRef.current) {
+      gameService.broadcastRoundAdvance(realtimeChannelRef.current, { round: newRoundPayload })
+    }
+
+    // 3. Background async sync to server/storage
     try {
       if (onSaveRound) {
         await onSaveRound(newRoundPayload)
@@ -347,7 +418,11 @@ export default function TrufPlay({
                 <button
                   key={suit.id}
                   type="button"
-                  onClick={() => { hapticsService.light(); setTrufSuit(suit.id) }}
+                  onClick={() => {
+                    hapticsService.light()
+                    setTrufSuit(suit.id)
+                    broadcastState({ trufSuit: suit.id })
+                  }}
                   style={{
                     background: trufSuit === suit.id ? 'var(--primary)' : 'var(--bg-glass-strong)',
                     color: trufSuit === suit.id ? '#FFF' : suit.color,
@@ -376,7 +451,13 @@ export default function TrufPlay({
           </button>
         ) : (
           <div style={{ display: 'flex', gap: '10px' }}>
-            <button className="btn btn-secondary" onClick={() => setInputPhase('bid')}>
+            <button 
+              className="btn btn-secondary" 
+              onClick={() => {
+                setInputPhase('bid')
+                broadcastState({ inputPhase: 'bid' })
+              }}
+            >
               ← Ubah Bid
             </button>
             <button 
@@ -699,6 +780,7 @@ export default function TrufPlay({
                   setForcedPlayMode('atas')
                   setShowBid13Modal(false)
                   setInputPhase('won')
+                  broadcastState({ forcedPlayMode: 'atas', inputPhase: 'won' })
                 }}
               >
                 🔥 {t('truf.force_atas')}
@@ -709,6 +791,7 @@ export default function TrufPlay({
                   setForcedPlayMode('bawah')
                   setShowBid13Modal(false)
                   setInputPhase('won')
+                  broadcastState({ forcedPlayMode: 'bawah', inputPhase: 'won' })
                 }}
               >
                 🛡️ {t('truf.force_bawah')}
