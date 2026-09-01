@@ -14,6 +14,9 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
+-- Ensure column exists if table was created previously
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'admin'));
+
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
 -- Profiles Policies
@@ -35,11 +38,11 @@ CREATE POLICY "Users can update own profile" ON public.profiles
 CREATE TABLE IF NOT EXISTS public.game_sessions (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
-  room_code TEXT UNIQUE, -- 6-character room code for frictionless live spectating
-  game_type TEXT NOT NULL CHECK (game_type IN ('truf', 'remi', 'omben', 'generic', 'chess')),
+  room_code TEXT UNIQUE,
+  game_type TEXT NOT NULL DEFAULT 'truf' CHECK (game_type IN ('truf', 'remi', 'omben', 'generic', 'chess')),
   title TEXT NOT NULL DEFAULT 'Game Night Session',
-  player_names JSONB NOT NULL, -- Array of player names e.g. ["Budi", "Siti", "Andi", "Eko"]
-  player_user_ids JSONB DEFAULT '[]'::jsonb, -- Array of claimed user UUIDs or null [uuid1, null, uuid3, null]
+  player_names JSONB NOT NULL DEFAULT '["Pemain 1", "Pemain 2", "Pemain 3", "Pemain 4"]'::jsonb,
+  player_user_ids JSONB DEFAULT '[]'::jsonb,
   settings JSONB NOT NULL DEFAULT '{
     "multiplier": 1,
     "bid0Bonus": 0,
@@ -57,6 +60,24 @@ CREATE TABLE IF NOT EXISTS public.game_sessions (
   created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL,
   updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
 );
+
+-- Ensure all new columns exist on game_sessions if created in an older migration
+ALTER TABLE public.game_sessions ADD COLUMN IF NOT EXISTS room_code TEXT UNIQUE;
+ALTER TABLE public.game_sessions ADD COLUMN IF NOT EXISTS game_type TEXT NOT NULL DEFAULT 'truf' CHECK (game_type IN ('truf', 'remi', 'omben', 'generic', 'chess'));
+ALTER TABLE public.game_sessions ADD COLUMN IF NOT EXISTS player_user_ids JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE public.game_sessions ADD COLUMN IF NOT EXISTS settings JSONB NOT NULL DEFAULT '{
+  "multiplier": 1,
+  "bid0Bonus": 0,
+  "prevent13": false,
+  "bid13Decision": true,
+  "atasLackMult": -2,
+  "atasExcessMult": -1,
+  "bawahLackMult": -1,
+  "bawahExcessMult": -2,
+  "remiTargetPenalty": 500,
+  "remiTutupMurniDouble": true,
+  "ombenTargetLoss": 5
+}'::jsonb;
 
 ALTER TABLE public.game_sessions ENABLE ROW LEVEL SECURITY;
 
@@ -78,7 +99,7 @@ CREATE TABLE IF NOT EXISTS public.game_rounds (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   session_id UUID REFERENCES public.game_sessions(id) ON DELETE CASCADE NOT NULL,
   round_number INTEGER NOT NULL,
-  round_data JSONB NOT NULL DEFAULT '{}'::jsonb, -- Game-specific round details (dealer, truf suit, playMode, closeType)
+  round_data JSONB NOT NULL DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL,
   UNIQUE (session_id, round_number)
 );
@@ -101,11 +122,13 @@ CREATE TABLE IF NOT EXISTS public.player_scores (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   round_id UUID REFERENCES public.game_rounds(id) ON DELETE CASCADE NOT NULL,
   player_index INTEGER NOT NULL CHECK (player_index >= 0),
-  stats JSONB NOT NULL DEFAULT '{}'::jsonb, -- e.g. { "bid": 3, "won": 3 } or { "penaltyCards": 45 } or { "isOmben": true }
+  stats JSONB NOT NULL DEFAULT '{}'::jsonb,
   score_change INTEGER NOT NULL,
   score_cumulative INTEGER NOT NULL,
   UNIQUE (round_id, player_index)
 );
+
+ALTER TABLE public.player_scores ADD COLUMN IF NOT EXISTS stats JSONB NOT NULL DEFAULT '{}'::jsonb;
 
 ALTER TABLE public.player_scores ENABLE ROW LEVEL SECURITY;
 
@@ -162,7 +185,19 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT OR UPDATE ON auth.users
   FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
 
--- 7. Realtime Enablement
-ALTER PUBLICATION supabase_realtime ADD TABLE public.game_sessions;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.game_rounds;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.player_scores;
+-- 7. Realtime Enablement (Safely add to publication)
+DO $$
+BEGIN
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.game_sessions;
+  EXCEPTION WHEN OTHERS THEN NULL;
+  END;
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.game_rounds;
+  EXCEPTION WHEN OTHERS THEN NULL;
+  END;
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.player_scores;
+  EXCEPTION WHEN OTHERS THEN NULL;
+  END;
+END $$;
