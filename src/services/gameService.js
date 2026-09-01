@@ -134,11 +134,63 @@ export const gameService = {
     }
 
     try {
-      let query = supabase
-        .from('game_sessions')
-        .select(`
-          *,
-          game_rounds (
+      // 1. Fetch Session Header first (case-insensitive & robust)
+      let sessionQuery = supabase.from('game_sessions').select('*')
+
+      if (sessionId) {
+        sessionQuery = sessionQuery.eq('id', sessionId)
+      } else if (roomCode) {
+        const code = normalizeRoomCode(roomCode)
+        sessionQuery = sessionQuery.ilike('room_code', code)
+      }
+
+      let { data: session, error: sessionErr } = await sessionQuery.maybeSingle()
+
+      // Fallback suffix search if user only typed 4 chars (e.g. "6WTN")
+      if (!session && roomCode && !roomCode.includes('-')) {
+        const cleanSuffix = normalizeRoomCode(roomCode)
+        const { data: suffixMatch } = await supabase
+          .from('game_sessions')
+          .select('*')
+          .ilike('room_code', `%${cleanSuffix}`)
+          .maybeSingle()
+        if (suffixMatch) {
+          session = suffixMatch
+        }
+      }
+
+      if (sessionErr) {
+        console.error('❌ getSession error from Supabase:', sessionErr)
+      }
+
+      // Check local guest storage if not in Cloud
+      if (!session) {
+        if (roomCode) {
+          const guestList = JSON.parse(localStorage.getItem(GUEST_STORAGE_KEY) || '[]')
+          const code = normalizeRoomCode(roomCode)
+          return guestList.find(s => normalizeRoomCode(s.room_code) === code) || null
+        }
+        return null
+      }
+
+      // Ensure player_names is valid array (handling legacy columns if any)
+      if (!Array.isArray(session.player_names) || session.player_names.length === 0) {
+        session.player_names = [
+          session.player1_name,
+          session.player2_name,
+          session.player3_name,
+          session.player4_name
+        ].filter(Boolean)
+        if (session.player_names.length === 0) {
+          session.player_names = ['Pemain 1', 'Pemain 2', 'Pemain 3', 'Pemain 4']
+        }
+      }
+
+      // 2. Fetch Associated Game Rounds & Player Scores
+      try {
+        const { data: rounds, error: roundsErr } = await supabase
+          .from('game_rounds')
+          .select(`
             id,
             round_number,
             round_data,
@@ -150,43 +202,28 @@ export const gameService = {
               score_change,
               score_cumulative
             )
-          )
-        `)
+          `)
+          .eq('session_id', session.id)
+          .order('round_number', { ascending: true })
 
-      if (sessionId) {
-        query = query.eq('id', sessionId)
-      } else if (roomCode) {
-        const code = normalizeRoomCode(roomCode)
-        if (code.includes('-')) {
-          query = query.eq('room_code', code)
+        if (!roundsErr && rounds) {
+          session.game_rounds = rounds
         } else {
-          query = query.ilike('room_code', `%${code}`)
+          session.game_rounds = []
         }
+      } catch (rErr) {
+        console.warn('Could not fetch nested rounds, default to empty:', rErr)
+        session.game_rounds = []
       }
 
-      const { data, error } = await query.maybeSingle()
-
-      if (error) {
-        console.warn('getSession query error:', error)
-        if (roomCode) {
-          const guestList = JSON.parse(localStorage.getItem(GUEST_STORAGE_KEY) || '[]')
-          const code = normalizeRoomCode(roomCode)
-          return guestList.find(s => s.room_code === code) || null
-        }
-        return null
-      }
-
-      if (data && Array.isArray(data.game_rounds)) {
-        data.game_rounds.sort((a, b) => a.round_number - b.round_number)
-      }
-
-      return data
+      console.log('✅ Session loaded successfully:', session.room_code || session.id)
+      return session
     } catch (err) {
-      console.warn('Error fetching session:', err)
+      console.error('❌ Exception in getSession:', err)
       if (roomCode) {
         const guestList = JSON.parse(localStorage.getItem(GUEST_STORAGE_KEY) || '[]')
         const code = normalizeRoomCode(roomCode)
-        return guestList.find(s => s.room_code === code) || null
+        return guestList.find(s => normalizeRoomCode(s.room_code) === code) || null
       }
       return null
     }
