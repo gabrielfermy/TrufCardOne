@@ -1,140 +1,102 @@
-# Local Setup & Infrastructure Guide - Truf Card Game Score Tracker
+# Local Setup & Infrastructure Guide - Game Night Suite
 
-Dokumen ini berisi panduan untuk menyiapkan infrastruktur lokal proyek agar dapat dijalankan dan diuji secara offline sebelum di-deploy secara live ke Vercel dan Supabase Cloud.
+Dokumen ini berisi panduan teknis langkah demi langkah untuk menyiapkan lingkungan pengembangan lokal (*local development environment*), menjalankan Supabase lokal dengan Docker, melakukan migrasi database multi-tenant, dan menjalankan aplikasi web dan mobile Capacitor.
 
 ---
 
 ## 1. Prasyarat Sistem
-Pastikan perangkat Anda sudah terinstal:
-- [Node.js](https://nodejs.org/) (Versi 18+ direkomendasikan)
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (Diperlukan jika ingin menjalankan database Supabase secara lokal)
-- Git CLI
+Pastikan perangkat Anda memiliki:
+- **Node.js** (Versi 18+ atau 20+ LTS direkomendasikan)
+- **Docker Desktop** (Diperlukan untuk menjalankan Supabase lokal)
+- **Git CLI**
+- **Android Studio** (Opsional, jika ingin meng-compile APK / menjalankan di emulator Android)
 
 ---
 
-## 2. Setup Awal Git & Workspace
-Workspace telah diinisialisasi dengan repositori Git. Buat file `.gitignore` di root folder proyek untuk mengecualikan file dependensi dan variabel lingkungan rahasia.
+## 2. Struktur Repositori & Instalasi Dependensi
 
-### 2.1. File `.gitignore` [NEW]
-```text
-# Dependency directories
-node_modules/
-dist/
-dist-ssr/
-*.local
-
-# Logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Environment variables
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea/
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-
-# Supabase local config
-supabase/.temp/
-```
-
----
-
-## 3. Setup Frontend Lokal (Vite + React)
-Untuk membuat proyek frontend menggunakan Vite + React dengan TypeScript/JavaScript:
-
-1. Jalankan perintah pembuatan proyek di root direktori:
-   ```bash
-   npm create vite@latest ./ -- --template react
-   ```
-2. Instal dependensi dasar:
+1. Clone repositori dan instal dependensi npm:
    ```bash
    npm install
    ```
-3. Instal library Supabase JS SDK:
+
+2. Instal dependensi pendukung untuk Capacitor dan hardware audio/haptics:
    ```bash
-   npm install @supabase/supabase-js
+   npm install @capacitor/core @capacitor/cli @capacitor/android @capacitor/ios @capacitor/haptics @capacitor/status-bar @capacitor/splash-screen @capacitor/app @capacitor-community/keep-awake
    ```
 
 ---
 
-## 4. Setup Supabase Lokal (Database & Auth)
-Menjalankan Supabase secara lokal sangat direkomendasikan agar Anda dapat melakukan migrasi database, menguji database trigger, dan menguji relasi tabel di komputer Anda sebelum live.
+## 3. Menjalankan Supabase Lokal (Database, Auth, Realtime)
 
-1. Instal Supabase CLI secara global (atau jalankan via npx):
-   ```bash
-   npm install supabase --save-dev
-   ```
-2. Inisialisasi konfigurasi Supabase di proyek:
+Supabase lokal menyediakan lingkungan PostgreSQL terisolasi lengkap dengan dashboard Studio dan server WebSocket Realtime:
+
+1. Inisialisasi Supabase (jika belum ada):
    ```bash
    npx supabase init
    ```
-   Perintah ini akan membuat folder `/supabase` di root proyek.
-3. Jalankan Supabase lokal menggunakan Docker:
+2. Jalankan container Supabase lokal (pastikan Docker Desktop aktif):
    ```bash
    npx supabase start
    ```
-   *Catatan: Docker Desktop harus dalam keadaan aktif.* Perintah ini akan meluncurkan tiruan dari seluruh ekosistem Supabase di komputer Anda (PostgreSQL, Auth, Studio, dll.) dan menampilkan URL API lokal serta kunci anonim (Anon Key).
-4. Buat file migrasi untuk skema database (menggunakan kode SQL dari `architecture.md`):
-   ```bash
-   npx supabase migration new init_truf_schema
+   Setelah proses selesai, terminal akan menampilkan kredensial lokal:
+   ```text
+   API URL: http://localhost:54321
+   GraphQL URL: http://localhost:54321/graphql/v1
+   DB URL: postgresql://postgres:postgres@localhost:54322/postgres
+   Studio URL: http://localhost:54323
+   anon key: eyJhbGci...
+   service_role key: eyJhbGci...
    ```
-   Buka file `.sql` yang baru dibuat di `supabase/migrations/` dan masukkan skrip pembuatan tabel, kebijakan RLS, serta trigger sinkronisasi profil pengguna.
-5. Jalankan migrasi lokal:
+3. Terapkan file migrasi skema database multi-tenant terbaru:
    ```bash
    npx supabase db reset
    ```
+4. Buka **Supabase Studio** di browser Anda: `http://localhost:54323` untuk menginspeksi tabel `profiles`, `game_sessions`, `game_rounds`, dan `player_scores`.
 
 ---
 
-## 5. Konfigurasi Google OAuth (SSO) Lokal
-Agar Google Auth dapat diuji secara lokal:
-1. Buka [Google Cloud Console](https://console.cloud.google.com/).
-2. Buat proyek baru dan buka menu **APIs & Services > Credentials**.
-3. Buat **OAuth client ID** dengan jenis aplikasi **Web application**.
-4. Tambahkan URL Pengalihan Resmi (Authorized Redirect URIs):
-   - Masukkan URL pengalihan lokal Supabase Auth: `http://localhost:54321/auth/v1/callback`
-5. Salin **Client ID** dan **Client Secret**.
-6. Konfigurasikan pada Supabase lokal di file `supabase/config.toml`:
-   ```toml
-   [auth.external.google]
-   enabled = true
-   client_id = "MASUKKAN_CLIENT_ID_GOOGLE_ANDA"
-   secret = "MASUKKAN_SECRET_GOOGLE_ANDA"
-   redirect_uri = "http://localhost:54321/auth/v1/callback"
-   ```
-7. Restart Supabase lokal:
-   ```bash
-   npx supabase stop
-   npx supabase start
-   ```
+## 4. Konfigurasi Variabel Lingkungan (`.env.local`)
 
----
-
-## 6. Variabel Lingkungan (.env)
-Buat file `.env.local` di root proyek untuk memetakan kredensial Supabase lokal ke aplikasi React:
+Buat atau perbarui file `.env.local` di root folder proyek:
 
 ```env
 VITE_SUPABASE_URL=http://localhost:54321
-VITE_SUPABASE_ANON_KEY=masukkan_anon_key_lokal_dari_supabase_start
+VITE_SUPABASE_ANON_KEY=masukkan_anon_key_dari_supabase_start_di_atas
 ```
-Dalam kode React Anda, inisialisasi client Supabase dengan:
-```javascript
-import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+*(Untuk mode produksi di Vercel, arahkan kedua variabel di atas ke URL dan Anon Key proyek Supabase Cloud Anda).*
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+---
+
+## 5. Menjalankan Server Pengembangan Frontend (Web)
+
+Jalankan server Vite lokal:
+```bash
+npm run dev
 ```
+Buka browser di `http://localhost:5173`. Aplikasi langsung dapat diakses dengan responsivitas mobile dan desktop.
+
+---
+
+## 6. Menjalankan di Perangkat Mobile (Capacitor)
+
+1. Build aset web produksi:
+   ```bash
+   npm run build
+   ```
+2. Sinkronkan aset ke folder native:
+   ```bash
+   npx cap sync
+   ```
+3. Buka proyek native di Android Studio:
+   ```bash
+   npx cap open android
+   ```
+4. Di Android Studio, tekan tombol **Run (▶)** untuk meluncurkan aplikasi di HP fisik atau Emulator Android.
+
+---
+
+## 7. Pengujian & Linting Kode
+- **Uji Build Produksi**: `npm run build`
+- **Linter Cepat**: `npx oxlint`
