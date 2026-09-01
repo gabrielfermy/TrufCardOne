@@ -20,6 +20,7 @@ import ChessClock from './tools/chess-clock/ChessClock'
 import GenericScoreboard from './tools/scoreboard/GenericScoreboard'
 import UtilitiesView from './tools/utilities/UtilitiesView'
 import AdminDashboard from './components/admin/AdminDashboard'
+import PricingModal from './components/pricing/PricingModal'
 
 import './App.css'
 
@@ -28,6 +29,7 @@ function MainApp() {
   const [user, setUser] = useState(null)
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
   const [isShareModalOpen, setIsShareModalOpen] = useState(false)
+  const [isPricingModalOpen, setIsPricingModalOpen] = useState(false)
   const [shareData, setShareData] = useState(null)
 
   // Navigation View State
@@ -192,6 +194,7 @@ function MainApp() {
         currentView={currentView}
         onNavigate={handleNavigate}
         onOpenAuth={() => setIsAuthModalOpen(true)}
+        onOpenPricing={() => setIsPricingModalOpen(true)}
       />
 
       {/* Main View Router */}
@@ -202,6 +205,7 @@ function MainApp() {
             recentSessions={recentSessions}
             onRematch={handleRematch}
             onShareSession={handleShareSession}
+            onOpenPricing={() => setIsPricingModalOpen(true)}
           />
         )}
 
@@ -317,6 +321,12 @@ function MainApp() {
         isOpen={isShareModalOpen}
         onClose={() => setIsShareModalOpen(false)}
         sessionData={shareData}
+      />
+
+      {/* Pricing / Tiers Modal */}
+      <PricingModal
+        isOpen={isPricingModalOpen}
+        onClose={() => setIsPricingModalOpen(false)}
       />
     </div>
   )

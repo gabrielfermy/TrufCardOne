@@ -1,7 +1,7 @@
 import React from 'react'
 import { useTranslation } from '../../i18n/I18nContext'
 
-export default function HubDashboard({ onSelectTool, recentSessions, onRematch, onShareSession }) {
+export default function HubDashboard({ onSelectTool, recentSessions, onRematch, onShareSession, onOpenPricing }) {
   const { t } = useTranslation()
 
   const cardGames = [
@@ -163,8 +163,43 @@ export default function HubDashboard({ onSelectTool, recentSessions, onRematch, 
         ))}
       </div>
 
+      {/* Pricing / Pro Promotion Banner */}
+      {onOpenPricing && (
+        <div 
+          onClick={onOpenPricing}
+          className="glass-panel" 
+          style={{
+            padding: '16px 20px',
+            marginTop: '28px',
+            marginBottom: '12px',
+            background: 'linear-gradient(90deg, rgba(139, 92, 246, 0.15), rgba(245, 158, 11, 0.12))',
+            border: '1px solid rgba(139, 92, 246, 0.3)',
+            borderRadius: '16px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            cursor: 'pointer'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <span style={{ fontSize: '2rem' }}>⭐</span>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: '1rem', color: '#FFF' }}>
+                Tingkatkan Pengalaman Game Night Anda
+              </div>
+              <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                Buka riwayat game tanpa batas, template story VIP, & mode TV Kafe.
+              </div>
+            </div>
+          </div>
+          <button className="btn btn-sm btn-primary" style={{ padding: '6px 14px', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
+            Lihat Paket 💎
+          </button>
+        </div>
+      )}
+
       {/* 4. Recent Game Night Diary Widget */}
-      <div className="section-label" style={{ marginTop: '32px' }}>
+      <div className="section-label" style={{ marginTop: '24px' }}>
         {t('hub.recent_games')}
       </div>
       {recentSessions && recentSessions.length > 0 ? (

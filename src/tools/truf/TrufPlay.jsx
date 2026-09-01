@@ -124,6 +124,7 @@ export default function TrufPlay({
   }
 
   const isMainAtas = forcedPlayMode ? forcedPlayMode === 'atas' : totalBid > 13
+  const activeSuitObj = SUITS.find(s => s.id === trufSuit)
 
   return (
     <div style={{ maxWidth: '640px', margin: '0 auto' }}>
@@ -147,20 +148,46 @@ export default function TrufPlay({
 
       {/* Input Form Panel */}
       <div className="glass-panel" style={{ padding: '20px', marginBottom: '16px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-          <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>
-            {inputPhase === 'bid' ? t('truf.phase_bid') : t('truf.phase_won')}
-          </h3>
-          <span style={{
-            fontSize: '0.8rem',
-            fontWeight: 800,
-            padding: '4px 10px',
-            borderRadius: '999px',
-            background: isMainAtas ? 'rgba(59, 130, 246, 0.2)' : 'rgba(249, 115, 22, 0.2)',
-            color: isMainAtas ? '#60A5FA' : '#FB923C'
-          }}>
-            {isMainAtas ? t('truf.main_atas') : t('truf.main_bawah')} ({t('truf.total_bid', { count: totalBid })})
-          </span>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
+          <div>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>
+              {inputPhase === 'bid' ? t('truf.phase_bid') : t('truf.phase_won')}
+            </h3>
+            {inputPhase === 'won' && activeSuitObj && (
+              <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span>Kembang:</span>
+                <span style={{ color: activeSuitObj.color, fontWeight: 800 }}>
+                  {activeSuitObj.label} {activeSuitObj.name}
+                </span>
+              </div>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {inputPhase === 'won' && (
+              <span style={{
+                fontSize: '0.8rem',
+                fontWeight: 800,
+                padding: '4px 10px',
+                borderRadius: '999px',
+                background: totalWon === 13 ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                color: totalWon === 13 ? '#34D399' : '#F87171',
+                border: `1px solid ${totalWon === 13 ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)'}`
+              }}>
+                Trik: {totalWon} / 13 {totalWon === 13 ? '✓' : ''}
+              </span>
+            )}
+            <span style={{
+              fontSize: '0.8rem',
+              fontWeight: 800,
+              padding: '4px 10px',
+              borderRadius: '999px',
+              background: isMainAtas ? 'rgba(59, 130, 246, 0.2)' : 'rgba(249, 115, 22, 0.2)',
+              color: isMainAtas ? '#60A5FA' : '#FB923C'
+            }}>
+              {isMainAtas ? t('truf.main_atas') : t('truf.main_bawah')} ({t('truf.total_bid', { count: totalBid })})
+            </span>
+          </div>
         </div>
 
         {errorMsg && (
@@ -188,9 +215,33 @@ export default function TrufPlay({
                   borderRadius: '12px'
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>{name}</span>
-                  {isDealer && <span style={{ fontSize: '0.72rem', background: '#F59E0B', color: '#000', padding: '2px 6px', borderRadius: '4px', fontWeight: 800 }}>DEALER</span>}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>{name}</span>
+                    {isDealer && <span style={{ fontSize: '0.72rem', background: '#F59E0B', color: '#000', padding: '2px 6px', borderRadius: '4px', fontWeight: 800 }}>DEALER</span>}
+                  </div>
+
+                  {/* Show Player Bid in Phase 2 */}
+                  {inputPhase === 'won' && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem' }}>
+                      <span style={{ 
+                        background: 'rgba(139, 92, 246, 0.2)', 
+                        color: '#C084FC', 
+                        padding: '1px 7px', 
+                        borderRadius: '6px', 
+                        fontWeight: 700 
+                      }}>
+                        Target Bid: {bids[idx]}
+                      </span>
+                      {wons[idx] === bids[idx] ? (
+                        <span style={{ color: '#34D399', fontWeight: 700 }}>✓ Pas</span>
+                      ) : wons[idx] < bids[idx] ? (
+                        <span style={{ color: '#F87171', fontWeight: 600 }}>Kurang {bids[idx] - wons[idx]}</span>
+                      ) : (
+                        <span style={{ color: '#FB923C', fontWeight: 600 }}>Lebih +{wons[idx] - bids[idx]}</span>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
