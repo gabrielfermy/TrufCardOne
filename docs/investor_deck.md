@@ -244,17 +244,24 @@ graph TD
 ## 8. Go-To-Market (GTM) & Distribution Strategy
 
 ```
-Phase 1: Viral Cafe & Campus Seeding
-├── Partner with 25 popular Board Game Cafes & Campus Warkops in Jakarta, Bandung, Yogyakarta, Surabaya
-├── Sponsor physical tournament game nights with branded digital leaderboards on venue TVs
-└── WhatsApp Group Seeding (Distributing 1-click room templates to university card game clubs)
+Phase 1: Capital-Efficient Web-First Launch ($0 Burn Bootstrap)
+├── Zero-cost infrastructure deployment on Vercel Free Tier + Supabase Free Tier
+├── Distribution via Progressive Web App (PWA) "Add to Home Screen" on Android & iOS (0 store fees)
+├── Sub-second WhatsApp link sharing & cafe table seeding (Jakarta, Bandung, Yogyakarta, Surabaya)
+└── Validate Product-Market Fit, organic K-factor (>1.8), and initial revenue generation
 
-Phase 2: Social Media & Creator Amplification
+Phase 2: Native App Store Expansion & Revenue-Triggered Registration
+├── Trigger: First revenue milestone ($500+ ARR) or Seed funding close
+├── Register Google Play Console ($25) and Apple Developer Program ($99/yr)
+├── 1-Click native compilation via pre-configured Capacitor bridge (Android AAB / iOS IPA)
+└── Launch ASO (App Store Optimization), push notifications, and verified store presence
+
+Phase 3: Social Media, Creator Amplification & B2B Expansion
 ├── TikTok & Instagram Reels campaign featuring "Insane Truf Comebacks" & "Kalah Omben Punishment Dares"
 ├── Micro-influencers flexing their customized 9:16 Game Night Story Cards on WhatsApp Status
-└── SEO domination on high-intent keywords ("Papan Skor Truf", "Hitung Skor Remi", "Jam Catur Online")
+└── Cafe & Warkop Tournament SaaS rollout ("Venue Edition" TV displays)
 
-Phase 3: Southeast Asian Localization
+Phase 4: Southeast Asian Regional Expansion
 ├── Expand localized game engines to Vietnam (Tiến Lên), Philippines (Tongits), and Malaysia (Choi Dai Di)
 └── Multilingual expansion (Vietnamese, Tagalog, Thai)
 ```

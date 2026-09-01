@@ -1,12 +1,56 @@
 # Mobile App & Capacitor Engineering Guide - Game Night Suite
 
-Dokumen ini adalah panduan teknis untuk mengemas aplikasi **Game Night Suite** (React 19 + Vite) menjadi aplikasi mobile native untuk **Android (APK & AAB)** dan **iOS (IPA)** menggunakan **Capacitor**.
+Dokumen ini adalah panduan teknis untuk strategi peluncuran mobile, instalasi PWA tanpa biaya (*Zero-Cost Bootstrap*), dan panduan kompilasi native untuk **Android (APK/AAB)** dan **iOS (IPA)** menggunakan **Capacitor**.
 
 ---
 
-## 1. Arsitektur Mobile Capacitor
+## 1. Strategi Peluncuran Bertahap (*Phased Rollout Strategy*)
 
-Capacitor menjembatani (*bridge*) kode web Vite (`dist/`) ke dalam *container* WebView native performa tinggi dengan akses penuh ke API perangkat keras native.
+Untuk memaksimalkan efisiensi modal (*capital efficiency*) dan mencapai kecocokan pasar produk (*product-market fit*) dengan **biaya awal $0**, proyek ini menerapkan strategi peluncuran 2 fase:
+
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│ FASE 1: PELUNCURAN WEB-FIRST & PWA (BIAYA $0 / ZERO-BURN BOOTSTRAP)       │
+│ • Infrastruktur Gratis: Vercel Free Tier + Supabase Free Tier           │
+│ • Akses Instan: Link WhatsApp tanpa perlu download Play Store/App Store  │
+│ • Instalasi PWA: Pengguna klik "Add to Home Screen" di Android & iOS    │
+│ • Pengalaman Native: Tampil fullscreen standalone tanpa address bar      │
+│ • Target: Akuisisi 1.000–10.000 user aktif & validasi monetisasi        │
+└──────────────────────────────────────────────────────────────────────────┘
+                                     │
+                    [ TRIGGER: PENDAPATAN / PENDANAAN MASUK ]
+                                     ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│ FASE 2: DISTRIBUSI NATIVE APP STORE (GOOGLE PLAY & APPLE APP STORE)      │
+│ • Registrasi Akun: Google Play Console ($25) & Apple Developer ($99/th) │
+│ • Kompilasi Instan: Menggunakan pipeline Capacitor yang sudah siap      │
+│ • Keuntungan: Peringkat ASO, Push Notification, dan kredibilitas brand  │
+└──────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 2. Fase 1: Distribusi PWA (Progressive Web App) Tanpa Biaya
+
+Tanpa perlu membayar biaya developer Google atau Apple di awal, pengguna dapat menginstal aplikasi langsung dari browser ke home screen mereka:
+
+### 2.1. Di Perangkat Android (Google Chrome)
+1. Buka link web aplikasi (contoh: `https://trufcard.app`).
+2. Banner otomatis atau pop-up browser akan muncul: **"Tambahkan Game Night Suite ke Layar Utama"** atau **"Install App"**.
+3. Ikon aplikasi akan terpasang di App Drawer dan Home Screen.
+4. Saat dibuka, aplikasi berjalan dalam mode **Standalone Fullscreen** (tanpa bilah URL browser), dengan splash screen gelap elegan dan performa animasi 60 FPS.
+
+### 2.2. Di Perangkat iPhone / iOS (Safari)
+1. Buka link web di browser Safari.
+2. Tekan tombol **Share / Bagikan (📤)** di bilah bawah Safari.
+3. Gulir ke bawah dan pilih **"Add to Home Screen" (Tambahkan ke Layar Utama)**.
+4. Ikon aplikasi terpasang di layar utama iPhone dan berjalan fullscreen tanpa frame Safari.
+
+---
+
+## 3. Fase 2: Kompilasi Native via Capacitor (Saat Siap Rilis Toko Aplikasi)
+
+Seluruh arsitektur kode React telah dirancang **100% kompatibel dengan Capacitor**. Ketika pendapatan atau pendanaan telah tersedia, tim tidak perlu menulis ulang kode.
 
 ```mermaid
 graph TD
@@ -35,9 +79,9 @@ graph TD
 
 ---
 
-## 2. Dependensi & Plugin Mobile Native
+## 4. Dependensi & Plugin Mobile Native
 
-Instal paket Capacitor yang diperlukan:
+Paket Capacitor yang telah terpasang di proyek:
 ```bash
 npm install @capacitor/core @capacitor/cli @capacitor/android @capacitor/ios
 npm install @capacitor/haptics @capacitor/status-bar @capacitor/splash-screen @capacitor/app
@@ -46,7 +90,7 @@ npm install @capacitor-community/keep-awake
 
 ---
 
-## 3. Konfigurasi `capacitor.config.json`
+## 5. Konfigurasi `capacitor.config.json`
 
 File konfigurasi di root proyek:
 ```json
@@ -60,17 +104,14 @@ File konfigurasi di root proyek:
   },
   "plugins": {
     "SplashScreen": {
-      "launchShowDuration": 1800,
+      "launchShowDuration": 1500,
       "launchAutoHide": true,
-      "backgroundColor": "#0D0E15",
-      "androidSplashResourceName": "splash",
-      "androidScaleType": "CENTER_CROP",
+      "backgroundColor": "#0B0C14",
       "showSpinner": false
     },
     "StatusBar": {
       "style": "DARK",
-      "backgroundColor": "#0D0E15",
-      "overlaysWebView": false
+      "backgroundColor": "#0B0C14"
     },
     "KeepAwake": {
       "supported": true
@@ -81,9 +122,9 @@ File konfigurasi di root proyek:
 
 ---
 
-## 4. Alur Kerja Build & Sinkronisasi Native
+## 6. Alur Kerja Build & Sinkronisasi Native
 
-### 4.1. Inisialisasi Platform Android & iOS (Sekali Saja)
+### 6.1. Inisialisasi Platform Android & iOS (Sekali Saja)
 ```bash
 # 1. Build aset web
 npm run build
@@ -93,7 +134,7 @@ npx cap add android
 npx cap add ios
 ```
 
-### 4.2. Siklus Pengembangan Harian (Daily Dev Loop)
+### 6.2. Siklus Pengembangan Harian (Daily Dev Loop)
 Setiap kali Anda mengubah kode React/CSS:
 ```bash
 # 1. Build bundle web terbaru
@@ -107,26 +148,13 @@ npx cap open android
 npx cap open ios
 ```
 
-### 4.3. Menjalankan Live Reload di HP Android Fisik
-Untuk live debugging langsung di layar HP saat mengubah kode secara real-time:
-1. Hubungkan HP Android ke PC via kabel USB (aktifkan **USB Debugging** di menu Opsi Pengembang).
-2. Di file `capacitor.config.json`, arahkan server ke IP lokal PC:
-   ```json
-   "server": {
-     "url": "http://192.168.1.XX:5173",
-     "cleartext": true
-   }
-   ```
-3. Jalankan `npm run dev` di terminal PC.
-4. Jalankan `npx cap run android -l --external`.
-
 ---
 
-## 5. Konfigurasi Deep Linking untuk Supabase Google OAuth
+## 7. Konfigurasi Deep Linking untuk Supabase Google OAuth
 
 Saat pengguna menekan tombol *"Masuk dengan Google"* di dalam aplikasi mobile native, alur OAuth akan membuka browser sistem dan mengarahkan kembali ke aplikasi via *custom URL scheme*.
 
-### 5.1. Konfigurasi Android (`android/app/src/main/AndroidManifest.xml`)
+### 7.1. Konfigurasi Android (`android/app/src/main/AndroidManifest.xml`)
 Tambahkan intent filter di dalam tag `<activity>` utama:
 ```xml
 <intent-filter>
@@ -137,107 +165,20 @@ Tambahkan intent filter di dalam tag `<activity>` utama:
 </intent-filter>
 ```
 
-### 5.2. Konfigurasi Dashboard Supabase
+### 7.2. Konfigurasi Dashboard Supabase
 1. Buka **Supabase Dashboard > Authentication > URL Configuration**.
 2. Tambahkan ke daftar **Redirect URLs**:
    - `com.trufcard.gamenight://login-callback`
-   - `https://trufcard.app/login-callback` (untuk versi web)
-
-### 5.3. Penanganan Listener di React (`src/services/authService.js`)
-```javascript
-import { App } from '@capacitor/app'
-import { supabase } from './supabaseClient'
-
-export function initMobileDeepLinkAuth() {
-  App.addListener('appUrlOpen', async (event) => {
-    if (event.url.includes('login-callback') || event.url.includes('#access_token=')) {
-      const url = new URL(event.url)
-      const hashParams = new URLSearchParams(url.hash.replace('#', '?'))
-      const accessToken = hashParams.get('access_token') || url.searchParams.get('access_token')
-      const refreshToken = hashParams.get('refresh_token') || url.searchParams.get('refresh_token')
-
-      if (accessToken && refreshToken) {
-        await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken
-        })
-      }
-    }
-  })
-}
-```
+   - `https://your-vercel-domain.vercel.app` (untuk versi web)
 
 ---
 
-## 6. Integrasi Perangkat Keras Native
+## 8. Layanan Eksternal yang Perlu Didaftarkan (Pada Fase 2)
 
-### 6.1. Haptik / Getaran Fisik (`src/services/hapticsService.js`)
-Memberikan feedback getaran saat menekan tombol jam catur, membalik kartu, atau mengocok dadu:
-```javascript
-import { Haptics, ImpactStyle } from '@capacitor/haptics'
-
-export const hapticsService = {
-  light: async () => {
-    try {
-      await Haptics.impact({ style: ImpactStyle.Light })
-    } catch {
-      if (navigator.vibrate) navigator.vibrate(15)
-    }
-  },
-  medium: async () => {
-    try {
-      await Haptics.impact({ style: ImpactStyle.Medium })
-    } catch {
-      if (navigator.vibrate) navigator.vibrate(35)
-    }
-  },
-  heavy: async () => {
-    try {
-      await Haptics.impact({ style: ImpactStyle.Heavy })
-    } catch {
-      if (navigator.vibrate) navigator.vibrate(70)
-    }
-  }
-}
-```
-
-### 6.2. Screen Wake-Lock (`src/services/wakeLockService.js`)
-Menjaga layar tetap menyala selama jam catur aktif atau saat sesi bermain kartu berlangsung:
-```javascript
-import { KeepAwake } from '@capacitor-community/keep-awake'
-
-export const wakeLockService = {
-  enable: async () => {
-    try {
-      await KeepAwake.keepAwake()
-    } catch {
-      if ('wakeLock' in navigator) {
-        try {
-          await navigator.wakeLock.request('screen')
-        } catch (e) {
-          console.warn('Web WakeLock error', e)
-        }
-      }
-    }
-  },
-  disable: async () => {
-    try {
-      await KeepAwake.allowSleep()
-    } catch (e) {
-      console.warn('KeepAwake disable error', e)
-    }
-  }
-}
-```
-
----
-
-## 7. Checklist Rilis Produksi (Google Play & App Store)
-
-1. **Ikon & Splash Screen**: Siapkan ikon beresolusi tinggi di `resources/icon.png` (1024x1024) dan splash screen `resources/splash.png` (2732x2732). Gunakan `@capacitor/assets` untuk generate otomatis seluruh ukuran platform.
-2. **Build Release Android AAB**:
-   - Buka folder `android/` di Android Studio.
-   - Pilih menu **Build > Generate Signed Bundle / APK > Android App Bundle**.
-   - Masukkan keystore dan alias signing.
-3. **Pemeriksaan Izin AndroidManifest**:
-   - Pastikan hanya izin yang diperlukan yang aktif (`VIBRATE`, `WAKE_LOCK`, `INTERNET`).
+| Layanan | Platform | Biaya | Kapan Didaftarkan? |
+| :--- | :--- | :--- | :--- |
+| **Vercel** | Web & PWA | **Gratis** (Hobby) | **Fase 1 (Sekarang)** |
+| **Supabase Cloud** | Backend / Database | **Gratis** (Tier Free) | **Fase 1 (Sekarang)** |
+| **Google Cloud Console** | Google OAuth SSO | **Gratis** | **Fase 1 (Sekarang)** |
+| **Google Play Console** | Android App Store | **$25** *(Sekali seumur hidup)* | **Fase 2 (Setelah ada revenue/dana)** |
+| **Apple Developer** | iOS App Store | **$99 / tahun** | **Fase 2 (Setelah ada revenue/dana)** |

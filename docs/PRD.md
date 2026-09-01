@@ -149,3 +149,20 @@ graph TD
 3. **Offline & Guest-First**: Seluruh alat (Chess Clock, Dadu, Finger Chooser, Papan Skor Lokal) dapat digunakan 100% secara instan tanpa koneksi internet dan tanpa login.
 4. **Keamanan & Isolasi Multi-Tenant**: Menggunakan Supabase Row Level Security (RLS) dengan autentikasi Google OAuth & Email.
 5. **Dukungan Mobile Native**: Konfigurasi Capacitor untuk build Android APK/AAB dan iOS IPA dengan haptik dan wake-lock bawaan.
+
+---
+
+## 5. Rencana Peluncuran Bertahap & Efisiensi Modal (Phased Rollout Strategy)
+
+1. **Fase 1 (Peluncuran Web-First & PWA - Biaya $0)**:
+   - Hosting di Vercel Free Tier + Supabase Free Tier (mendukung hingga 50.000 MAU).
+   - Distribusi instan tanpa biaya pendaftaran toko aplikasi ($0) via fitur **PWA (Progressive Web App)** di Android Chrome ("Install App") dan iOS Safari ("Add to Home Screen").
+   - Memaksimalkan kecepatan akuisisi pengguna di kafe dan warkop via link WhatsApp tanpa hambatan download 40MB.
+   - Validasi Product-Market Fit dan pengumpulan data feedback awal.
+
+2. **Fase 2 (Pendaftaran Toko Aplikasi & Ekspansi Native)**:
+   - **Pemicu (Milestone Trigger)**: Tercapainya pendapatan awal (*Game Night Pro / B2B Cafe SaaS*) atau pendanaan awal (*Seed investment*).
+   - Mendaftarkan Google Play Console ($25) dan Apple Developer Program ($99/th).
+   - Kompilasi instan menggunakan arsitektur Capacitor yang telah terpasang ke format Android App Bundle (`.aab`) dan iOS (`.ipa`).
+   - Memaksimalkan peringkat pencarian App Store (ASO) dan kredibilitas pasar.
+
