@@ -6,8 +6,8 @@ on:
       - master
     paths:
       - 'supabase/migrations/**'
-      - '.github/workflows/supabase-migration.yml'
-  workflow_dispatch:
+      - '.github/workflows/**'
+  workflow_dispatch: {}
 
 jobs:
   deploy-migrations:
@@ -18,10 +18,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Supabase CLI
-        uses: supabase/setup-cli@v3
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          version: latest
+          node-version: 20
 
       - name: Link & Push Migrations to Supabase Cloud
         env:
@@ -34,5 +34,5 @@ jobs:
             echo "Please configure them in Repository Settings > Secrets and variables > Actions."
             exit 1
           fi
-          supabase link --project-ref "$SUPABASE_PROJECT_ID" --password "$SUPABASE_DB_PASSWORD"
-          supabase db push --password "$SUPABASE_DB_PASSWORD" --include-all
+          npx --yes supabase link --project-ref "$SUPABASE_PROJECT_ID" --password "$SUPABASE_DB_PASSWORD"
+          npx --yes supabase db push --password "$SUPABASE_DB_PASSWORD" --include-all
