@@ -100,3 +100,16 @@ Buka browser di `http://localhost:5173`. Aplikasi langsung dapat diakses dengan 
 ## 7. Pengujian & Linting Kode
 - **Uji Build Produksi**: `npm run build`
 - **Linter Cepat**: `npx oxlint`
+
+---
+
+## 8. Otomatisasi CI/CD Database Migration (GitHub Actions)
+
+Proyek ini telah dilengkapi pipeline otomatisasi migrasi database menggunakan GitHub Actions di `.github/workflows/supabase-migration.yml`. Setiap kali ada file SQL baru di `supabase/migrations/` yang di-merge ke branch `master`, sistem akan otomatis menjalankan `supabase db push` ke Supabase Cloud (serupa dengan `php artisan migrate` di Laravel).
+
+### Konfigurasi GitHub Repository Secrets:
+Buka repositori GitHub Anda di **Settings > Secrets and variables > Actions**, lalu tambahkan 3 secrets:
+1. `SUPABASE_ACCESS_TOKEN`: Dibuat di [Supabase Account Tokens](https://supabase.com/dashboard/account/tokens).
+2. `SUPABASE_PROJECT_ID`: Reference ID proyek Anda (misal: `abcdefghijklmno`).
+3. `SUPABASE_DB_PASSWORD`: Password database PostgreSQL yang ditentukan saat pembuatan proyek Supabase.
+
