@@ -2,6 +2,53 @@ import React, { useState, useEffect, useRef } from 'react'
 import { authService } from '../../services/authService'
 import { useTranslation } from '../../i18n/I18nContext'
 
+// Helper for evaluating password strength (min 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 special char)
+const evaluatePassword = (pwd) => {
+  const p = pwd || ''
+  const min8 = p.length >= 8
+  const hasUpper = /[A-Z]/.test(p)
+  const hasLower = /[a-z]/.test(p)
+  const hasNumber = /[0-9]/.test(p)
+  const hasSpecial = /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?~`]/.test(p)
+
+  const passedCount = [min8, hasUpper, hasLower, hasNumber, hasSpecial].filter(Boolean).length
+
+  let label = 'strength_very_weak'
+  let color = '#EF4444' // red
+  let percent = 20
+
+  if (passedCount <= 1) {
+    label = 'strength_very_weak'
+    color = '#EF4444'
+    percent = 20
+  } else if (passedCount <= 3) {
+    label = 'strength_weak'
+    color = '#F97316' // orange
+    percent = 50
+  } else if (passedCount === 4) {
+    label = 'strength_medium'
+    color = '#EAB308' // yellow
+    percent = 75
+  } else {
+    label = 'strength_strong'
+    color = '#10B981' // emerald
+    percent = 100
+  }
+
+  return {
+    min8,
+    hasUpper,
+    hasLower,
+    hasNumber,
+    hasSpecial,
+    passedCount,
+    isValid: passedCount === 5,
+    label,
+    color,
+    percent
+  }
+}
+
 export default function AuthModal({ isOpen, onClose, user, onAuthSuccess }) {
   const { t } = useTranslation()
   const [isRegistering, setIsRegistering] = useState(false)
@@ -15,6 +62,8 @@ export default function AuthModal({ isOpen, onClose, user, onAuthSuccess }) {
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
   const googleBtnRef = useRef(null)
+
+  const passEval = evaluatePassword(password)
 
   useEffect(() => {
     if (isOpen && !user && googleBtnRef.current) {
@@ -38,8 +87,8 @@ export default function AuthModal({ isOpen, onClose, user, onAuthSuccess }) {
     setErrorMsg('')
 
     if (isRegistering) {
-      if (password.length < 6) {
-        setErrorMsg(t('auth.password_too_short'))
+      if (!passEval.isValid) {
+        setErrorMsg(t('auth.password_requirements_unmet'))
         return
       }
       if (password !== confirmPassword) {
@@ -208,7 +257,7 @@ export default function AuthModal({ isOpen, onClose, user, onAuthSuccess }) {
                 />
               </div>
 
-              <div className="form-group">
+              <div className="form-group" style={{ marginBottom: isRegistering ? '8px' : '16px' }}>
                 <label className="form-label">Password</label>
                 <div style={{ position: 'relative' }}>
                   <input 
@@ -219,7 +268,7 @@ export default function AuthModal({ isOpen, onClose, user, onAuthSuccess }) {
                     placeholder="••••••••"
                     style={{ paddingRight: '42px' }}
                     required
-                    minLength={6}
+                    minLength={isRegistering ? 8 : 6}
                   />
                   <button
                     type="button"
@@ -245,6 +294,68 @@ export default function AuthModal({ isOpen, onClose, user, onAuthSuccess }) {
                   </button>
                 </div>
               </div>
+
+              {/* Password Strength Meter & Live Checklist (Only on Register) */}
+              {isRegistering && (
+                <div style={{ marginBottom: '16px', marginTop: '4px' }}>
+                  {/* Strength Bar */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Kekuatan Kata Sandi:</span>
+                    <span style={{ fontSize: '0.74rem', fontWeight: 800, color: password.length > 0 ? passEval.color : 'var(--text-dim)' }}>
+                      {password.length > 0 ? t(`auth.${passEval.label}`) : '-'}
+                    </span>
+                  </div>
+                  <div style={{
+                    width: '100%',
+                    height: '5px',
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    borderRadius: '999px',
+                    overflow: 'hidden',
+                    marginBottom: '8px'
+                  }}>
+                    <div style={{
+                      width: password.length > 0 ? `${passEval.percent}%` : '0%',
+                      height: '100%',
+                      background: passEval.color,
+                      transition: 'all 0.3s ease',
+                      borderRadius: '999px'
+                    }} />
+                  </div>
+
+                  {/* 5 Criteria Badges */}
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
+                    gap: '5px',
+                    fontSize: '0.71rem',
+                    background: 'rgba(0, 0, 0, 0.25)',
+                    padding: '8px 10px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border-glass)'
+                  }}>
+                    <div style={{ color: passEval.min8 ? '#34D399' : 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <span style={{ fontWeight: 800 }}>{passEval.min8 ? '✓' : '○'}</span>
+                      <span>{t('auth.req_min_chars')}</span>
+                    </div>
+                    <div style={{ color: passEval.hasUpper ? '#34D399' : 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <span style={{ fontWeight: 800 }}>{passEval.hasUpper ? '✓' : '○'}</span>
+                      <span>{t('auth.req_uppercase')}</span>
+                    </div>
+                    <div style={{ color: passEval.hasLower ? '#34D399' : 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <span style={{ fontWeight: 800 }}>{passEval.hasLower ? '✓' : '○'}</span>
+                      <span>{t('auth.req_lowercase')}</span>
+                    </div>
+                    <div style={{ color: passEval.hasNumber ? '#34D399' : 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <span style={{ fontWeight: 800 }}>{passEval.hasNumber ? '✓' : '○'}</span>
+                      <span>{t('auth.req_number')}</span>
+                    </div>
+                    <div style={{ color: passEval.hasSpecial ? '#34D399' : 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: '5px', gridColumn: 'span 2' }}>
+                      <span style={{ fontWeight: 800 }}>{passEval.hasSpecial ? '✓' : '○'}</span>
+                      <span>{t('auth.req_special')}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {isRegistering && (
                 <div className="form-group">
