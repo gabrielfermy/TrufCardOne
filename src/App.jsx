@@ -393,21 +393,40 @@ function MainApp() {
   }
 
   // 2. Save a Game Round
+  // 2. Save a Game Round
   const handleSaveRound = async (roundPayload) => {
     if (!activeSession) return
-    const saved = await gameService.saveRound({
-      sessionId: activeSession.id,
-      roundNumber: roundPayload.roundNumber,
-      roundData: roundPayload.roundData,
-      playerScores: roundPayload.playerScores
-    })
+    const roundData = roundPayload.roundData || roundPayload.round_data || {}
+    const playerScores = roundPayload.playerScores || roundPayload.player_scores || []
+    const roundNumber = roundPayload.roundNumber || roundPayload.round_number
 
-    if (saved) {
-      setSessionRounds(prev => [...prev, saved])
-      if (!activeSession.settings?.isOfflineLocal && activeSession.id) {
-        gameService.broadcastRound(activeSession.id, saved)
+    // Ensure sessionRounds has the optimistic payload immediately
+    setSessionRounds(prev => [...prev, {
+      ...roundPayload,
+      roundNumber,
+      round_number: roundNumber,
+      roundData,
+      round_data: roundData,
+      playerScores,
+      player_scores: playerScores
+    }])
+
+    try {
+      const saved = await gameService.saveRound({
+        sessionId: activeSession.id,
+        roundNumber,
+        roundData,
+        playerScores
+      })
+
+      if (saved) {
+        if (!activeSession.settings?.isOfflineLocal && activeSession.id) {
+          gameService.broadcastRound(activeSession.id, saved)
+        }
+        loadUserSessions(user?.id)
       }
-      loadUserSessions(user?.id)
+    } catch (err) {
+      console.warn('saveRound error:', err)
     }
   }
 
@@ -421,13 +440,20 @@ function MainApp() {
   }
 
   // 4. Share Current Live Session (Non-Destructive, does not end game)
-  const handleShareCurrentSession = () => {
+  const handleShareCurrentSession = (customRounds) => {
     if (!activeSession) return
+    const roundsToUse = (Array.isArray(customRounds) && customRounds.length > 0)
+      ? customRounds
+      : (sessionRounds.length > 0 ? sessionRounds : (activeSession.game_rounds || []))
+
     const isLowestWins = activeSession.game_type === 'remi' || activeSession.game_type === 'omben'
     const scores = Array(activeSession.player_names?.length || 4).fill(0)
-    sessionRounds.forEach(r => {
-      r.player_scores?.forEach(ps => {
-        scores[ps.player_index] += (ps.score_change || 0)
+    roundsToUse.forEach(r => {
+      const pScores = r.player_scores || r.playerScores || []
+      pScores.forEach(ps => {
+        const pIdx = ps.player_index ?? 0
+        const change = ps.score_change ?? 0
+        scores[pIdx] += change
       })
     })
 
@@ -448,16 +474,27 @@ function MainApp() {
   }
 
   // 5. Finalize Game & Open Story Card Modal
-  const handleFinalizeGame = async () => {
+  const handleFinalizeGame = async (customRounds) => {
     if (!activeSession) return
-    await gameService.completeSession(activeSession.id)
+    try {
+      await gameService.completeSession(activeSession.id)
+    } catch (err) {
+      console.warn('Could not complete session on cloud/storage:', err)
+    }
     
+    const roundsToUse = (Array.isArray(customRounds) && customRounds.length > 0)
+      ? customRounds
+      : (sessionRounds.length > 0 ? sessionRounds : (activeSession.game_rounds || []))
+
     // Calculate final rankings (lowest score wins for remi/omben, highest for truf)
     const isLowestWins = activeSession.game_type === 'remi' || activeSession.game_type === 'omben'
     const scores = Array(activeSession.player_names?.length || 4).fill(0)
-    sessionRounds.forEach(r => {
-      r.player_scores?.forEach(ps => {
-        scores[ps.player_index] += (ps.score_change || 0)
+    roundsToUse.forEach(r => {
+      const pScores = r.player_scores || r.playerScores || []
+      pScores.forEach(ps => {
+        const pIdx = ps.player_index ?? 0
+        const change = ps.score_change ?? 0
+        scores[pIdx] += change
       })
     })
 
@@ -474,6 +511,7 @@ function MainApp() {
       players: playersWithScores
     })
 
+    setActiveSession(prev => prev ? { ...prev, is_completed: true } : null)
     setIsShareModalOpen(true)
     loadUserSessions(user?.id)
   }
@@ -744,7 +782,12 @@ function MainApp() {
       {/* 9:16 Social Story Card Modal */}
       <StoryCardModal
         isOpen={isShareModalOpen}
-        onClose={() => setIsShareModalOpen(false)}
+        onClose={() => {
+          setIsShareModalOpen(false)
+          if (activeSession?.is_completed) {
+            setGameMode('lobby')
+          }
+        }}
         sessionData={shareData}
       />
 

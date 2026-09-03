@@ -1,3 +1,21 @@
+function drawRoundRect(ctx, x, y, w, h, r) {
+  if (typeof ctx.roundRect === 'function') {
+    ctx.roundRect(x, y, w, h, r)
+  } else {
+    ctx.beginPath()
+    ctx.moveTo(x + r, y)
+    ctx.lineTo(x + w - r, y)
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r)
+    ctx.lineTo(x + w, y + h - r)
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h)
+    ctx.lineTo(x + r, y + h)
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r)
+    ctx.lineTo(x, y + r)
+    ctx.quadraticCurveTo(x, y, x + r, y)
+    ctx.closePath()
+  }
+}
+
 /**
  * 9:16 Social Media Story Card Generator & Web Share Service
  * Formats match summaries for WhatsApp Status, Instagram Stories, and TikTok
@@ -8,7 +26,7 @@ export const shareService = {
    * @param {Object} data { gameType, title, hostName, date, players: [{ name, score, rank, tag }] }
    * @returns {Promise<Blob>}
    */
-  generateStoryCardBlob: async (data) => {
+  generateStoryCardBlob: async (data = {}) => {
     const width = 1080
     const height = 1920
     const canvas = document.createElement('canvas')
@@ -67,7 +85,7 @@ export const shareService = {
     ctx.strokeStyle = '#F59E0B'
     ctx.lineWidth = 4
     ctx.beginPath()
-    ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 32)
+    drawRoundRect(ctx, badgeX, badgeY, badgeW, badgeH, 32)
     ctx.fill()
     ctx.stroke()
 
@@ -113,7 +131,7 @@ export const shareService = {
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)'
       ctx.lineWidth = 2
       ctx.beginPath()
-      ctx.roundRect(badgeX, rowY, rowW, rowH, 20)
+      drawRoundRect(ctx, badgeX, rowY, rowW, rowH, 20)
       ctx.fill()
       ctx.stroke()
 
