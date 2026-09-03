@@ -1,4 +1,4 @@
-# System Architecture & Technical Specification - Game Night Suite
+# System Architecture & Technical Specification - KancaSela
 
 ## 1. Arsitektur Sistem & Topologi Teknologi
 
@@ -322,8 +322,8 @@ Bahasa dapat dialihkan secara dinamis tanpa refresh halaman melalui tombol `ID |
 File konfigurasi `capacitor.config.json`:
 ```json
 {
-  "appId": "com.trufcard.gamenight",
-  "appName": "Game Night Companion",
+  "appId": "com.kancasela.app",
+  "appName": "KancaSela",
   "webDir": "dist",
   "server": {
     "androidScheme": "https"

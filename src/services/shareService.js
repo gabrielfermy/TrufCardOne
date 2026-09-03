@@ -44,11 +44,11 @@ export const shareService = {
     ctx.fillStyle = '#8B5CF6'
     ctx.font = 'bold 36px sans-serif'
     ctx.letterSpacing = '4px'
-    ctx.fillText('GAME NIGHT COMPANION', width / 2, 140)
+    ctx.fillText('KANCASELA', width / 2, 140)
 
     ctx.fillStyle = '#FFFFFF'
     ctx.font = '900 68px sans-serif'
-    ctx.fillText((data.gameType || 'GAME NIGHT').toUpperCase(), width / 2, 230)
+    ctx.fillText((data.gameType || 'MATCH RESULT').toUpperCase(), width / 2, 230)
 
     ctx.fillStyle = '#94A3B8'
     ctx.font = '32px sans-serif'
@@ -142,11 +142,11 @@ export const shareService = {
     ctx.textAlign = 'center'
     ctx.fillStyle = '#64748B'
     ctx.font = '28px sans-serif'
-    ctx.fillText('Dicatat dengan Game Night Suite', width / 2, height - 120)
+    ctx.fillText('Dicatat dengan KancaSela', width / 2, height - 120)
 
     ctx.fillStyle = '#8B5CF6'
     ctx.font = 'bold 32px sans-serif'
-    ctx.fillText('trufcard.app', width / 2, height - 70)
+    ctx.fillText('kancasela.my.id', width / 2, height - 70)
 
     return new Promise((resolve) => {
       canvas.toBlob((blob) => {
@@ -163,29 +163,42 @@ export const shareService = {
       const blob = await shareService.generateStoryCardBlob(data)
       if (!blob) return
 
-      const file = new File([blob], `game-night-${Date.now()}.png`, { type: 'image/png' })
+      const file = new File([blob], `kancasela-${Date.now()}.png`, { type: 'image/png' })
 
       if (typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({
           files: [file],
-          title: `Game Night: ${data.gameType || 'Match Result'}`,
-          text: `Juara malam ini: ${data.players?.[0]?.name || 'Player'}! 🏆 #GameNight`
+          title: `KancaSela: ${data.gameType || 'Match Result'}`,
+          text: `Juara hari ini: ${data.players?.[0]?.name || 'Player'}! 🏆 #KancaSela`
         })
       } else {
-        // Fallback: Download Image directly
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `game-night-story-${Date.now()}.png`
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
-        URL.revokeObjectURL(url)
+        // Fallback: Download directly
+        await shareService.downloadStoryCard(data)
       }
     } catch (err) {
       if (err.name !== 'AbortError') {
         console.error('Share story card error', err)
       }
+    }
+  },
+
+  /**
+   * Directly download story card image file (PNG)
+   */
+  downloadStoryCard: async (data) => {
+    try {
+      const blob = await shareService.generateStoryCardBlob(data)
+      if (!blob) return
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `kancasela-${(data.gameType || 'story').toLowerCase()}-${Date.now()}.png`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error('Download story card error', err)
     }
   }
 }

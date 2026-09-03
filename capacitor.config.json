@@ -1,6 +1,6 @@
 {
-  "appId": "com.trufcard.gamenight",
-  "appName": "Game Night Companion",
+  "appId": "com.kancasela.app",
+  "appName": "KancaSela",
   "webDir": "dist",
   "server": {
     "androidScheme": "https",

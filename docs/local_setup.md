@@ -1,4 +1,4 @@
-# Local Setup & Infrastructure Guide - Game Night Suite
+# Local Setup & Infrastructure Guide - KancaSela
 
 Dokumen ini berisi panduan teknis langkah demi langkah untuk menyiapkan lingkungan pengembangan lokal (*local development environment*), menjalankan Supabase lokal dengan Docker, melakukan migrasi database multi-tenant, dan menjalankan aplikasi web dan mobile Capacitor.
 

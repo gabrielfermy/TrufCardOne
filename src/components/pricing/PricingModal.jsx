@@ -25,7 +25,7 @@ export default function PricingModal({ isOpen, onClose }) {
         <div className="modal-header">
           <div>
             <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#A78BFA', letterSpacing: '1px', textTransform: 'uppercase' }}>
-              GAME NIGHT SUITE TIERS
+              KANCASELA TIERS
             </span>
             <h3 className="modal-title" style={{ fontSize: '1.6rem', fontWeight: 900, marginTop: '2px' }}>
               💎 {t('pricing.title')}
@@ -123,7 +123,7 @@ export default function PricingModal({ isOpen, onClose }) {
             </button>
           </div>
 
-          {/* 2. GAME NIGHT PRO (HIGHLIGHTED) */}
+          {/* 2. KANCASELA PRO (HIGHLIGHTED) */}
           <div style={{
             background: 'linear-gradient(145deg, rgba(139, 92, 246, 0.15), rgba(15, 23, 42, 0.8))',
             border: '2px solid #8B5CF6',
@@ -186,7 +186,7 @@ export default function PricingModal({ isOpen, onClose }) {
                 border: 'none',
                 boxShadow: '0 8px 20px rgba(139, 92, 246, 0.4)'
               }}
-              onClick={() => handleSelectPlan('Game Night Pro')}
+              onClick={() => handleSelectPlan('KancaSela Pro')}
             >
               🚀 {t('pricing.upgrade_pro')}
             </button>

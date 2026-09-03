@@ -1,4 +1,4 @@
-# Mobile App & Capacitor Engineering Guide - Game Night Suite
+# Mobile App & Capacitor Engineering Guide - KancaSela
 
 Dokumen ini adalah panduan teknis untuk strategi peluncuran mobile, instalasi PWA tanpa biaya (*Zero-Cost Bootstrap*), dan panduan kompilasi native untuk **Android (APK/AAB)** dan **iOS (IPA)** menggunakan **Capacitor**.
 
@@ -35,8 +35,8 @@ Untuk memaksimalkan efisiensi modal (*capital efficiency*) dan mencapai kecocoka
 Tanpa perlu membayar biaya developer Google atau Apple di awal, pengguna dapat menginstal aplikasi langsung dari browser ke home screen mereka:
 
 ### 2.1. Di Perangkat Android (Google Chrome)
-1. Buka link web aplikasi (contoh: `https://trufcard.app`).
-2. Banner otomatis atau pop-up browser akan muncul: **"Tambahkan Game Night Suite ke Layar Utama"** atau **"Install App"**.
+1. Buka link web aplikasi (contoh: `https://gns.avl.my.id`).
+2. Banner otomatis atau pop-up browser akan muncul: **"Tambahkan KancaSela ke Layar Utama"** atau **"Install App"**.
 3. Ikon aplikasi akan terpasang di App Drawer dan Home Screen.
 4. Saat dibuka, aplikasi berjalan dalam mode **Standalone Fullscreen** (tanpa bilah URL browser), dengan splash screen gelap elegan dan performa animasi 60 FPS.
 
@@ -95,8 +95,8 @@ npm install @capacitor-community/keep-awake
 File konfigurasi di root proyek:
 ```json
 {
-  "appId": "com.trufcard.gamenight",
-  "appName": "Game Night Companion",
+  "appId": "com.kancasela.app",
+  "appName": "KancaSela",
   "webDir": "dist",
   "server": {
     "androidScheme": "https",

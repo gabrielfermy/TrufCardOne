@@ -2,34 +2,100 @@ import React, { useState } from 'react'
 import { useTranslation } from '../../i18n/I18nContext'
 import { soundService } from '../../services/soundService'
 import { hapticsService } from '../../services/hapticsService'
+import { deviceService } from '../../services/deviceService'
 
 export default function RoomInviteModal({ isOpen, onClose, session, user, onClaimSeat }) {
   const { t } = useTranslation()
-  const [copied, setCopied] = useState(false)
+  const [copiedType, setCopiedType] = useState(null) // 'code' | 'link' | null
 
   if (!isOpen || !session) return null
 
-  const roomCode = session.room_code || 'GNS-ROOM'
-  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://gns.avl.my.id'
+  const roomCode = session.room_code || 'ROOM'
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://kancasela.my.id'
   const inviteUrl = `${origin}/?room=${roomCode}`
+  const currentClientId = deviceService.getClientIdentifier(user)
 
-  const handleCopyLink = () => {
-    hapticsService.light()
-    soundService.playClick()
-    navigator.clipboard.writeText(inviteUrl)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2500)
+  // Safe clipboard helper with legacy execCommand fallback
+  const copyTextToClipboard = async (text, type) => {
+    try {
+      hapticsService.light()
+      soundService.playClick()
+    } catch {}
+
+    let success = false
+    if (navigator?.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(text)
+        success = true
+      } catch (err) {
+        console.warn('Clipboard writeText failed, trying execCommand fallback', err)
+      }
+    }
+
+    if (!success) {
+      try {
+        const textarea = document.createElement('textarea')
+        textarea.value = text
+        textarea.style.position = 'fixed'
+        textarea.style.left = '-9999px'
+        textarea.style.top = '0'
+        document.body.appendChild(textarea)
+        textarea.focus()
+        textarea.select()
+        success = document.execCommand('copy')
+        document.body.removeChild(textarea)
+      } catch (err) {
+        console.error('Copy fallback also failed', err)
+      }
+    }
+
+    if (success) {
+      setCopiedType(type)
+      setTimeout(() => setCopiedType(null), 2500)
+    }
   }
 
   const handleShareWhatsApp = () => {
-    hapticsService.medium()
-    soundService.playClick()
-    const msg = `🎮 Yuk gabung ke Game Night Suite!\nPermainan: ${session.game_type?.toUpperCase()}\nKode Room: ${roomCode}\n\nKlik link ini untuk langsung gabung meja:\n${inviteUrl}`
-    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank')
+    try {
+      hapticsService.medium()
+      soundService.playClick()
+    } catch {}
+
+    const gameName = (session.game_type || 'Game').toUpperCase()
+    const msg = `🎮 Yuk gabung ke room game KancaSela!\nPermainan: ${gameName}\nKode Room: ${roomCode}\n\nKlik tautan ini untuk langsung check-in ke meja:\n${inviteUrl}`
+    const waUrl = `https://wa.me/?text=${encodeURIComponent(msg)}`
+    window.open(waUrl, '_blank')
+  }
+
+  const handleNativeShare = async () => {
+    try {
+      hapticsService.medium()
+      soundService.playClick()
+    } catch {}
+
+    const gameName = (session.game_type || 'Game').toUpperCase()
+    const shareData = {
+      title: `Gabung Meja ${gameName} - KancaSela`,
+      text: `🎮 Yuk gabung ke meja ${gameName} di KancaSela! Kode Room: ${roomCode}`,
+      url: inviteUrl
+    }
+
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share(shareData)
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          handleShareWhatsApp()
+        }
+      }
+    } else {
+      handleShareWhatsApp()
+    }
   }
 
   const playerNames = session.player_names || []
   const playerUserIds = session.player_user_ids || []
+  const canNativeShare = typeof navigator !== 'undefined' && !!navigator.share
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -40,60 +106,95 @@ export default function RoomInviteModal({ isOpen, onClose, session, user, onClai
               MULTIPLAYER LOBBY
             </span>
             <h3 className="modal-title" style={{ fontSize: '1.35rem', fontWeight: 900, marginTop: '2px' }}>
-              🔗 {t('app.share')} Meja Permainan
+              🔗 Bagikan Meja Permainan
             </h3>
           </div>
           <button className="btn-close" onClick={onClose}>✕</button>
         </div>
 
         <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', marginBottom: '18px' }}>
-          Bagikan kode atau tautan ini ke pemain lain agar mereka bisa membuka meja di HP masing-masing dan menginput giliran kocok kartu (Dealer)!
+          Ajak teman bermain dengan membagikan kode room atau tautan meja. Teman bisa langsung check-in untuk mengisi skor mereka sendiri, atau bergabung sebagai penonton live!
         </p>
 
-        {/* Room Code Big Display */}
+        {/* Room Code Display */}
         <div style={{
-          background: 'rgba(0,0,0,0.4)',
+          background: 'rgba(0,0,0,0.45)',
           border: '1px dashed var(--primary)',
           borderRadius: '16px',
           padding: '16px',
           textAlign: 'center',
           marginBottom: '16px'
         }}>
-          <div style={{ fontSize: '0.78rem', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 700 }}>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 700 }}>
             {t('app.room_code')}
           </div>
           <div style={{ fontSize: '2.2rem', fontWeight: 900, letterSpacing: '4px', color: 'var(--primary)', margin: '4px 0' }}>
             {roomCode}
           </div>
-          <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginTop: '12px' }}>
+
+          {/* Action Buttons: Copy Code, Copy Link, WhatsApp, Share */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '12px' }}>
             <button 
-              className="btn btn-sm btn-primary"
-              onClick={handleCopyLink}
-              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-            >
-              <span>{copied ? '✓' : '📋'}</span>
-              <span>{copied ? t('app.copied') : t('app.copy_code')}</span>
-            </button>
-            <button 
+              type="button"
               className="btn btn-sm btn-secondary"
+              onClick={() => copyTextToClipboard(roomCode, 'code')}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+            >
+              <span>{copiedType === 'code' ? '✓' : '🔢'}</span>
+              <span>{copiedType === 'code' ? 'Kode Tersalin!' : 'Salin Kode'}</span>
+            </button>
+
+            <button 
+              type="button"
+              className="btn btn-sm btn-primary"
+              onClick={() => copyTextToClipboard(inviteUrl, 'link')}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+            >
+              <span>{copiedType === 'link' ? '✓' : '🔗'}</span>
+              <span>{copiedType === 'link' ? 'Link Tersalin!' : 'Salin Link'}</span>
+            </button>
+
+            <button 
+              type="button"
+              className="btn btn-sm"
               onClick={handleShareWhatsApp}
-              style={{ background: '#25D366', color: '#000', fontWeight: 800, border: 'none', display: 'flex', alignItems: 'center', gap: '6px' }}
+              style={{
+                background: '#25D366',
+                color: '#000',
+                fontWeight: 800,
+                border: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px'
+              }}
             >
               <span>💬</span>
               <span>WhatsApp</span>
             </button>
+
+            <button 
+              type="button"
+              className="btn btn-sm btn-secondary"
+              onClick={handleNativeShare}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+            >
+              <span>{canNativeShare ? '📤' : '🌐'}</span>
+              <span>{canNativeShare ? 'Bagikan...' : 'Share'}</span>
+            </button>
           </div>
         </div>
 
-        {/* Player Seats & Seat Claiming */}
-        <div style={{ marginBottom: '16px' }}>
+        {/* Player Seats & Realtime Check-in Status */}
+        <div style={{ marginBottom: '18px' }}>
           <div style={{ fontSize: '0.85rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-muted)' }}>
-            👥 Kursi Pemain di Meja:
+            👥 Status Kursi Pemain ({playerUserIds.filter(Boolean).length} / {playerNames.length} Check-in):
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {playerNames.map((name, idx) => {
-              const isClaimedByMe = user && playerUserIds[idx] === user.id
-              const isClaimed = !!playerUserIds[idx]
+              const seatUserId = playerUserIds[idx]
+              const isClaimedByMe = seatUserId === currentClientId || (user && seatUserId === user.id)
+              const isClaimed = !!seatUserId
 
               return (
                 <div 
@@ -113,20 +214,29 @@ export default function RoomInviteModal({ isOpen, onClose, session, user, onClai
                     <span style={{ fontWeight: 700 }}>
                       P{idx + 1}: {name}
                     </span>
-                    {isClaimedByMe && (
+                    {isClaimedByMe ? (
                       <span style={{ fontSize: '0.72rem', background: '#8B5CF6', color: '#FFF', padding: '1px 6px', borderRadius: '4px', fontWeight: 800 }}>
                         Anda
+                      </span>
+                    ) : isClaimed ? (
+                      <span style={{ fontSize: '0.72rem', background: 'rgba(52, 211, 153, 0.2)', color: '#34D399', padding: '1px 6px', borderRadius: '4px', fontWeight: 700 }}>
+                        ✓ Terisi
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: '0.72rem', background: 'rgba(255, 255, 255, 0.08)', color: 'var(--text-dim)', padding: '1px 6px', borderRadius: '4px' }}>
+                        Kosong
                       </span>
                     )}
                   </div>
 
-                  {user && !isClaimed && onClaimSeat && (
+                  {!isClaimed && onClaimSeat && (
                     <button 
+                      type="button"
                       className="btn btn-sm btn-secondary"
-                      style={{ fontSize: '0.75rem', padding: '3px 8px' }}
+                      style={{ fontSize: '0.75rem', padding: '3px 10px' }}
                       onClick={() => onClaimSeat(idx)}
                     >
-                      {t('app.claim_seat')}
+                      Pilih Kursi Ini
                     </button>
                   )}
                 </div>
@@ -135,7 +245,7 @@ export default function RoomInviteModal({ isOpen, onClose, session, user, onClai
           </div>
         </div>
 
-        <button className="btn btn-secondary btn-block" onClick={onClose}>
+        <button type="button" className="btn btn-secondary btn-block" onClick={onClose}>
           {t('app.close')}
         </button>
       </div>

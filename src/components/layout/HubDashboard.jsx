@@ -235,7 +235,7 @@ export default function HubDashboard({
             <span style={{ fontSize: '2rem' }}>⭐</span>
             <div>
               <div style={{ fontWeight: 800, fontSize: '1rem', color: '#FFF' }}>
-                Tingkatkan Pengalaman Game Night Anda
+                Tingkatkan Pengalaman Main Anda bersama KancaSela
               </div>
               <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
                 Buka riwayat game tanpa batas, template story VIP, & mode TV Kafe.

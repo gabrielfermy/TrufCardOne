@@ -1,7 +1,7 @@
 {
   "app": {
-    "name": "Game Night Suite",
-    "tagline": "Teman setia game night & pencatat skor kartu serbaguna",
+    "name": "KancaSela",
+    "tagline": "Teman setia waktu luang & pencatat skor kartu serbaguna",
     "guest": "Tamu (Mode Offline)",
     "offline_notice": "Bermain sebagai Tamu. Masuk untuk simpan riwayat ke cloud!",
     "loading": "Memuat...",
@@ -37,7 +37,7 @@
   "hub": {
     "title": "Pilih Permainan / Alat",
     "subtitle": "Mulai catat skor atau gunakan alat tabletop instan",
-    "recent_games": "Riwayat Game Night Terakhir",
+    "recent_games": "Riwayat KancaSela Terakhir",
     "no_recent_games": "Belum ada riwayat permainan. Mulai game pertamamu sekarang!",
     "hosted_by": "Host: {{name}}",
     "played_on": "{{date}}",
@@ -175,10 +175,10 @@
     "share_whatsapp": "Bagikan ke Status WhatsApp",
     "share_instagram": "Bagikan ke IG Stories / TikTok",
     "download_card": "Unduh Gambar (PNG)",
-    "champion": "JUARA 1 GAME NIGHT",
+    "champion": "JUARA 1 KANCASELA",
     "mvp": "Bintang Malam Ini",
     "date": "Tanggal Main",
-    "watermark": "Dicatat dengan Game Night Suite"
+    "watermark": "Dicatat dengan KancaSela"
   },
   "admin": {
     "title": "Web Admin Portal",
@@ -203,8 +203,8 @@
     "current_plan": "Paket Saat Ini",
     "free_name": "Free Starter",
     "free_desc": "Sempurna untuk bermain santai di rumah bersama teman",
-    "pro_name": "Game Night Pro",
-    "pro_desc": "Untuk pemain sejati yang ingin flex statistik & riwayat tanpa batas",
+    "pro_name": "KancaSela Pro",
+    "pro_desc": "Untuk kanca sejati yang ingin flex statistik & riwayat tanpa batas",
     "venue_name": "Venue Edition (B2B)",
     "venue_desc": "Untuk pengelola kafe, warkop, dan komunitas turnamen",
     "upgrade_pro": "Upgrade ke Pro",
