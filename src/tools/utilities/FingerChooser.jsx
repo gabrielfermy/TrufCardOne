@@ -1,10 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react'
+import { useTranslation } from '../../i18n/I18nContext'
 import { soundService } from '../../services/soundService'
 import { hapticsService } from '../../services/hapticsService'
 
 const COLORS = ['#8B5CF6', '#EC4899', '#3B82F6', '#10B981', '#F59E0B', '#06B6D4']
 
 export default function FingerChooser() {
+  const { t } = useTranslation()
   const [touches, setTouches] = useState([])
   const [chosenTouchId, setChosenTouchId] = useState(null)
   const [isCounting, setIsCounting] = useState(false)
@@ -110,19 +112,19 @@ export default function FingerChooser() {
         <div>
           <div style={{ fontSize: '3rem', marginBottom: '12px' }}>👆</div>
           <h3 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: '6px' }}>
-            Siapa yang Jalan Duluan?
+            {t('utilities.finger_title')}
           </h3>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>
-            Semua pemain tempelkan 1 jari ke layar HP secara bersamaan...
+            {t('utilities.finger_desc')}
           </p>
         </div>
       ) : isCounting ? (
         <div style={{ color: '#FBBF24', fontWeight: 800, fontSize: '1.2rem' }}>
-          ⏳ Menentukan pemenang dalam 3 detik...
+          {t('utilities.finger_counting')}
         </div>
       ) : chosenTouchId !== null ? (
         <div style={{ color: '#34D399', fontWeight: 900, fontSize: '1.5rem', textShadow: '0 0 20px rgba(52, 211, 153, 0.6)' }}>
-          🎉 JARI INI YANG MULAI DULUAN!
+          {t('utilities.finger_winner')}
         </div>
       ) : null}
 
