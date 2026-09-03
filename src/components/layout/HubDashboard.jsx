@@ -275,33 +275,95 @@ export default function HubDashboard({
         )}
       </div>
 
-      {/* Diary Content Area (Locked & Blurred for Guests) */}
-      <div style={{ position: 'relative', borderRadius: '16px', overflow: 'hidden' }}>
-        {!user && (
+      {/* Diary Content Area */}
+      {!user ? (
+        /* Spacious, Beautiful Frosted Glass Locked Card for Guests (No Clipping) */
+        <div style={{
+          position: 'relative',
+          borderRadius: '20px',
+          overflow: 'hidden',
+          border: '1px dashed rgba(139, 92, 246, 0.45)',
+          background: 'linear-gradient(180deg, rgba(20, 16, 45, 0.75) 0%, rgba(11, 14, 23, 0.9) 100%)',
+          padding: '52px 24px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          textAlign: 'center',
+          boxShadow: '0 12px 36px rgba(0, 0, 0, 0.5)'
+        }}>
+          {/* Subtle Ambient Background Mock Cards */}
           <div style={{
             position: 'absolute',
             inset: 0,
+            zIndex: 0,
+            opacity: 0.18,
+            filter: 'blur(6px)',
+            pointerEvents: 'none',
+            userSelect: 'none',
+            padding: '24px',
             display: 'flex',
             flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'rgba(11, 14, 23, 0.78)',
-            backdropFilter: 'blur(8px)',
-            WebkitBackdropFilter: 'blur(8px)',
-            borderRadius: '16px',
-            border: '1px dashed rgba(139, 92, 246, 0.4)',
-            padding: '24px 20px',
-            textAlign: 'center',
-            zIndex: 10,
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)'
+            gap: '12px'
           }}>
-            <span style={{ fontSize: '2.4rem', marginBottom: '8px' }}>🔒</span>
-            <h4 style={{ fontSize: '1.2rem', fontWeight: 900, color: '#FFF', margin: '0 0 6px 0', letterSpacing: '0.5px' }}>
+            <div className="diary-card" style={{ borderLeft: '4px solid #34D399' }}>
+              <div className="diary-left">
+                <span className="diary-icon">🃏</span>
+                <div>
+                  <div className="diary-title">TRUF Match • TRU-8K2N</div>
+                  <div className="diary-meta">{t('hub.round_n', { num: 8 })} • Gabriel, Budi, Andi, Rizky</div>
+                </div>
+              </div>
+            </div>
+            <div className="diary-card" style={{ borderLeft: '4px solid #F59E0B' }}>
+              <div className="diary-left">
+                <span className="diary-icon">🎴</span>
+                <div>
+                  <div className="diary-title">REMI 7-Card Match</div>
+                  <div className="diary-meta">12 Sep • Gabriel, Budi, Siti, Dani</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Foreground Call To Action */}
+          <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <div style={{
+              width: '64px',
+              height: '64px',
+              borderRadius: '20px',
+              background: 'rgba(139, 92, 246, 0.18)',
+              border: '1px solid rgba(139, 92, 246, 0.45)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '2rem',
+              marginBottom: '16px',
+              boxShadow: '0 0 28px rgba(139, 92, 246, 0.35)'
+            }}>
+              🔒
+            </div>
+
+            <h4 style={{
+              fontSize: '1.35rem',
+              fontWeight: 900,
+              color: '#FFF',
+              margin: '0 0 10px 0',
+              letterSpacing: '0.5px'
+            }}>
               {t('hub.guest_history_title')}
             </h4>
-            <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', maxWidth: '420px', margin: '0 0 18px 0', lineHeight: 1.5 }}>
+
+            <p style={{
+              fontSize: '0.92rem',
+              color: 'var(--text-muted)',
+              maxWidth: '480px',
+              margin: '0 0 26px 0',
+              lineHeight: 1.6
+            }}>
               {t('hub.guest_history_desc')}
             </p>
+
             {onOpenAuth && (
               <button 
                 type="button" 
@@ -310,56 +372,25 @@ export default function HubDashboard({
                 style={{
                   background: 'linear-gradient(90deg, #8B5CF6, #EC4899)',
                   fontWeight: 800,
-                  padding: '10px 24px',
-                  borderRadius: '12px',
-                  fontSize: '0.92rem',
-                  boxShadow: '0 4px 18px rgba(139, 92, 246, 0.45)',
-                  cursor: 'pointer'
+                  padding: '12px 34px',
+                  borderRadius: '14px',
+                  fontSize: '0.98rem',
+                  boxShadow: '0 6px 24px rgba(139, 92, 246, 0.5)',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px'
                 }}
               >
-                ✨ {t('hub.guest_history_btn')}
+                <span>✨</span>
+                <span>{t('hub.guest_history_btn')}</span>
               </button>
             )}
           </div>
-        )}
-
-        <div style={{ 
-          filter: !user ? 'blur(6px)' : 'none', 
-          opacity: !user ? 0.35 : 1, 
-          pointerEvents: !user ? 'none' : 'auto', 
-          userSelect: !user ? 'none' : 'auto' 
-        }}>
-          {!user ? (
-            /* Mock Diary Cards shown blurred behind guest lock */
-            <div className="diary-list">
-              <div className="diary-card" style={{ borderLeft: '4px solid #34D399', opacity: 0.85 }}>
-                <div className="diary-left">
-                  <span className="diary-icon">🃏</span>
-                  <div>
-                    <div className="diary-title">TRUF Match • TRU-8K2N</div>
-                    <div className="diary-meta">{t('hub.round_n', { num: 8 })} • Gabriel, Budi, Andi, Rizky</div>
-                  </div>
-                </div>
-                <div className="diary-right">
-                  <button className="btn btn-sm btn-primary" tabIndex={-1}>▶️ {t('hub.resume_btn')}</button>
-                </div>
-              </div>
-              <div className="diary-card" style={{ borderLeft: '4px solid #F59E0B', opacity: 0.85 }}>
-                <div className="diary-left">
-                  <span className="diary-icon">🎴</span>
-                  <div>
-                    <div className="diary-title">REMI 7-Card Match</div>
-                    <div className="diary-meta">12 Sep • Gabriel, Budi, Siti, Dani</div>
-                  </div>
-                </div>
-                <div className="diary-right">
-                  <button className="btn btn-sm btn-secondary" tabIndex={-1}>📊 {t('hub.recap_btn')}</button>
-                </div>
-              </div>
-            </div>
-          ) : (
-            /* Real User Matches */
-            <>
+        </div>
+      ) : (
+        /* Real User Matches */
+        <div>
               {diaryTab === 'active' && (
                 <div className="diary-list">
                   {activeSessions.length > 0 ? (
@@ -502,10 +533,8 @@ export default function HubDashboard({
                   )}
                 </div>
               )}
-            </>
-          )}
         </div>
-      </div>
+      )}
     </div>
   )
 }
