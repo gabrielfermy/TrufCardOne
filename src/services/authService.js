@@ -89,7 +89,7 @@ export const authService = {
   async signInWithGoogle() {
     const isNative = typeof window !== 'undefined' && window.Capacitor?.isNativePlatform()
     const redirectTo = isNative
-      ? 'com.trufcard.gamenight://login-callback'
+      ? 'com.kancasela.app://login-callback'
       : window.location.origin
 
     const { data, error } = await supabase.auth.signInWithOAuth({

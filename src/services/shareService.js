@@ -146,7 +146,7 @@ export const shareService = {
 
     ctx.fillStyle = '#8B5CF6'
     ctx.font = 'bold 32px sans-serif'
-    ctx.fillText('gns.avl.my.id', width / 2, height - 70)
+    ctx.fillText('kancasela.my.id', width / 2, height - 70)
 
     return new Promise((resolve) => {
       canvas.toBlob((blob) => {

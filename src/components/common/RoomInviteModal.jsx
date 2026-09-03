@@ -10,8 +10,8 @@ export default function RoomInviteModal({ isOpen, onClose, session, user, onClai
 
   if (!isOpen || !session) return null
 
-  const roomCode = session.room_code || 'GNS-ROOM'
-  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://gns.avl.my.id'
+  const roomCode = session.room_code || 'ROOM'
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://kancasela.my.id'
   const inviteUrl = `${origin}/?room=${roomCode}`
   const currentClientId = deviceService.getClientIdentifier(user)
 
