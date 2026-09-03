@@ -21,6 +21,9 @@ export default function StoryCardModal({ isOpen, onClose, sessionData }) {
           setPreviewUrl(currentObjectUrl)
         }
         if (active) setGenerating(false)
+      }).catch(err => {
+        console.error('generateStoryCardBlob error:', err)
+        if (active) setGenerating(false)
       })
     }
 

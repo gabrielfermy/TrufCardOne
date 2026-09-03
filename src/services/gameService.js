@@ -220,10 +220,10 @@ export const gameService = {
 
           session.game_rounds = rawRounds.map(r => ({
             ...r,
-            round_data: r.round_data || {
-              dealerIndex: r.dealer_index ?? 0,
-              trufSuit: r.truf_suit_index ?? 4,
-              forcedPlayMode: r.play_mode ?? null
+            round_data: {
+              dealerIndex: r.round_data?.dealerIndex ?? r.dealer_index ?? 0,
+              trufSuit: r.round_data?.trufSuit ?? r.round_data?.truf_suit ?? r.truf_suit_index ?? 0,
+              forcedPlayMode: r.round_data?.forcedPlayMode ?? r.play_mode ?? null
             },
             player_scores: (rawScores || []).filter(s => s.round_id === r.id).map(s => ({
               ...s,
@@ -259,7 +259,7 @@ export const gameService = {
       round_number: roundNumber,
       round_data: roundData || {},
       dealer_index: roundData?.dealerIndex ?? 0,
-      truf_suit_index: roundData?.trufSuit ?? 4,
+      truf_suit_index: roundData?.trufSuit ?? roundData?.truf_suit ?? 0,
       play_mode: roundData?.forcedPlayMode ?? null
     }
 
@@ -276,7 +276,7 @@ export const gameService = {
         session_id: sessionId,
         round_number: roundNumber,
         dealer_index: roundData?.dealerIndex ?? 0,
-        truf_suit_index: roundData?.trufSuit ?? 4,
+        truf_suit_index: roundData?.trufSuit ?? roundData?.truf_suit ?? 0,
         play_mode: roundData?.forcedPlayMode ?? null
       }
       const { data: retryRound, error: retryRoundError } = await supabase
@@ -338,7 +338,7 @@ export const gameService = {
 
   // 4b. Save a Game Round (Cloud First with Resilient Late Sync Queue)
   async saveRound({ sessionId, roundNumber, roundData, playerScores }) {
-    if (!sessionId || sessionId.startsWith('guest-session')) {
+    if (!sessionId || sessionId.startsWith('guest-session') || sessionId.startsWith('local-session')) {
       const guestList = JSON.parse(localStorage.getItem(GUEST_STORAGE_KEY) || '[]')
       const session = guestList.find(s => s.id === sessionId)
       if (session) {
@@ -348,6 +348,7 @@ export const gameService = {
           session_id: sessionId,
           round_number: roundNumber,
           round_data: roundData,
+          roundData: roundData,
           created_at: new Date().toISOString(),
           player_scores: playerScores.map((ps, idx) => ({
             id: `ps-${roundId}-${idx}`,
@@ -473,7 +474,7 @@ export const gameService = {
 
   // 6. Complete Session
   async completeSession(sessionId) {
-    if (sessionId?.startsWith('guest-session')) {
+    if (sessionId?.startsWith('guest-session') || sessionId?.startsWith('local-session')) {
       const guestList = JSON.parse(localStorage.getItem(GUEST_STORAGE_KEY) || '[]')
       const session = guestList.find(s => s.id === sessionId)
       if (session) {
@@ -494,7 +495,7 @@ export const gameService = {
 
   // 7. Delete Session
   async deleteSession(sessionId) {
-    if (sessionId?.startsWith('guest-session')) {
+    if (sessionId?.startsWith('guest-session') || sessionId?.startsWith('local-session')) {
       const guestList = JSON.parse(localStorage.getItem(GUEST_STORAGE_KEY) || '[]')
       const updated = guestList.filter(s => s.id !== sessionId)
       localStorage.setItem(GUEST_STORAGE_KEY, JSON.stringify(updated))

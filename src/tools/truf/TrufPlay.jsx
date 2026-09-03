@@ -29,7 +29,9 @@ export default function TrufPlay({
 
   // Determine user role and claimed seat index
   const currentClientId = deviceService.getClientIdentifier(user)
-  const isHost = session?.user_id === user?.id || 
+  const isLocalOrOffline = !session?.room_code || session?.settings?.isOfflineLocal || !session?.id || session.id.startsWith('guest-session') || session.id.startsWith('local-session')
+  const isHost = isLocalOrOffline ||
+                 session?.user_id === user?.id || 
                  session?.player_user_ids?.[0] === currentClientId || 
                  propMyPlayerIndex === 0 ||
                  (session?.id?.startsWith('guest-session') && deviceService.getSessionSeat(session.id) === 0)
@@ -89,7 +91,7 @@ export default function TrufPlay({
   // Input states for current round
   const [bids, setBids] = useState([0, 0, 0, 0])
   const [wons, setWons] = useState([0, 0, 0, 0])
-  const [trufSuit, setTrufSuit] = useState(4) // 4: No Truf
+  const [trufSuit, setTrufSuit] = useState(0) // Default: 0 (Sekop / Spades)
   const [inputPhase, setInputPhase] = useState('bid') // 'bid' | 'won'
   const [forcedPlayMode, setForcedPlayMode] = useState(null)
   const [showBid13Modal, setShowBid13Modal] = useState(false)
@@ -293,16 +295,19 @@ export default function TrufPlay({
       score_cumulative: lastCumulative[idx] + change
     }))
 
+    const roundData = {
+      dealerIndex,
+      trufSuit,
+      forcedPlayMode,
+      totalBid
+    }
+
     const newRoundPayload = {
       id: `local-round-${Date.now()}`,
       round_number: currentRoundNumber,
       roundNumber: currentRoundNumber,
-      round_data: {
-        dealerIndex,
-        trufSuit,
-        forcedPlayMode,
-        totalBid
-      },
+      round_data: roundData,
+      roundData: roundData,
       player_scores: scoreRecords,
       playerScores: scoreRecords
     }
@@ -311,7 +316,7 @@ export default function TrufPlay({
     setLocalRounds(prev => [...prev, newRoundPayload])
     setBids([0, 0, 0, 0])
     setWons([0, 0, 0, 0])
-    setTrufSuit(4)
+    setTrufSuit(0)
     setInputPhase('bid')
     setForcedPlayMode(null)
     setErrorMsg('')
@@ -627,12 +632,12 @@ export default function TrufPlay({
         {inputPhase === 'bid' && (
           <div style={{ marginBottom: '20px' }}>
             <label className="form-label">{t('truf.truf_suit')}</label>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '8px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
               {SUITS.map(suit => (
                 <button
                   key={suit.id}
                   type="button"
-                  disabled={!isHost && myPlayerIndex !== dealerIndex}
+                  disabled={!isLocalOrOffline && !isHost && myPlayerIndex !== dealerIndex}
                   onClick={() => {
                     try { hapticsService.light() } catch {}
                     setTrufSuit(suit.id)
@@ -642,7 +647,7 @@ export default function TrufPlay({
                   style={{
                     background: trufSuit === suit.id ? 'var(--primary)' : 'var(--bg-glass-strong)',
                     color: trufSuit === suit.id ? '#FFF' : suit.color,
-                    border: '1px solid var(--border-glass)',
+                    border: trufSuit === suit.id ? '2px solid #C084FC' : '1px solid var(--border-glass)',
                     borderRadius: '10px',
                     padding: '10px 4px',
                     fontSize: '1.2rem',
@@ -650,11 +655,12 @@ export default function TrufPlay({
                     flexDirection: 'column',
                     alignItems: 'center',
                     gap: '2px',
-                    opacity: (!isHost && myPlayerIndex !== dealerIndex && trufSuit !== suit.id) ? 0.6 : 1
+                    boxShadow: trufSuit === suit.id ? '0 0 15px rgba(168, 85, 247, 0.45)' : 'none',
+                    opacity: (!isLocalOrOffline && !isHost && myPlayerIndex !== dealerIndex && trufSuit !== suit.id) ? 0.6 : 1
                   }}
                 >
                   <span>{suit.label}</span>
-                  <span style={{ fontSize: '0.65rem', fontWeight: 600 }}>{suit.name}</span>
+                  <span style={{ fontSize: '0.68rem', fontWeight: 700 }}>{suit.name}</span>
                 </button>
               ))}
             </div>
@@ -714,17 +720,25 @@ export default function TrufPlay({
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
             {isHost && localRounds.length > 0 && onUndoRound && (
-              <button className="btn btn-danger btn-sm" onClick={handleUndo}>
+              <button type="button" className="btn btn-danger btn-sm" onClick={handleUndo}>
                 ↩️ Undo
               </button>
             )}
             {onOpenShareModal && localRounds.length > 0 && (
-              <button className="btn btn-secondary btn-sm" onClick={onOpenShareModal}>
+              <button 
+                type="button" 
+                className="btn btn-secondary btn-sm" 
+                onClick={() => onOpenShareModal(localRounds)}
+              >
                 📸 9:16 Share
               </button>
             )}
             {isHost && onFinalizeGame && localRounds.length > 0 && (
-              <button className="btn btn-primary btn-sm" onClick={onFinalizeGame}>
+              <button 
+                type="button" 
+                className="btn btn-primary btn-sm" 
+                onClick={() => onFinalizeGame(localRounds)}
+              >
                 🏁 Selesai
               </button>
             )}
@@ -741,7 +755,8 @@ export default function TrufPlay({
                 {localRounds.map((r, i) => {
                   const rNum = r.round_number
                   const isSetEnd = rNum % 4 === 0
-                  const rSuit = SUITS.find(s => s.id === (r.round_data?.trufSuit ?? 4))
+                  const rSuitId = r.round_data?.trufSuit ?? r.round_data?.truf_suit ?? r.roundData?.trufSuit ?? r.truf_suit_index ?? 0
+                  const rSuit = SUITS.find(s => s.id === rSuitId) || SUITS[0]
                   return (
                     <React.Fragment key={i}>
                       <th style={{ 
@@ -752,7 +767,7 @@ export default function TrufPlay({
                       }}>
                         <div style={{ fontSize: '0.82rem', fontWeight: 800 }}>R{rNum}</div>
                         <div style={{ fontSize: '0.7rem', color: rSuit?.color || 'var(--text-muted)' }}>
-                          {rSuit?.symbol} {rSuit?.name}
+                          {rSuit?.label} {rSuit?.name}
                         </div>
                       </th>
                       {/* Set Rounding Column at every 4th round */}
@@ -876,8 +891,8 @@ export default function TrufPlay({
               const rNum = round.round_number
               const setNum = Math.ceil(rNum / 4)
               const rDealerIdx = round.round_data?.dealerIndex ?? ((firstDealer + rNum - 1) % 4)
-              const rSuitId = round.round_data?.trufSuit ?? 4
-              const rSuitObj = SUITS.find(s => s.id === rSuitId)
+              const rSuitId = round.round_data?.trufSuit ?? round.round_data?.truf_suit ?? round.roundData?.trufSuit ?? round.truf_suit_index ?? 0
+              const rSuitObj = SUITS.find(s => s.id === rSuitId) || SUITS[0]
               const isSetEnd = rNum % 4 === 0
 
               return (
@@ -909,7 +924,7 @@ export default function TrufPlay({
 
                     <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'flex', gap: '10px' }}>
                       <span>Dealer: <strong>{playerNames[rDealerIdx]}</strong> 🎲</span>
-                      <span>Truf: <strong style={{ color: rSuitObj?.color || '#A855F7' }}>{rSuitObj?.name || 'No Truf'}</strong></span>
+                      <span>Truf: <strong style={{ color: rSuitObj.color }}>{rSuitObj.label} {rSuitObj.name}</strong></span>
                     </div>
                   </div>
 
