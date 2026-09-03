@@ -23,9 +23,15 @@ function normalizeRoomCode(input) {
 
 export const gameService = {
   // 1. Create a Game Session (Cloud First, Accessible across all devices)
-  async createSession({ userId, gameType = 'truf', playerNames, settings, title }) {
+  async createSession({ userId, creatorClientId, gameType = 'truf', playerNames, settings, title }) {
     const roomCode = generateRoomCode(gameType)
     const isRealUser = userId && userId !== 'guest-user'
+    const hostClientId = creatorClientId || (isRealUser ? userId : 'host')
+
+    const initialUserIds = Array(playerNames.length).fill(null)
+    if (initialUserIds.length > 0) {
+      initialUserIds[0] = hostClientId
+    }
 
     const sessionPayload = {
       user_id: isRealUser ? userId : null,
@@ -33,7 +39,7 @@ export const gameService = {
       room_code: roomCode,
       title: title || `${gameType.toUpperCase()} Match - ${new Date().toLocaleDateString()}`,
       player_names: playerNames,
-      player_user_ids: Array(playerNames.length).fill(null),
+      player_user_ids: initialUserIds,
       settings: settings || {},
       is_completed: false,
       created_at: new Date().toISOString()
@@ -428,24 +434,49 @@ export const gameService = {
     return true
   },
 
-  // 7. Claim Seat by a Logged-In User
-  async claimSeat(sessionId, playerIndex, userId) {
-    const { data: session } = await supabase
-      .from('game_sessions')
-      .select('player_user_ids')
-      .eq('id', sessionId)
-      .single()
+  // 7. Claim Seat (Guest or Logged-In User)
+  async claimSeat(sessionId, playerIndex, clientId) {
+    if (!sessionId || playerIndex === undefined || playerIndex === null) return false
 
-    if (session) {
-      const userIds = [...(session.player_user_ids || [])]
-      userIds[playerIndex] = userId
-      const { error } = await supabase
+    // 1. Handle local guest session
+    if (sessionId.startsWith('guest-session')) {
+      const guestList = JSON.parse(localStorage.getItem(GUEST_STORAGE_KEY) || '[]')
+      const session = guestList.find(s => s.id === sessionId)
+      if (session) {
+        if (!session.player_user_ids) {
+          session.player_user_ids = Array(session.player_names?.length || 4).fill(null)
+        }
+        session.player_user_ids[playerIndex] = clientId
+        localStorage.setItem(GUEST_STORAGE_KEY, JSON.stringify(guestList))
+        return session.player_user_ids
+      }
+      return false
+    }
+
+    // 2. Handle Supabase Cloud session
+    try {
+      const { data: session, error: fetchErr } = await supabase
         .from('game_sessions')
-        .update({ player_user_ids: userIds })
+        .select('player_user_ids, player_names')
         .eq('id', sessionId)
+        .single()
 
-      if (error) throw error
-      return true
+      if (session && !fetchErr) {
+        const userIds = [...(session.player_user_ids || Array(session.player_names?.length || 4).fill(null))]
+        userIds[playerIndex] = clientId
+        const { error } = await supabase
+          .from('game_sessions')
+          .update({ player_user_ids: userIds })
+          .eq('id', sessionId)
+
+        if (error) {
+          console.error('Supabase claimSeat error:', error)
+          return false
+        }
+        return userIds
+      }
+    } catch (err) {
+      console.warn('claimSeat exception:', err)
     }
     return false
   },
@@ -467,6 +498,8 @@ export const gameService = {
       const onDbUpdate = typeof handlers === 'function' ? handlers : handlers?.onDbUpdate
       const onLiveState = typeof handlers === 'object' ? handlers?.onLiveState : null
       const onRoundAdvance = typeof handlers === 'object' ? handlers?.onRoundAdvance : null
+      const onSeatClaim = typeof handlers === 'object' ? handlers?.onSeatClaim : null
+      const onActivityLog = typeof handlers === 'object' ? handlers?.onActivityLog : null
 
       const channel = supabase.channel(topic, {
         config: {
@@ -494,6 +527,18 @@ export const gameService = {
       if (onRoundAdvance) {
         channel.on('broadcast', { event: 'round_advance' }, ({ payload }) => {
           onRoundAdvance(payload)
+        })
+      }
+
+      if (onSeatClaim) {
+        channel.on('broadcast', { event: 'seat_claim' }, ({ payload }) => {
+          onSeatClaim(payload)
+        })
+      }
+
+      if (onActivityLog) {
+        channel.on('broadcast', { event: 'activity_log' }, ({ payload }) => {
+          onActivityLog(payload)
         })
       }
 
@@ -538,7 +583,35 @@ export const gameService = {
     }
   },
 
-  // 11. Unsubscribe Live Room
+  // 11. Broadcast Seat Claim to Tabletop Peers
+  broadcastSeatClaim(channel, seatPayload) {
+    if (!channel) return
+    try {
+      channel.send({
+        type: 'broadcast',
+        event: 'seat_claim',
+        payload: seatPayload
+      })
+    } catch (e) {
+      console.warn('broadcastSeatClaim error:', e)
+    }
+  },
+
+  // 12. Broadcast Activity Log to Tabletop Peers
+  broadcastActivityLog(channel, logPayload) {
+    if (!channel) return
+    try {
+      channel.send({
+        type: 'broadcast',
+        event: 'activity_log',
+        payload: logPayload
+      })
+    } catch (e) {
+      console.warn('broadcastActivityLog error:', e)
+    }
+  },
+
+  // 13. Unsubscribe Live Room
   unsubscribeLiveRoom(channel) {
     if (channel) {
       try {

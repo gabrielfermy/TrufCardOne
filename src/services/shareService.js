@@ -172,20 +172,33 @@ export const shareService = {
           text: `Juara malam ini: ${data.players?.[0]?.name || 'Player'}! 🏆 #GameNight`
         })
       } else {
-        // Fallback: Download Image directly
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `game-night-story-${Date.now()}.png`
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
-        URL.revokeObjectURL(url)
+        // Fallback: Download directly
+        await shareService.downloadStoryCard(data)
       }
     } catch (err) {
       if (err.name !== 'AbortError') {
         console.error('Share story card error', err)
       }
+    }
+  },
+
+  /**
+   * Directly download story card image file (PNG)
+   */
+  downloadStoryCard: async (data) => {
+    try {
+      const blob = await shareService.generateStoryCardBlob(data)
+      if (!blob) return
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `trufcard-${(data.gameType || 'story').toLowerCase()}-${Date.now()}.png`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error('Download story card error', err)
     }
   }
 }

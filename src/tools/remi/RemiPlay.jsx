@@ -3,6 +3,7 @@ import { CARD_VALUES, calculateRemiRoundScores } from './remiLogic'
 import { soundService } from '../../services/soundService'
 import { hapticsService } from '../../services/hapticsService'
 import { gameService } from '../../services/gameService'
+import { deviceService } from '../../services/deviceService'
 import { useTranslation } from '../../i18n/I18nContext'
 import RoomInviteModal from '../../components/common/RoomInviteModal'
 
@@ -15,7 +16,8 @@ export default function RemiPlay({
   onOpenShareModal,
   onBackToLobby,
   user,
-  onClaimSeat
+  onClaimSeat,
+  myPlayerIndex: propMyPlayerIndex
 }) {
   const { t } = useTranslation()
   const playerNames = session?.player_names || ['Pemain 1', 'Pemain 2', 'Pemain 3', 'Pemain 4']
@@ -23,6 +25,28 @@ export default function RemiPlay({
 
   const clientId = useRef(`peer-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`).current
   const realtimeChannelRef = useRef(null)
+
+  // Determine user role and claimed seat index
+  const currentClientId = deviceService.getClientIdentifier(user)
+  const isHost = session?.user_id === user?.id || 
+                 session?.player_user_ids?.[0] === currentClientId || 
+                 propMyPlayerIndex === 0 ||
+                 (session?.id?.startsWith('guest-session') && deviceService.getSessionSeat(session.id) === 0)
+
+  let effectiveSeat = propMyPlayerIndex !== undefined ? propMyPlayerIndex : null
+  if (effectiveSeat === null) {
+    const seatInSession = session?.player_user_ids?.findIndex(id => id && (id === currentClientId || (user?.id && id === user.id)))
+    if (seatInSession !== -1 && seatInSession !== undefined) {
+      effectiveSeat = seatInSession
+    } else {
+      const localSeat = deviceService.getSessionSeat(session?.id)
+      if (localSeat !== null) effectiveSeat = localSeat
+      else if (isHost) effectiveSeat = 0
+    }
+  }
+
+  const myPlayerIndex = effectiveSeat
+  const isSpectator = myPlayerIndex === null && !isHost
 
   const [localRounds, setLocalRounds] = useState(rounds || [])
 
@@ -193,10 +217,29 @@ export default function RemiPlay({
 
   return (
     <div style={{ maxWidth: '640px', margin: '0 auto' }}>
+      {/* Spectator Live Banner */}
+      {isSpectator && (
+        <div style={{
+          background: 'linear-gradient(90deg, rgba(245, 158, 11, 0.15), rgba(139, 92, 246, 0.15))',
+          border: '1px solid rgba(245, 158, 11, 0.35)',
+          borderRadius: '12px',
+          padding: '10px 14px',
+          marginBottom: '14px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          color: '#FDE68A',
+          fontSize: '0.85rem'
+        }}>
+          <span style={{ fontSize: '1.2rem' }}>👀</span>
+          <span><strong>Mode Penonton (Live Spectator)</strong> • Memantau denda dan skor secara realtime</span>
+        </div>
+      )}
+
       {/* Header */}
       <div className="glass-panel" style={{ padding: '14px 18px', marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
             {onBackToLobby && (
               <button 
                 type="button"
@@ -211,6 +254,20 @@ export default function RemiPlay({
             <span style={{ fontSize: '0.8rem', color: 'var(--text-dim)', fontWeight: 700, textTransform: 'uppercase' }}>
               {session?.title || 'Remi Session'}
             </span>
+
+            {/* Role Badge */}
+            <span style={{
+              fontSize: '0.72rem',
+              padding: '2px 8px',
+              borderRadius: '6px',
+              fontWeight: 800,
+              background: isHost ? 'rgba(245, 158, 11, 0.15)' : isSpectator ? 'rgba(59, 130, 246, 0.15)' : 'rgba(139, 92, 246, 0.15)',
+              color: isHost ? '#FBBF24' : isSpectator ? '#60A5FA' : '#C084FC',
+              border: `1px solid ${isHost ? 'rgba(245, 158, 11, 0.35)' : isSpectator ? 'rgba(59, 130, 246, 0.35)' : 'rgba(139, 92, 246, 0.35)'}`
+            }}>
+              {isHost ? '👑 Host' : isSpectator ? '👀 Penonton' : `🪑 Kursi P${(myPlayerIndex ?? 0) + 1}`}
+            </span>
+
             <button 
               type="button"
               className="btn btn-sm"
@@ -247,7 +304,12 @@ export default function RemiPlay({
         </div>
       )}
 
-      {/* Round Form Panel */}
+      {/* Round Form Panel (Hidden for Spectators) */}
+      {isSpectator ? (
+        <div className="glass-panel" style={{ padding: '20px', marginBottom: '16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.88rem' }}>
+          ⏳ Ronde {currentRoundNumber} sedang dimainkan. Skor akan diperbarui otomatis saat Host menyimpan ronde.
+        </div>
+      ) : (
       <div className="glass-panel" style={{ padding: '20px', marginBottom: '16px' }}>
         {/* 1. Select Who Closed */}
         <div className="form-group">
@@ -362,6 +424,7 @@ export default function RemiPlay({
           💾 {t('remi.save_round')}
         </button>
       </div>
+      )}
 
       {/* Card Penalty Keypad Modal */}
       {activeKeypadPlayer !== null && (
@@ -409,10 +472,10 @@ export default function RemiPlay({
 
       {/* Remi Cumulative Leaderboard */}
       <div className="glass-panel" style={{ padding: '20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
           <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>📊 Klasemen Denda Remi</h3>
           <div style={{ display: 'flex', gap: '8px' }}>
-            {rounds.length > 0 && onUndoRound && (
+            {isHost && rounds.length > 0 && onUndoRound && (
               <button className="btn btn-danger btn-sm" onClick={onUndoRound}>
                 ↩️ Undo
               </button>
@@ -422,7 +485,7 @@ export default function RemiPlay({
                 📸 9:16 Share
               </button>
             )}
-            {rounds.length > 0 && onFinalizeGame && (
+            {isHost && rounds.length > 0 && onFinalizeGame && (
               <button className="btn btn-primary btn-sm" onClick={onFinalizeGame}>
                 🏁 Selesai
               </button>

@@ -3,8 +3,10 @@ import { SUITS, calculateTrufRoundScores } from './trufLogic'
 import { soundService } from '../../services/soundService'
 import { hapticsService } from '../../services/hapticsService'
 import { gameService } from '../../services/gameService'
+import { deviceService } from '../../services/deviceService'
 import { useTranslation } from '../../i18n/I18nContext'
 import RoomInviteModal from '../../components/common/RoomInviteModal'
+import ActivityLogDrawer from '../../components/common/ActivityLogDrawer'
 
 export default function TrufPlay({ 
   session, 
@@ -15,7 +17,8 @@ export default function TrufPlay({
   onOpenShareModal,
   onBackToLobby,
   user,
-  onClaimSeat
+  onClaimSeat,
+  myPlayerIndex: propMyPlayerIndex
 }) {
   const { t } = useTranslation()
   const playerNames = session?.player_names || ['Pemain 1', 'Pemain 2', 'Pemain 3', 'Pemain 4']
@@ -24,8 +27,54 @@ export default function TrufPlay({
   const clientId = useRef(`peer-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`).current
   const realtimeChannelRef = useRef(null)
 
+  // Determine user role and claimed seat index
+  const currentClientId = deviceService.getClientIdentifier(user)
+  const isHost = session?.user_id === user?.id || 
+                 session?.player_user_ids?.[0] === currentClientId || 
+                 propMyPlayerIndex === 0 ||
+                 (session?.id?.startsWith('guest-session') && deviceService.getSessionSeat(session.id) === 0)
+
+  let effectiveSeat = propMyPlayerIndex !== undefined ? propMyPlayerIndex : null
+  if (effectiveSeat === null) {
+    const seatInSession = session?.player_user_ids?.findIndex(id => id && (id === currentClientId || (user?.id && id === user.id)))
+    if (seatInSession !== -1 && seatInSession !== undefined) {
+      effectiveSeat = seatInSession
+    } else {
+      const localSeat = deviceService.getSessionSeat(session?.id)
+      if (localSeat !== null) effectiveSeat = localSeat
+      else if (isHost) effectiveSeat = 0
+    }
+  }
+
+  const myPlayerIndex = effectiveSeat
+  const isSpectator = myPlayerIndex === null && !isHost
+  const canEditPlayer = (idx) => isHost || myPlayerIndex === idx
+
   // Optimistic local state for rounds to guarantee instant Round advancement
   const [localRounds, setLocalRounds] = useState(rounds || [])
+
+  // Activity Logging state
+  const [activityLogs, setActivityLogs] = useState([])
+  const [isLogDrawerOpen, setIsLogDrawerOpen] = useState(false)
+
+  const addLog = (text, actionType = 'bid') => {
+    const actorName = isHost 
+      ? (user?.profile?.display_name || playerNames[0] || 'Host')
+      : (myPlayerIndex !== null ? playerNames[myPlayerIndex] : 'Penonton')
+    const actorRole = isHost ? 'host' : (myPlayerIndex !== null ? 'player' : 'spectator')
+    const entry = {
+      id: `log-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      timestamp: new Date().toISOString(),
+      actorName,
+      actorRole,
+      actionType,
+      text
+    }
+    setActivityLogs(prev => [...prev.slice(-49), entry])
+    if (realtimeChannelRef.current) {
+      gameService.broadcastActivityLog(realtimeChannelRef.current, entry)
+    }
+  }
 
   useEffect(() => {
     if (rounds && rounds.length >= localRounds.length) {
@@ -79,6 +128,27 @@ export default function TrufPlay({
           if (payload.forcedPlayMode !== undefined) setForcedPlayMode(payload.forcedPlayMode)
         }
       },
+      onActivityLog: (logEntry) => {
+        if (logEntry) {
+          setActivityLogs(prev => {
+            if (prev.some(l => l.id === logEntry.id)) return prev
+            return [...prev.slice(-49), logEntry]
+          })
+        }
+      },
+      onSeatClaim: (seatPayload) => {
+        if (seatPayload?.playerIndex !== undefined) {
+          const pName = playerNames[seatPayload.playerIndex] || `Pemain ${seatPayload.playerIndex + 1}`
+          setActivityLogs(prev => [...prev.slice(-49), {
+            id: `claim-${Date.now()}`,
+            timestamp: new Date().toISOString(),
+            actorName: seatPayload.playerName || pName,
+            actorRole: 'player',
+            actionType: 'check_in',
+            text: `Check-in ke Kursi ${seatPayload.playerIndex + 1} (${pName})`
+          }])
+        }
+      },
       onRoundAdvance: (payload) => {
         if (payload?.round) {
           setLocalRounds(prev => {
@@ -129,27 +199,53 @@ export default function TrufPlay({
     }
   }, [session?.id])
 
-  // Stepper handlers
+  // Stepper handlers with role checks & audit logging
   const handleBidStep = (playerIdx, delta) => {
+    if (!canEditPlayer(playerIdx)) return
     setErrorMsg('')
-    hapticsService.light()
-    soundService.playTick()
+    try {
+      hapticsService.light()
+      soundService.playTick()
+    } catch {}
+
     setBids(prev => {
       const next = [...prev]
-      next[playerIdx] = Math.max(0, Math.min(13, next[playerIdx] + delta))
-      broadcastState({ bids: next })
+      const oldVal = next[playerIdx]
+      const newVal = Math.max(0, Math.min(13, oldVal + delta))
+      if (oldVal !== newVal) {
+        next[playerIdx] = newVal
+        broadcastState({ bids: next })
+        const targetName = playerNames[playerIdx]
+        const text = isHost && myPlayerIndex !== playerIdx
+          ? `Mengubah Bid ${targetName} dari ${oldVal} menjadi ${newVal}`
+          : `Memasang Bid: ${newVal}`
+        addLog(text, 'bid')
+      }
       return next
     })
   }
 
   const handleWonStep = (playerIdx, delta) => {
+    if (!canEditPlayer(playerIdx)) return
     setErrorMsg('')
-    hapticsService.light()
-    soundService.playTick()
+    try {
+      hapticsService.light()
+      soundService.playTick()
+    } catch {}
+
     setWons(prev => {
       const next = [...prev]
-      next[playerIdx] = Math.max(0, Math.min(13, next[playerIdx] + delta))
-      broadcastState({ wons: next })
+      const oldVal = next[playerIdx]
+      const newVal = Math.max(0, Math.min(13, oldVal + delta))
+      if (oldVal !== newVal) {
+        next[playerIdx] = newVal
+        broadcastState({ wons: next })
+        const targetName = playerNames[playerIdx]
+        const text = isHost && myPlayerIndex !== playerIdx
+          ? `Mengubah Trik ${targetName} dari ${oldVal} menjadi ${newVal}`
+          : `Mengatur Trik Menang: ${newVal}`
+        addLog(text, 'won')
+      }
       return next
     })
   }
@@ -161,17 +257,20 @@ export default function TrufPlay({
       setShowBid13Modal(true)
       return
     }
-    hapticsService.medium()
-    soundService.playCardFlip()
+    try {
+      hapticsService.medium()
+      soundService.playCardFlip()
+    } catch {}
     setInputPhase('won')
     broadcastState({ inputPhase: 'won' })
+    addLog(`Fase Bid selesai (Total Bid: ${totalBid}). Memulai fase Hasil Trik.`, 'play_mode')
   }
 
   // Handle Save Round (Instant Optimistic UI & Broadcast)
   const handleSaveRoundSubmit = async () => {
     setErrorMsg('')
     if (totalWon !== 13) {
-      hapticsService.warning()
+      try { hapticsService.warning() } catch {}
       setErrorMsg(t('truf.validation_won_13'))
       return
     }
@@ -217,8 +316,12 @@ export default function TrufPlay({
     setForcedPlayMode(null)
     setErrorMsg('')
 
-    hapticsService.success()
-    soundService.playVictory()
+    try {
+      hapticsService.success()
+      soundService.playVictory()
+    } catch {}
+
+    addLog(`Menyimpan Ronde ${currentRoundNumber} & melangkah ke ronde berikutnya`, 'save_round')
 
     // 2. Broadcast round advance to all other phones in 0ms!
     if (realtimeChannelRef.current) {
@@ -237,6 +340,7 @@ export default function TrufPlay({
 
   const handleUndo = () => {
     setLocalRounds(prev => prev.slice(0, -1))
+    addLog(`Membatalkan (Undo) ronde terakhir`, 'undo')
     if (onUndoRound) onUndoRound()
   }
 
@@ -254,10 +358,39 @@ export default function TrufPlay({
 
   return (
     <div style={{ maxWidth: '640px', margin: '0 auto' }}>
+      {/* Spectator Live Banner */}
+      {isSpectator && (
+        <div style={{
+          background: 'linear-gradient(90deg, rgba(59, 130, 246, 0.15), rgba(139, 92, 246, 0.15))',
+          border: '1px solid rgba(59, 130, 246, 0.35)',
+          borderRadius: '12px',
+          padding: '10px 14px',
+          marginBottom: '14px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          color: '#93C5FD',
+          fontSize: '0.85rem'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '1.2rem' }}>👀</span>
+            <span><strong>Mode Penonton (Live Spectator)</strong> • Memantau skor & trik secara realtime</span>
+          </div>
+          <button 
+            type="button" 
+            className="btn btn-sm btn-secondary" 
+            onClick={() => setIsLogDrawerOpen(true)}
+            style={{ fontSize: '0.75rem', padding: '2px 8px' }}
+          >
+            📜 Log ({activityLogs.length})
+          </button>
+        </div>
+      )}
+
       {/* Round Header & Status */}
       <div className="glass-panel" style={{ padding: '14px 18px', marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
             {onBackToLobby && (
               <button 
                 type="button"
@@ -272,6 +405,21 @@ export default function TrufPlay({
             <span style={{ fontSize: '0.8rem', color: 'var(--text-dim)', fontWeight: 700, textTransform: 'uppercase' }}>
               {session?.title || 'Truf Session'}
             </span>
+
+            {/* Role Badge */}
+            <span style={{
+              fontSize: '0.72rem',
+              padding: '2px 8px',
+              borderRadius: '6px',
+              fontWeight: 800,
+              background: isHost ? 'rgba(245, 158, 11, 0.15)' : isSpectator ? 'rgba(59, 130, 246, 0.15)' : 'rgba(139, 92, 246, 0.15)',
+              color: isHost ? '#FBBF24' : isSpectator ? '#60A5FA' : '#C084FC',
+              border: `1px solid ${isHost ? 'rgba(245, 158, 11, 0.35)' : isSpectator ? 'rgba(59, 130, 246, 0.35)' : 'rgba(139, 92, 246, 0.35)'}`
+            }}>
+              {isHost ? '👑 Host' : isSpectator ? '👀 Penonton' : `🪑 Kursi P${(myPlayerIndex ?? 0) + 1}`}
+            </span>
+
+            {/* Room Invite Button */}
             <button 
               type="button"
               className="btn btn-sm"
@@ -291,6 +439,24 @@ export default function TrufPlay({
             >
               <span>🔗</span>
               <span>{session?.room_code || 'Undang'}</span>
+            </button>
+
+            {/* Audit Log Toggle */}
+            <button 
+              type="button"
+              className="btn btn-sm btn-secondary"
+              onClick={() => setIsLogDrawerOpen(true)}
+              style={{
+                fontSize: '0.72rem',
+                padding: '2px 8px',
+                borderRadius: '6px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+            >
+              <span>📜</span>
+              <span>Log ({activityLogs.length})</span>
             </button>
           </div>
           <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--primary)' }}>
@@ -360,6 +526,8 @@ export default function TrufPlay({
           {playerNames.map((name, idx) => {
             const isDealer = idx === dealerIndex
             const val = inputPhase === 'bid' ? bids[idx] : wons[idx]
+            const canEdit = canEditPlayer(idx)
+            const isMe = myPlayerIndex === idx
 
             return (
               <div 
@@ -368,8 +536,16 @@ export default function TrufPlay({
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  background: isDealer ? 'rgba(245, 158, 11, 0.08)' : 'rgba(0,0,0,0.25)',
-                  border: isDealer ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid var(--border-glass)',
+                  background: isMe
+                    ? 'rgba(139, 92, 246, 0.12)'
+                    : isDealer 
+                    ? 'rgba(245, 158, 11, 0.08)' 
+                    : 'rgba(0,0,0,0.25)',
+                  border: isMe
+                    ? '1.5px solid #8B5CF6'
+                    : isDealer 
+                    ? '1px solid rgba(245, 158, 11, 0.3)' 
+                    : '1px solid var(--border-glass)',
                   padding: '12px 16px',
                   borderRadius: '12px'
                 }}
@@ -377,6 +553,11 @@ export default function TrufPlay({
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>{name}</span>
+                    {isMe && (
+                      <span style={{ fontSize: '0.7rem', background: '#8B5CF6', color: '#FFF', padding: '1px 6px', borderRadius: '4px', fontWeight: 800 }}>
+                        Anda
+                      </span>
+                    )}
                     {isDealer && <span style={{ fontSize: '0.72rem', background: '#F59E0B', color: '#000', padding: '2px 6px', borderRadius: '4px', fontWeight: 800 }}>DEALER</span>}
                   </div>
 
@@ -403,26 +584,39 @@ export default function TrufPlay({
                   )}
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <button 
-                    type="button" 
-                    className="btn btn-secondary btn-sm"
-                    style={{ width: '36px', height: '36px', padding: 0, fontSize: '1.2rem' }}
-                    onClick={() => inputPhase === 'bid' ? handleBidStep(idx, -1) : handleWonStep(idx, -1)}
-                  >
-                    -
-                  </button>
-                  <span style={{ fontSize: '1.3rem', fontWeight: 800, width: '30px', textAlign: 'center' }}>
-                    {val}
-                  </span>
-                  <button 
-                    type="button" 
-                    className="btn btn-secondary btn-sm"
-                    style={{ width: '36px', height: '36px', padding: 0, fontSize: '1.2rem' }}
-                    onClick={() => inputPhase === 'bid' ? handleBidStep(idx, 1) : handleWonStep(idx, 1)}
-                  >
-                    +
-                  </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {canEdit ? (
+                    <>
+                      <button 
+                        type="button" 
+                        className="btn btn-secondary btn-sm"
+                        style={{ width: '36px', height: '36px', padding: 0, fontSize: '1.2rem' }}
+                        onClick={() => inputPhase === 'bid' ? handleBidStep(idx, -1) : handleWonStep(idx, -1)}
+                      >
+                        -
+                      </button>
+                      <span style={{ fontSize: '1.3rem', fontWeight: 800, width: '30px', textAlign: 'center' }}>
+                        {val}
+                      </span>
+                      <button 
+                        type="button" 
+                        className="btn btn-secondary btn-sm"
+                        style={{ width: '36px', height: '36px', padding: 0, fontSize: '1.2rem' }}
+                        onClick={() => inputPhase === 'bid' ? handleBidStep(idx, 1) : handleWonStep(idx, 1)}
+                      >
+                        +
+                      </button>
+                    </>
+                  ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ fontSize: '1.2rem', fontWeight: 800, minWidth: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                        {val}
+                      </span>
+                      <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)', background: 'rgba(255,255,255,0.04)', padding: '2px 6px', borderRadius: '4px' }}>
+                        🔒 {name}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
             )
@@ -438,10 +632,12 @@ export default function TrufPlay({
                 <button
                   key={suit.id}
                   type="button"
+                  disabled={!isHost && myPlayerIndex !== dealerIndex}
                   onClick={() => {
-                    hapticsService.light()
+                    try { hapticsService.light() } catch {}
                     setTrufSuit(suit.id)
                     broadcastState({ trufSuit: suit.id })
+                    addLog(`Memilih Truf: ${suit.name}`, 'suit')
                   }}
                   style={{
                     background: trufSuit === suit.id ? 'var(--primary)' : 'var(--bg-glass-strong)',
@@ -453,7 +649,8 @@ export default function TrufPlay({
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
-                    gap: '2px'
+                    gap: '2px',
+                    opacity: (!isHost && myPlayerIndex !== dealerIndex && trufSuit !== suit.id) ? 0.6 : 1
                   }}
                 >
                   <span>{suit.label}</span>
@@ -465,7 +662,21 @@ export default function TrufPlay({
         )}
 
         {/* Phase Buttons */}
-        {inputPhase === 'bid' ? (
+        {isSpectator ? (
+          <div style={{
+            background: 'rgba(255, 255, 255, 0.03)',
+            border: '1px solid var(--border-glass)',
+            borderRadius: '12px',
+            padding: '14px',
+            textAlign: 'center',
+            color: 'var(--text-muted)',
+            fontSize: '0.88rem'
+          }}>
+            {inputPhase === 'bid'
+              ? '⏳ Pemain sedang memasang target bid masing-masing...'
+              : `⏳ Pertandingan ronde sedang berlangsung (Trik: ${totalWon}/13).`}
+          </div>
+        ) : inputPhase === 'bid' ? (
           <button className="btn btn-primary btn-block" onClick={handleProceedToWon}>
             ➡️ {t('truf.save_bid')}
           </button>
@@ -476,6 +687,7 @@ export default function TrufPlay({
               onClick={() => {
                 setInputPhase('bid')
                 broadcastState({ inputPhase: 'bid' })
+                addLog('Mengembalikan ke fase Bid', 'bid')
               }}
             >
               ← Ubah Bid
@@ -493,7 +705,7 @@ export default function TrufPlay({
 
       {/* Leaderboard & Ledger Table */}
       <div className="glass-panel" style={{ padding: '20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
           <div>
             <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>📊 {t('truf.leaderboard')}</h3>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
@@ -501,7 +713,7 @@ export default function TrufPlay({
             </span>
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
-            {localRounds.length > 0 && onUndoRound && (
+            {isHost && localRounds.length > 0 && onUndoRound && (
               <button className="btn btn-danger btn-sm" onClick={handleUndo}>
                 ↩️ Undo
               </button>
@@ -511,7 +723,7 @@ export default function TrufPlay({
                 📸 9:16 Share
               </button>
             )}
-            {onFinalizeGame && localRounds.length > 0 && (
+            {isHost && onFinalizeGame && localRounds.length > 0 && (
               <button className="btn btn-primary btn-sm" onClick={onFinalizeGame}>
                 🏁 Selesai
               </button>
@@ -827,6 +1039,13 @@ export default function TrufPlay({
         session={session}
         user={user}
         onClaimSeat={onClaimSeat}
+      />
+
+      {/* Realtime Table Activity & Audit Log Drawer */}
+      <ActivityLogDrawer
+        isOpen={isLogDrawerOpen}
+        onClose={() => setIsLogDrawerOpen(false)}
+        logs={activityLogs}
       />
     </div>
   )

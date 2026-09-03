@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { I18nProvider, useTranslation } from './i18n/I18nContext'
 import { authService } from './services/authService'
 import { gameService } from './services/gameService'
+import { deviceService } from './services/deviceService'
 
 import AppHeader from './components/layout/AppHeader'
 import BottomNav from './components/layout/BottomNav'
@@ -10,6 +11,7 @@ import AuthModal from './components/common/AuthModal'
 import StoryCardModal from './components/common/StoryCardModal'
 import SessionRecapModal from './components/common/SessionRecapModal'
 import GameLobby from './components/common/GameLobby'
+import CheckInModal from './components/common/CheckInModal'
 
 // Game Modules
 import TrufSetup from './tools/truf/TrufSetup'
@@ -65,17 +67,17 @@ function MainApp() {
   const [user, setUser] = useState(null)
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
   const [isShareModalOpen, setIsShareModalOpen] = useState(false)
+  const [isCheckInModalOpen, setIsCheckInModalOpen] = useState(false)
+  const [pendingJoinSession, setPendingJoinSession] = useState(null)
   const [isPricingModalOpen, setIsPricingModalOpen] = useState(false)
   const [isRecapModalOpen, setIsRecapModalOpen] = useState(false)
   const [selectedRecapSession, setSelectedRecapSession] = useState(null)
   const [shareData, setShareData] = useState(null)
 
-  // Navigation View State (Synced with Browser URL & LocalStorage)
+  // Navigation View State (Synced with Browser URL)
   const [currentView, setCurrentView] = useState(() => {
     try {
-      const pathView = getViewFromPath(window.location.pathname)
-      if (pathView !== 'hub') return pathView
-      return localStorage.getItem('gns_current_view') || 'hub'
+      return getViewFromPath(window.location.pathname)
     } catch {
       return 'hub'
     }
@@ -133,11 +135,12 @@ function MainApp() {
     } catch {}
   }, [sessionRounds])
 
+  // Clean up any legacy saved view from localStorage so user is not redirected
   useEffect(() => {
     try {
-      localStorage.setItem('gns_current_view', currentView)
+      localStorage.removeItem('gns_current_view')
     } catch {}
-  }, [currentView])
+  }, [])
 
   const loadUserSessions = async (userId) => {
     const data = await gameService.getUserSessions(userId || 'guest-user')
@@ -149,19 +152,62 @@ function MainApp() {
     if (!roomCode) return false
     const session = await gameService.getSession(null, roomCode.toUpperCase())
     if (session) {
-      setActiveSession(session)
-      setSessionRounds(session.game_rounds || session.rounds || [])
-      setCurrentView(session.game_type)
-      setGameMode('play')
+      const currentClientId = deviceService.getClientIdentifier(user)
+      const seatIndex = session.player_user_ids?.findIndex(id => id && (id === currentClientId || (user?.id && id === user.id)))
+      const localSeat = deviceService.getSessionSeat(session.id)
+      const existingSeat = seatIndex !== -1 && seatIndex !== undefined ? seatIndex : localSeat
+
+      // If user is already bound to a seat in this room
+      if (existingSeat !== null && existingSeat !== undefined) {
+        setActiveSession(session)
+        setSessionRounds(session.game_rounds || session.rounds || [])
+        setCurrentView(session.game_type)
+        setGameMode('play')
+        return true
+      }
+
+      // If not yet checked in, open CheckInModal so player can choose seat or spectate
+      setPendingJoinSession(session)
+      setIsCheckInModalOpen(true)
       return true
     }
     return false
   }
 
-  // Claim a Seat at the Table
+  // Handle Seat Selection from CheckInModal
+  const handleSelectSeat = async (playerIndex) => {
+    if (!pendingJoinSession) return
+    const currentClientId = deviceService.getClientIdentifier(user)
+    await gameService.claimSeat(pendingJoinSession.id, playerIndex, currentClientId)
+    deviceService.setSessionSeat(pendingJoinSession.id, playerIndex)
+
+    const refreshed = await gameService.getSession(pendingJoinSession.id) || pendingJoinSession
+    setActiveSession(refreshed)
+    setSessionRounds(refreshed.game_rounds || refreshed.rounds || [])
+    setCurrentView(refreshed.game_type)
+    setGameMode('play')
+    setIsCheckInModalOpen(false)
+    setPendingJoinSession(null)
+  }
+
+  // Handle Enter Room as Spectator
+  const handleEnterAsSpectator = () => {
+    if (!pendingJoinSession) return
+    deviceService.clearSessionSeat(pendingJoinSession.id)
+    setActiveSession(pendingJoinSession)
+    setSessionRounds(pendingJoinSession.game_rounds || pendingJoinSession.rounds || [])
+    setCurrentView(pendingJoinSession.game_type)
+    setGameMode('play')
+    setIsCheckInModalOpen(false)
+    setPendingJoinSession(null)
+  }
+
+  // Claim a Seat at the Table from within game view
   const handleClaimSeat = async (playerIndex) => {
-    if (!activeSession || !user) return
-    await gameService.claimSeat(activeSession.id, playerIndex, user.id)
+    if (!activeSession) return
+    const currentClientId = deviceService.getClientIdentifier(user)
+    await gameService.claimSeat(activeSession.id, playerIndex, currentClientId)
+    deviceService.setSessionSeat(activeSession.id, playerIndex)
     const refreshed = await gameService.getSession(activeSession.id)
     if (refreshed) {
       setActiveSession(refreshed)
@@ -292,16 +338,19 @@ function MainApp() {
     setCurrentView(viewId)
   }
 
-  // 1. Start a New Game Session
+  // 1. Start a New Game Session (Host binds to Seat 0)
   const handleStartGame = async (gameType, setupData) => {
+    const currentClientId = deviceService.getClientIdentifier(user)
     const session = await gameService.createSession({
       userId: user?.id || 'guest-user',
+      creatorClientId: currentClientId,
       gameType,
       playerNames: setupData.playerNames,
       settings: setupData.settings,
       title: `${gameType.toUpperCase()} - ${new Date().toLocaleDateString()}`
     })
 
+    deviceService.setSessionSeat(session.id, 0)
     setActiveSession(session)
     setSessionRounds([])
     setCurrentView(gameType)
@@ -334,12 +383,10 @@ function MainApp() {
     loadUserSessions(user?.id)
   }
 
-  // 4. Finalize Game & Open Story Card Modal
-  const handleFinalizeGame = async () => {
+  // 4. Share Current Live Session (Non-Destructive, does not end game)
+  const handleShareCurrentSession = () => {
     if (!activeSession) return
-    await gameService.completeSession(activeSession.id)
-    
-    // Calculate final rankings for the 9:16 story card
+    const isLowestWins = activeSession.game_type === 'remi' || activeSession.game_type === 'omben'
     const scores = Array(activeSession.player_names?.length || 4).fill(0)
     sessionRounds.forEach(r => {
       r.player_scores?.forEach(ps => {
@@ -350,12 +397,42 @@ function MainApp() {
     const playersWithScores = (activeSession.player_names || []).map((name, idx) => ({
       name,
       score: scores[idx]
-    })).sort((a, b) => b.score - a.score)
+    })).sort((a, b) => isLowestWins ? a.score - b.score : b.score - a.score)
 
     setShareData({
       gameType: activeSession.game_type?.toUpperCase(),
       title: activeSession.title,
-      hostName: user?.profile?.display_name || 'Guest Host',
+      hostName: user?.profile?.display_name || 'Host',
+      date: new Date().toLocaleDateString(),
+      players: playersWithScores
+    })
+
+    setIsShareModalOpen(true)
+  }
+
+  // 5. Finalize Game & Open Story Card Modal
+  const handleFinalizeGame = async () => {
+    if (!activeSession) return
+    await gameService.completeSession(activeSession.id)
+    
+    // Calculate final rankings (lowest score wins for remi/omben, highest for truf)
+    const isLowestWins = activeSession.game_type === 'remi' || activeSession.game_type === 'omben'
+    const scores = Array(activeSession.player_names?.length || 4).fill(0)
+    sessionRounds.forEach(r => {
+      r.player_scores?.forEach(ps => {
+        scores[ps.player_index] += (ps.score_change || 0)
+      })
+    })
+
+    const playersWithScores = (activeSession.player_names || []).map((name, idx) => ({
+      name,
+      score: scores[idx]
+    })).sort((a, b) => isLowestWins ? a.score - b.score : b.score - a.score)
+
+    setShareData({
+      gameType: activeSession.game_type?.toUpperCase(),
+      title: activeSession.title,
+      hostName: user?.profile?.display_name || 'Host',
       date: new Date().toLocaleDateString(),
       players: playersWithScores
     })
@@ -364,7 +441,7 @@ function MainApp() {
     loadUserSessions(user?.id)
   }
 
-  // 5. Quick Rematch with Same Roster
+  // 6. Quick Rematch with Same Roster
   const handleRematch = (session) => {
     handleStartGame(session.game_type, {
       playerNames: session.player_names,
@@ -372,9 +449,10 @@ function MainApp() {
     })
   }
 
-  // 6. Open Share Modal for Past Session
+  // 7. Open Share Modal for Past Session
   const handleShareSession = (session) => {
     const rounds = session.game_rounds || session.rounds || []
+    const isLowestWins = session.game_type === 'remi' || session.game_type === 'omben'
     const scores = Array(session.player_names?.length || 4).fill(0)
     rounds.forEach(r => {
       r.player_scores?.forEach(ps => {
@@ -385,7 +463,7 @@ function MainApp() {
     const playersWithScores = (session.player_names || []).map((name, idx) => ({
       name,
       score: scores[idx]
-    })).sort((a, b) => b.score - a.score)
+    })).sort((a, b) => isLowestWins ? a.score - b.score : b.score - a.score)
 
     setShareData({
       gameType: session.game_type?.toUpperCase(),
@@ -453,7 +531,7 @@ function MainApp() {
             onSaveRound={handleSaveRound}
             onUndoRound={handleUndoRound}
             onFinalizeGame={handleFinalizeGame}
-            onOpenShareModal={handleFinalizeGame}
+            onOpenShareModal={handleShareCurrentSession}
             onBackToLobby={() => setGameMode('lobby')}
             user={user}
             onClaimSeat={handleClaimSeat}
@@ -488,7 +566,7 @@ function MainApp() {
             onSaveRound={handleSaveRound}
             onUndoRound={handleUndoRound}
             onFinalizeGame={handleFinalizeGame}
-            onOpenShareModal={handleFinalizeGame}
+            onOpenShareModal={handleShareCurrentSession}
             onBackToLobby={() => setGameMode('lobby')}
             user={user}
             onClaimSeat={handleClaimSeat}
@@ -523,7 +601,7 @@ function MainApp() {
             onSaveRound={handleSaveRound}
             onUndoRound={handleUndoRound}
             onFinalizeGame={handleFinalizeGame}
-            onOpenShareModal={handleFinalizeGame}
+            onOpenShareModal={handleShareCurrentSession}
             onBackToLobby={() => setGameMode('lobby')}
             user={user}
             onClaimSeat={handleClaimSeat}
@@ -603,6 +681,14 @@ function MainApp() {
       <PricingModal
         isOpen={isPricingModalOpen}
         onClose={() => setIsPricingModalOpen(false)}
+      />
+
+      {/* Check-in / Seat Selector / Spectator Entry Modal */}
+      <CheckInModal
+        isOpen={isCheckInModalOpen}
+        session={pendingJoinSession}
+        onSelectSeat={handleSelectSeat}
+        onEnterAsSpectator={handleEnterAsSpectator}
       />
     </div>
   )

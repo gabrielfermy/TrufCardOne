@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { shareService } from '../../services/shareService'
+import { soundService } from '../../services/soundService'
+import { hapticsService } from '../../services/hapticsService'
 import { useTranslation } from '../../i18n/I18nContext'
 
 export default function StoryCardModal({ isOpen, onClose, sessionData }) {
@@ -33,8 +35,18 @@ export default function StoryCardModal({ isOpen, onClose, sessionData }) {
   if (!isOpen) return null
 
   const handleShare = () => {
+    try { soundService.playClick() } catch (e) {}
+    try { hapticsService.light() } catch (e) {}
     if (sessionData) {
       shareService.shareStoryCard(sessionData)
+    }
+  }
+
+  const handleDownload = () => {
+    try { soundService.playClick() } catch (e) {}
+    try { hapticsService.light() } catch (e) {}
+    if (sessionData) {
+      shareService.downloadStoryCard(sessionData)
     }
   }
 
@@ -87,7 +99,7 @@ export default function StoryCardModal({ isOpen, onClose, sessionData }) {
           
           <button 
             className="btn btn-secondary btn-block" 
-            onClick={handleShare}
+            onClick={handleDownload}
           >
             💾 {t('share.download_card')}
           </button>
