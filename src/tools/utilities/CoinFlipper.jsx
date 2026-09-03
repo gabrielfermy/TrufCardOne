@@ -1,8 +1,10 @@
 import React, { useState } from 'react'
+import { useTranslation } from '../../i18n/I18nContext'
 import { soundService } from '../../services/soundService'
 import { hapticsService } from '../../services/hapticsService'
 
 export default function CoinFlipper() {
+  const { t } = useTranslation()
   const [result, setResult] = useState('HEADS')
   const [isFlipping, setIsFlipping] = useState(false)
 
@@ -48,12 +50,12 @@ export default function CoinFlipper() {
       }}>
         <span style={{ fontSize: '2.5rem' }}>{result === 'HEADS' ? '👑' : '🦅'}</span>
         <span style={{ fontSize: '0.85rem', fontWeight: 900, color: '#FFF', letterSpacing: '1px' }}>
-          {result === 'HEADS' ? 'GAMBAR' : 'ANGKA'}
+          {result === 'HEADS' ? t('utilities.heads') : t('utilities.tails')}
         </span>
       </div>
 
       <h3 style={{ fontSize: '1.6rem', fontWeight: 900, marginBottom: '24px', color: result === 'HEADS' ? '#FBBF24' : '#E2E8F0' }}>
-        {result === 'HEADS' ? 'GAMBAR (HEADS)' : 'ANGKA (TAILS)'}
+        {result === 'HEADS' ? t('utilities.heads_full') : t('utilities.tails_full')}
       </h3>
 
       <button
@@ -62,7 +64,7 @@ export default function CoinFlipper() {
         onClick={flipCoin}
         disabled={isFlipping}
       >
-        🪙 {isFlipping ? 'Melempar...' : 'Lempar Koin!'}
+        🪙 {isFlipping ? t('utilities.flipping') : t('utilities.flip_button')}
       </button>
     </div>
   )
