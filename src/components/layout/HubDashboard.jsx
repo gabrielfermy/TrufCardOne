@@ -2,6 +2,8 @@ import React, { useState } from 'react'
 import { useTranslation } from '../../i18n/I18nContext'
 
 export default function HubDashboard({ 
+  user,
+  onOpenAuth,
   onSelectTool, 
   recentSessions = [], 
   onRematch, 
@@ -253,168 +255,257 @@ export default function HubDashboard({
         <div className="section-label" style={{ margin: 0 }}>
           {t('hub.recent_games')}
         </div>
-        <div style={{ display: 'flex', gap: '6px' }}>
-          <button
-            className={`btn btn-sm ${diaryTab === 'active' ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ fontSize: '0.78rem', padding: '4px 10px', fontWeight: 800 }}
-            onClick={() => setDiaryTab('active')}
-          >
-            🟢 {t('hub.tab_active')} ({activeSessions.length})
-          </button>
-          <button
-            className={`btn btn-sm ${diaryTab === 'completed' ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ fontSize: '0.78rem', padding: '4px 10px', fontWeight: 800 }}
-            onClick={() => setDiaryTab('completed')}
-          >
-            🏁 {t('hub.tab_completed')} ({completedSessions.length})
-          </button>
-        </div>
+        {user && (
+          <div style={{ display: 'flex', gap: '6px' }}>
+            <button
+              className={`btn btn-sm ${diaryTab === 'active' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ fontSize: '0.78rem', padding: '4px 10px', fontWeight: 800 }}
+              onClick={() => setDiaryTab('active')}
+            >
+              🟢 {t('hub.tab_active')} ({activeSessions.length})
+            </button>
+            <button
+              className={`btn btn-sm ${diaryTab === 'completed' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ fontSize: '0.78rem', padding: '4px 10px', fontWeight: 800 }}
+              onClick={() => setDiaryTab('completed')}
+            >
+              🏁 {t('hub.tab_completed')} ({completedSessions.length})
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Tab: Active Ongoing Matches */}
-      {diaryTab === 'active' && (
-        <div className="diary-list">
-          {activeSessions.length > 0 ? (
-            activeSessions.slice(0, 8).map(session => {
-              const roundsCount = session.game_rounds?.length || session.rounds?.length || 0
-              return (
-                <div key={session.id} className="diary-card" style={{ borderLeft: '4px solid #34D399' }}>
-                  <div className="diary-left">
-                    <span className="diary-icon">
-                      {session.game_type === 'truf' ? '🃏' : session.game_type === 'remi' ? '🎴' : session.game_type === 'omben' ? '🍺' : '📊'}
-                    </span>
-                    <div>
-                      <div className="diary-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span>{session.title || `${session.game_type?.toUpperCase()} Match`}</span>
-                        {session.room_code && (
-                          <span style={{ fontSize: '0.72rem', color: '#A855F7', background: 'rgba(168, 85, 247, 0.15)', padding: '2px 6px', borderRadius: '4px' }}>
-                            🔗 {session.room_code}
-                          </span>
-                        )}
-                      </div>
-                      <div className="diary-meta">
-                        {t('hub.round_n', { num: roundsCount + 1 })} • {session.player_names?.join(', ')}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="diary-right">
-                    {onOpenSession && (
-                      <button 
-                        className="btn btn-sm btn-primary"
-                        onClick={() => onOpenSession(session)}
-                        style={{ fontWeight: 800 }}
-                      >
-                        ▶️ {t('hub.resume_btn')}
-                      </button>
-                    )}
-                    {onCompleteSession && (
-                      <button 
-                        className="btn btn-sm btn-secondary"
-                        onClick={() => {
-                          if (confirm(t('hub.confirm_finish'))) {
-                            onCompleteSession(session.id)
-                          }
-                        }}
-                        title={t('hub.finish_game_title')}
-                      >
-                        🏁
-                      </button>
-                    )}
-                    {onDeleteSession && (
-                      <button 
-                        className="btn btn-sm btn-danger"
-                        onClick={() => {
-                          if (confirm(t('hub.confirm_delete'))) {
-                            onDeleteSession(session.id)
-                          }
-                        }}
-                        title={t('hub.delete_game_title')}
-                      >
-                        🗑️
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )
-            })
-          ) : (
-            <div className="glass-panel" style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>
-              <p style={{ margin: 0 }}>{t('hub.no_active_games')}</p>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-dim)', marginTop: '4px' }}>{t('hub.no_active_games_hint')}</p>
-            </div>
-          )}
-        </div>
-      )}
+      {/* Diary Content Area (Locked & Blurred for Guests) */}
+      <div style={{ position: 'relative', borderRadius: '16px', overflow: 'hidden' }}>
+        {!user && (
+          <div style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(11, 14, 23, 0.78)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+            borderRadius: '16px',
+            border: '1px dashed rgba(139, 92, 246, 0.4)',
+            padding: '24px 20px',
+            textAlign: 'center',
+            zIndex: 10,
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)'
+          }}>
+            <span style={{ fontSize: '2.4rem', marginBottom: '8px' }}>🔒</span>
+            <h4 style={{ fontSize: '1.2rem', fontWeight: 900, color: '#FFF', margin: '0 0 6px 0', letterSpacing: '0.5px' }}>
+              {t('hub.guest_history_title')}
+            </h4>
+            <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', maxWidth: '420px', margin: '0 0 18px 0', lineHeight: 1.5 }}>
+              {t('hub.guest_history_desc')}
+            </p>
+            {onOpenAuth && (
+              <button 
+                type="button" 
+                className="btn btn-primary"
+                onClick={onOpenAuth}
+                style={{
+                  background: 'linear-gradient(90deg, #8B5CF6, #EC4899)',
+                  fontWeight: 800,
+                  padding: '10px 24px',
+                  borderRadius: '12px',
+                  fontSize: '0.92rem',
+                  boxShadow: '0 4px 18px rgba(139, 92, 246, 0.45)',
+                  cursor: 'pointer'
+                }}
+              >
+                ✨ {t('hub.guest_history_btn')}
+              </button>
+            )}
+          </div>
+        )}
 
-      {/* Tab: Completed Finished Matches */}
-      {diaryTab === 'completed' && (
-        <div className="diary-list">
-          {completedSessions.length > 0 ? (
-            completedSessions.slice(0, 8).map(session => (
-              <div key={session.id} className="diary-card" style={{ borderLeft: '4px solid #F59E0B' }}>
+        <div style={{ 
+          filter: !user ? 'blur(6px)' : 'none', 
+          opacity: !user ? 0.35 : 1, 
+          pointerEvents: !user ? 'none' : 'auto', 
+          userSelect: !user ? 'none' : 'auto' 
+        }}>
+          {!user ? (
+            /* Mock Diary Cards shown blurred behind guest lock */
+            <div className="diary-list">
+              <div className="diary-card" style={{ borderLeft: '4px solid #34D399', opacity: 0.85 }}>
                 <div className="diary-left">
-                  <span className="diary-icon">
-                    {session.game_type === 'truf' ? '🃏' : session.game_type === 'remi' ? '🎴' : session.game_type === 'omben' ? '🍺' : '📊'}
-                  </span>
+                  <span className="diary-icon">🃏</span>
                   <div>
-                    <div className="diary-title">
-                      {session.title || `${session.game_type?.toUpperCase()} Match`}
-                    </div>
-                    <div className="diary-meta">
-                      {new Date(session.created_at).toLocaleDateString()} • {session.player_names?.join(', ')}
-                    </div>
+                    <div className="diary-title">TRUF Match • TRU-8K2N</div>
+                    <div className="diary-meta">{t('hub.round_n', { num: 8 })} • Gabriel, Budi, Andi, Rizky</div>
                   </div>
                 </div>
                 <div className="diary-right">
-                  {onViewRecap && (
-                    <button 
-                      className="btn btn-sm btn-secondary"
-                      onClick={() => onViewRecap(session)}
-                      title={t('hub.recap_btn')}
-                    >
-                      📊 {t('hub.recap_btn')}
-                    </button>
-                  )}
-                  {onShareSession && (
-                    <button 
-                      className="btn btn-sm btn-secondary"
-                      onClick={() => onShareSession(session)}
-                      title="Bagikan Kartu Story 9:16"
-                    >
-                      📸 9:16
-                    </button>
-                  )}
-                  {onRematch && (
-                    <button 
-                      className="btn btn-sm btn-primary"
-                      onClick={() => onRematch(session)}
-                    >
-                      🔄
-                    </button>
-                  )}
-                  {onDeleteSession && (
-                    <button 
-                      className="btn btn-sm btn-danger"
-                      onClick={() => {
-                        if (confirm(t('hub.confirm_delete_history'))) {
-                          onDeleteSession(session.id)
-                        }
-                      }}
-                      title={t('hub.delete_game_title')}
-                    >
-                      🗑️
-                    </button>
-                  )}
+                  <button className="btn btn-sm btn-primary" tabIndex={-1}>▶️ {t('hub.resume_btn')}</button>
                 </div>
               </div>
-            ))
-          ) : (
-            <div className="glass-panel" style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>
-              <p style={{ margin: 0 }}>{t('hub.no_completed_games')}</p>
+              <div className="diary-card" style={{ borderLeft: '4px solid #F59E0B', opacity: 0.85 }}>
+                <div className="diary-left">
+                  <span className="diary-icon">🎴</span>
+                  <div>
+                    <div className="diary-title">REMI 7-Card Match</div>
+                    <div className="diary-meta">12 Sep • Gabriel, Budi, Siti, Dani</div>
+                  </div>
+                </div>
+                <div className="diary-right">
+                  <button className="btn btn-sm btn-secondary" tabIndex={-1}>📊 {t('hub.recap_btn')}</button>
+                </div>
+              </div>
             </div>
+          ) : (
+            /* Real User Matches */
+            <>
+              {diaryTab === 'active' && (
+                <div className="diary-list">
+                  {activeSessions.length > 0 ? (
+                    activeSessions.slice(0, 8).map(session => {
+                      const roundsCount = session.game_rounds?.length || session.rounds?.length || 0
+                      return (
+                        <div key={session.id} className="diary-card" style={{ borderLeft: '4px solid #34D399' }}>
+                          <div className="diary-left">
+                            <span className="diary-icon">
+                              {session.game_type === 'truf' ? '🃏' : session.game_type === 'remi' ? '🎴' : session.game_type === 'omben' ? '🍺' : '📊'}
+                            </span>
+                            <div>
+                              <div className="diary-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span>{session.title || `${session.game_type?.toUpperCase()} Match`}</span>
+                                {session.room_code && (
+                                  <span style={{ fontSize: '0.72rem', color: '#A855F7', background: 'rgba(168, 85, 247, 0.15)', padding: '2px 6px', borderRadius: '4px' }}>
+                                    🔗 {session.room_code}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="diary-meta">
+                                {t('hub.round_n', { num: roundsCount + 1 })} • {session.player_names?.join(', ')}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="diary-right">
+                            {onOpenSession && (
+                              <button 
+                                className="btn btn-sm btn-primary"
+                                onClick={() => onOpenSession(session)}
+                                style={{ fontWeight: 800 }}
+                              >
+                                ▶️ {t('hub.resume_btn')}
+                              </button>
+                            )}
+                            {onCompleteSession && (
+                              <button 
+                                className="btn btn-sm btn-secondary"
+                                onClick={() => {
+                                  if (confirm(t('hub.confirm_finish'))) {
+                                    onCompleteSession(session.id)
+                                  }
+                                }}
+                                title={t('hub.finish_game_title')}
+                              >
+                                🏁
+                              </button>
+                            )}
+                            {onDeleteSession && (
+                              <button 
+                                className="btn btn-sm btn-danger"
+                                onClick={() => {
+                                  if (confirm(t('hub.confirm_delete'))) {
+                                    onDeleteSession(session.id)
+                                  }
+                                }}
+                                title={t('hub.delete_game_title')}
+                              >
+                                🗑️
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })
+                  ) : (
+                    <div className="glass-panel" style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                      <p style={{ margin: 0 }}>{t('hub.no_active_games')}</p>
+                      <p style={{ fontSize: '0.8rem', color: 'var(--text-dim)', marginTop: '4px' }}>{t('hub.no_active_games_hint')}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {diaryTab === 'completed' && (
+                <div className="diary-list">
+                  {completedSessions.length > 0 ? (
+                    completedSessions.slice(0, 8).map(session => (
+                      <div key={session.id} className="diary-card" style={{ borderLeft: '4px solid #F59E0B' }}>
+                        <div className="diary-left">
+                          <span className="diary-icon">
+                            {session.game_type === 'truf' ? '🃏' : session.game_type === 'remi' ? '🎴' : session.game_type === 'omben' ? '🍺' : '📊'}
+                          </span>
+                          <div>
+                            <div className="diary-title">
+                              {session.title || `${session.game_type?.toUpperCase()} Match`}
+                            </div>
+                            <div className="diary-meta">
+                              {new Date(session.created_at).toLocaleDateString()} • {session.player_names?.join(', ')}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="diary-right">
+                          {onViewRecap && (
+                            <button 
+                              className="btn btn-sm btn-secondary"
+                              onClick={() => onViewRecap(session)}
+                              title={t('hub.recap_btn')}
+                            >
+                              📊 {t('hub.recap_btn')}
+                            </button>
+                          )}
+                          {onShareSession && (
+                            <button 
+                              className="btn btn-sm btn-secondary"
+                              onClick={() => onShareSession(session)}
+                              title="Bagikan Kartu Story 9:16"
+                            >
+                              📸 9:16
+                            </button>
+                          )}
+                          {onRematch && (
+                            <button 
+                              className="btn btn-sm btn-primary"
+                              onClick={() => onRematch(session)}
+                            >
+                              🔄
+                            </button>
+                          )}
+                          {onDeleteSession && (
+                            <button 
+                              className="btn btn-sm btn-danger"
+                              onClick={() => {
+                                if (confirm(t('hub.confirm_delete_history'))) {
+                                  onDeleteSession(session.id)
+                                }
+                              }}
+                              title={t('hub.delete_game_title')}
+                            >
+                              🗑️
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="glass-panel" style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                      <p style={{ margin: 0 }}>{t('hub.no_completed_games')}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
           )}
         </div>
-      )}
+      </div>
     </div>
   )
 }

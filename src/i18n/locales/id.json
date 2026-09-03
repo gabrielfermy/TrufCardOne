@@ -76,7 +76,10 @@
     "confirm_finish": "Selesaikan game ini dan simpan ke riwayat selesai?",
     "confirm_delete": "Hapus game ini?",
     "confirm_delete_history": "Hapus riwayat pertandingan ini?",
-    "room_not_found": "Room tidak ditemukan. Pastikan kode room sudah benar."
+    "room_not_found": "Room tidak ditemukan. Pastikan kode room sudah benar.",
+    "guest_history_title": "Riwayat Pertandingan Tersimpan",
+    "guest_history_desc": "Daftar atau Masuk dengan Google untuk menyimpan, melanjutkan, dan melihat statistik riwayat game kamu di Cloud!",
+    "guest_history_btn": "Daftar / Masuk Akun"
   },
   "auth": {
     "login_title": "Masuk ke Akun Anda",

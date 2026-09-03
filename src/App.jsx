@@ -568,6 +568,8 @@ function MainApp() {
       <main className="main-content">
         {currentView === 'hub' && (
           <HubDashboard
+            user={user}
+            onOpenAuth={() => setIsAuthModalOpen(true)}
             onSelectTool={handleNavigate}
             recentSessions={recentSessions}
             onRematch={handleRematch}

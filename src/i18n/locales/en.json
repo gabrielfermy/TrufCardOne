@@ -76,7 +76,10 @@
     "confirm_finish": "Finish this game and move to completed history?",
     "confirm_delete": "Delete this game?",
     "confirm_delete_history": "Delete this match history?",
-    "room_not_found": "Room not found. Please verify the room code."
+    "room_not_found": "Room not found. Please verify the room code.",
+    "guest_history_title": "Saved Match History",
+    "guest_history_desc": "Sign in or create an account to save, resume, and view your game match history in the Cloud!",
+    "guest_history_btn": "Sign In / Register"
   },
   "auth": {
     "login_title": "Sign In to Your Account",
