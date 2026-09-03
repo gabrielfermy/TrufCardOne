@@ -1,4 +1,4 @@
-# Product Requirement Document (PRD) - Game Night Suite
+# Product Requirement Document (PRD) - KancaSela (Konco Selo)
 
 ## 1. Latar Belakang & Visi Produk
 Permainan meja fisik (*tabletop games*) seperti permainan kartu tradisional (**Truf/Trup**, **Remi 7-Kartu**, **Omben/Cangkulan**), catur, dan board game merupakan aktivitas sosial yang sangat populer di Indonesia dan dunia. Namun, sesi bermain seringkali terhambat oleh masalah praktis:
@@ -8,7 +8,7 @@ Permainan meja fisik (*tabletop games*) seperti permainan kartu tradisional (**T
 - Ketiadaan dadu atau penentu siapa yang jalan/mulai duluan (*first player picker*).
 - Hilangnya riwayat permainan seru yang dimainkan bersama teman-teman di masa lalu.
 
-**Game Night Suite** hadir sebagai **All-in-One Tabletop & Card Game Companion** berbasis web (PWA) dan mobile native (Capacitor) yang ringan, instan, multi-bahasa, dan multi-tenant. Aplikasi ini dirancang untuk **pertumbuhan viral (High MAU)** dengan menghilangkan hambatan pendaftaran (*frictionless guest play*), sinkronisasi multi-perangkat (*real-time room*), fitur klaim kursi 1-tap (*1-tap Google SSO*), buku harian pertandingan (*personal match diary*), dan generator kartu status media sosial 9:16 (*WhatsApp Status & Instagram Stories*).
+**KancaSela** (dibaca: *Konco Selo*) hadir sebagai **All-in-One Tabletop & Card Game Companion** berbasis web (PWA) dan mobile native (Capacitor) yang ringan, instan, multi-bahasa, dan multi-tenant. Aplikasi ini dirancang untuk **pertumbuhan viral (High MAU)** dengan menghilangkan hambatan pendaftaran (*frictionless guest play*), sinkronisasi multi-perangkat (*real-time room*), fitur klaim kursi 1-tap (*1-tap Google SSO*), buku harian pertandingan (*personal match diary*), dan generator kartu status media sosial 9:16 (*WhatsApp Status & Instagram Stories*).
 
 ---
 
@@ -161,7 +161,7 @@ graph TD
    - Validasi Product-Market Fit dan pengumpulan data feedback awal.
 
 2. **Fase 2 (Pendaftaran Toko Aplikasi & Ekspansi Native)**:
-   - **Pemicu (Milestone Trigger)**: Tercapainya pendapatan awal (*Game Night Pro / B2B Cafe SaaS*) atau pendanaan awal (*Seed investment*).
+   - **Pemicu (Milestone Trigger)**: Tercapainya pendapatan awal (*KancaSela Pro / B2B Cafe SaaS*) atau pendanaan awal (*Seed investment*).
    - Mendaftarkan Google Play Console ($25) dan Apple Developer Program ($99/th).
    - Kompilasi instan menggunakan arsitektur Capacitor yang telah terpasang ke format Android App Bundle (`.aab`) dan iOS (`.ipa`).
    - Memaksimalkan peringkat pencarian App Store (ASO) dan kredibilitas pasar.

@@ -62,7 +62,7 @@ export default function RoomInviteModal({ isOpen, onClose, session, user, onClai
     } catch {}
 
     const gameName = (session.game_type || 'Game').toUpperCase()
-    const msg = `🎮 Yuk gabung ke TrufCard Game Room!\nPermainan: ${gameName}\nKode Room: ${roomCode}\n\nKlik tautan ini untuk langsung check-in ke meja:\n${inviteUrl}`
+    const msg = `🎮 Yuk gabung ke room game KancaSela!\nPermainan: ${gameName}\nKode Room: ${roomCode}\n\nKlik tautan ini untuk langsung check-in ke meja:\n${inviteUrl}`
     const waUrl = `https://wa.me/?text=${encodeURIComponent(msg)}`
     window.open(waUrl, '_blank')
   }
@@ -75,8 +75,8 @@ export default function RoomInviteModal({ isOpen, onClose, session, user, onClai
 
     const gameName = (session.game_type || 'Game').toUpperCase()
     const shareData = {
-      title: `Gabung Meja ${gameName} - TrufCard`,
-      text: `🎮 Yuk gabung ke meja ${gameName}! Kode Room: ${roomCode}`,
+      title: `Gabung Meja ${gameName} - KancaSela`,
+      text: `🎮 Yuk gabung ke meja ${gameName} di KancaSela! Kode Room: ${roomCode}`,
       url: inviteUrl
     }
 

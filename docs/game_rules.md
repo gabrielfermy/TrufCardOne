@@ -1,6 +1,6 @@
-# Game Rules & Mathematical Scoring Reference - Game Night Suite
+# Game Rules & Mathematical Scoring Reference - KancaSela
 
-Dokumen ini adalah referensi lengkap aturan main, terminologi, dan rumus matematika penilaian (*scoring formula*) untuk semua permainan yang didukung dalam **Game Night Suite**. Dokumen ini dirancang sebagai panduan definitif bagi pengembang dan agen AI saat membangun atau memperluas modul permainan.
+Dokumen ini adalah referensi lengkap aturan main, terminologi, dan rumus matematika penilaian (*scoring formula*) untuk semua permainan yang didukung dalam **KancaSela**. Dokumen ini dirancang sebagai panduan definitif bagi pengembang dan agen AI saat membangun atau memperluas modul permainan.
 
 ---
 

@@ -1,7 +1,7 @@
 {
   "app": {
-    "name": "Game Night Suite",
-    "tagline": "The ultimate companion & scorekeeper for tabletop game nights",
+    "name": "KancaSela",
+    "tagline": "The ultimate companion & scorekeeper for card and tabletop games",
     "guest": "Guest (Offline Mode)",
     "offline_notice": "Playing as Guest. Sign in to sync match history to the cloud!",
     "loading": "Loading...",
@@ -37,7 +37,7 @@
   "hub": {
     "title": "Choose Game / Tool",
     "subtitle": "Track scores or launch tabletop tools instantly",
-    "recent_games": "Recent Game Night Diary",
+    "recent_games": "Recent KancaSela Diary",
     "no_recent_games": "No games played yet. Start your first game now!",
     "hosted_by": "Host: {{name}}",
     "played_on": "{{date}}",
@@ -175,10 +175,10 @@
     "share_whatsapp": "Share to WhatsApp Status",
     "share_instagram": "Share to IG Stories / TikTok",
     "download_card": "Download Image (PNG)",
-    "champion": "GAME NIGHT CHAMPION",
+    "champion": "KANCASELA CHAMPION",
     "mvp": "MVP of the Night",
     "date": "Match Date",
-    "watermark": "Recorded with Game Night Suite"
+    "watermark": "Recorded with KancaSela"
   },
   "admin": {
     "title": "Web Admin Portal",
@@ -197,13 +197,13 @@
   },
   "pricing": {
     "title": "Choose Your Plan",
-    "subtitle": "Pick the ideal companion tier for casual game nights or cafe leagues",
+    "subtitle": "Pick the ideal companion tier for casual games or cafe leagues",
     "monthly": "Monthly",
     "yearly": "Yearly",
     "current_plan": "Current Plan",
     "free_name": "Free Starter",
     "free_desc": "Perfect for casual games at home with friends",
-    "pro_name": "Game Night Pro",
+    "pro_name": "KancaSela Pro",
     "pro_desc": "For passionate players who want to flex stats & unlimited history",
     "venue_name": "Venue Edition (B2B)",
     "venue_desc": "For board game cafes, warkops, and tournament organizers",

@@ -1,7 +1,7 @@
-# Investor Pitch Deck & Business Case - Game Night Suite
+# Investor Pitch Deck & Business Case - KancaSela
 
 > **"The Strava for Physical Card & Tabletop Gaming"**  
-> *Transforming millions of physical game nights into connected, shareable, and viral digital social experiences.*
+> *Transforming millions of physical game sessions into connected, shareable, and viral digital social experiences.*
 
 ---
 
@@ -9,12 +9,12 @@
 
 | Metric / Dimension | Overview |
 | :--- | :--- |
-| **Product** | **Game Night Suite** (All-in-One Multi-Tenant Tabletop & Card Game Companion) |
+| **Product** | **KancaSela** (pronounced *Konco Selo* - All-in-One Multi-Tenant Tabletop & Card Game Companion) |
 | **Target Market** | Casual & competitive tabletop, card game, and chess players across Southeast Asia & Global |
 | **Initial Target Market (SOM)** | Indonesia (~100M+ casual card/board game players in cafes, warungs, campuses, and homes) |
 | **Core Value Prop** | Zero-friction digital scorekeeping, live multi-device spectator rooms, personal game diary, and 9:16 social flex cards |
 | **Growth Engine** | Viral multiplier ($K \ge 1.4$) via WhatsApp Status / Instagram Stories and frictionless 1-tap Google seat claiming |
-| **Monetization** | Freemium "Game Night Pro" subscriptions, B2B Cafe/Venue SaaS, and branded tournament sponsorships |
+| **Monetization** | Freemium "KancaSela Pro" subscriptions, B2B Cafe/Venue SaaS, and branded tournament sponsorships |
 
 ---
 
@@ -38,13 +38,13 @@ Every day, hundreds of millions of people play physical card games (**Truf**, **
 
 ---
 
-## 3. The Solution: Game Night Suite
+## 3. The Solution: KancaSela
 
-Game Night Suite bridges physical tabletop gaming with digital social connectivity:
+KancaSela bridges physical tabletop gaming with digital social connectivity:
 
 ```mermaid
 graph LR
-    Physical[Physical Cards / Board / Chess] -->|Input| Suite[Game Night Companion App]
+    Physical[Physical Cards / Board / Chess] -->|Input| Suite[KancaSela Companion App]
     Suite -->|Realtime WebSockets| LiveSync[Multi-Device Live Spectator]
     Suite -->|1-Tap Google SSO| Diary[Permanent Match Diary & Social Graph]
     Suite -->|1-Click Canvas Export| Social[9:16 Story Cards for WhatsApp & TikTok]
@@ -68,7 +68,7 @@ graph LR
                      HIGH DIGITAL INTEGRATION
                                 ▲
                                 │
-    Virtual Online Games        │      GAME NIGHT SUITE (OURS)
+    Virtual Online Games        │      KANCASELA (OURS)
     (Higgs Domino, ZingPlay)    │   (Physical Companion + Social Graph)
     • Replaces real human table │   • Augments real in-person play
     • Solo / AI gambling focus  │   • Zero-friction live spectator rooms
@@ -111,7 +111,7 @@ graph LR
 
 ### 4.2. Feature & Capability Comparison Matrix
 
-| Critical Dimension | Pen & Paper / WA Notes | Generic Score Apps (BG Stats) | Single Utility (Lichess Clock) | Online Card Apps (Higgs Domino) | Game Night Suite (Ours) |
+| Critical Dimension | Pen & Paper / WA Notes | Generic Score Apps (BG Stats) | Single Utility (Lichess Clock) | Online Card Apps (Higgs Domino) | KancaSela (Ours) |
 | :--- | :---: | :---: | :---: | :---: | :---: |
 | **Instant Web Access (<300ms, No App Install)** | ❌ (Manual) | ❌ App Store Only | ❌ App Store Only | ❌ Heavy 100MB+ | 🏆 **Yes (PWA & Web)** |
 | **Native Mobile App (Android/iOS)** | ❌ | ✅ | ✅ | ✅ | 🏆 **Yes (Capacitor)** |
@@ -161,7 +161,7 @@ graph TD
 
 1. **Physical-to-Digital Social Graph**: Once a player has 50 match histories with their close friend circle ("My head-to-head record against Budi & Andi"), the switching cost to any copycat app becomes extremely high.
 2. **Zero-CAC Viral K-Factor**: Every single hosted match exposes 3–7 new potential users to the app with zero paid ad spend.
-3. **B2B Cafe & Community Network Effects**: Once board game cafes and university card clubs run their weekly leaderboards on Game Night Suite, the entire local community is locked into our ecosystem.
+3. **B2B Cafe & Community Network Effects**: Once board game cafes and university card clubs run their weekly leaderboards on KancaSela, the entire local community is locked into our ecosystem.
 
 ---
 
@@ -187,21 +187,21 @@ graph TD
 
 ## 6. Business Model & Monetization Strategy
 
-Game Night Suite employs a multi-tiered monetization strategy balancing consumer microtransactions with high-margin B2B venue subscriptions:
+KancaSela employs a multi-tiered monetization strategy balancing consumer microtransactions with high-margin B2B venue subscriptions:
 
 ```mermaid
 graph TD
     Rev[Revenue Model] --> B2C[B2C Consumer Streams]
     Rev --> B2B[B2B Venue & Tournament Streams]
     
-    B2C --> ProPass[1. Game Night Pro Subscriptions]
+    B2C --> ProPass[1. KancaSela Pro Subscriptions]
     B2C --> IAP[2. Digital Cosmetics & Story Themes]
     
     B2B --> CafeSaaS[3. Cafe & Warkop Tournament SaaS]
     B2B --> Sponsorship[4. Brand Sponsorships & Ad Placements]
 ```
 
-### 1. B2C: "Game Night Pro" Subscription (Freemium)
+### 1. B2C: "KancaSela Pro" Subscription (Freemium)
 * **Pricing**: Rp 19.000 / month ($1.25) or Rp 149.000 / year ($9.99).
 * **Pro Features**:
   * Unlimited match history & lifetime head-to-head analytics (*"Your win rate against Budi across 50 games"*).
@@ -214,7 +214,7 @@ graph TD
 
 ### 3. B2B: Tabletop Cafe / Warung Tournament SaaS ("Venue Edition")
 * **Pricing**: Rp 199.000 – Rp 499.000 / month per venue.
-* **Value Prop**: Board game cafes, warkops, and student hubs run weekly Truf/Remi/Chess tournaments using Game Night Suite.
+* **Value Prop**: Board game cafes, warkops, and student hubs run weekly Truf/Remi/Chess tournaments using KancaSela.
 * **Features**: Live TV Leaderboard display mode (Big Screen / Chromecast TV dashboard), automated tournament brackets, and venue-branded match cards.
 
 ### 4. Brand Sponsorships & Native Ads
@@ -286,4 +286,4 @@ We are seeking **Seed / Pre-Seed Investment** to accelerate engineering, server 
 
 ## 10. Conclusion & Vision
 
-Physical card games and board games will never disappear—human beings crave in-person connection around a table. By digitizing the friction points and creating a vibrant social memory layer, **Game Night Suite** is positioned to become the default companion for billions of game nights worldwide.
+Physical card games and board games will never disappear—human beings crave in-person connection around a table. By digitizing the friction points and creating a vibrant social memory layer, **KancaSela** is positioned to become the default companion for billions of game sessions worldwide.
