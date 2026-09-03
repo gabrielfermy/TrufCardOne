@@ -13,10 +13,7 @@ export function I18nProvider({ children }) {
   const [locale, setLocale] = useState(() => {
     const saved = localStorage.getItem('app_language')
     if (saved && (saved === 'id' || saved === 'en')) return saved
-    if (typeof navigator !== 'undefined' && navigator.language && navigator.language.startsWith('id')) {
-      return 'id'
-    }
-    return 'en'
+    return 'id'
   })
 
   useEffect(() => {

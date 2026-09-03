@@ -12,7 +12,7 @@ export default function PricingModal({ isOpen, onClose }) {
   const handleSelectPlan = (planName) => {
     hapticsService.medium()
     soundService.playVictory()
-    alert(`Terima kasih atas antusiasme Anda! Paket "${planName}" akan segera hadir di pembaruan rilis berikutnya.`)
+    alert(t('pricing.plan_coming_soon', { name: planName }))
   }
 
   return (
@@ -54,7 +54,7 @@ export default function PricingModal({ isOpen, onClose }) {
           <div>
             <strong style={{ color: '#60A5FA' }}>{t('pricing.guest_name')}:</strong>{' '}
             <span style={{ color: 'var(--text-muted)' }}>
-              {t('pricing.guest_desc')} — Tanpa biaya seumur hidup untuk gabung meja & main 1 HP offline.
+              {t('pricing.guest_desc')} — {t('pricing.guest_note')}
             </span>
           </div>
         </div>
@@ -122,16 +122,16 @@ export default function PricingModal({ isOpen, onClose }) {
                 {t('pricing.free_desc')}
               </div>
               <div style={{ fontSize: '2rem', fontWeight: 900, marginBottom: '18px' }}>
-                Rp 0 <span style={{ fontSize: '0.85rem', color: 'var(--text-dim)' }}>/ selamanya</span>
+                Rp 0 <span style={{ fontSize: '0.85rem', color: 'var(--text-dim)' }}>{t('pricing.per_forever')}</span>
               </div>
 
               <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 20px 0', fontSize: '0.88rem', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <li>✅ Akses semua game (Truf, Remi, Omben)</li>
-                <li>✅ Bikin room meja multiplayer resmi</li>
-                <li>✅ Jam catur 180° & Papan Skor 2-8</li>
-                <li>✅ Alat dadu 3D, koin, & finger chooser</li>
-                <li>✅ Ekspor Kartu 9:16 Standar</li>
-                <li>☁️ <strong>Simpan 10 riwayat game di Cloud</strong></li>
+                <li>✅ {t('pricing.free_f1')}</li>
+                <li>✅ {t('pricing.free_f2')}</li>
+                <li>✅ {t('pricing.free_f3')}</li>
+                <li>✅ {t('pricing.free_f4')}</li>
+                <li>✅ {t('pricing.free_f5')}</li>
+                <li>☁️ <strong>{t('pricing.free_f6')}</strong></li>
               </ul>
             </div>
 
@@ -183,20 +183,20 @@ export default function PricingModal({ isOpen, onClose }) {
               <div style={{ fontSize: '2rem', fontWeight: 900, marginBottom: '4px', color: '#FFF' }}>
                 {billingCycle === 'yearly' ? 'Rp 129.000' : 'Rp 19.000'}
                 <span style={{ fontSize: '0.85rem', color: 'var(--text-dim)' }}>
-                  {billingCycle === 'yearly' ? ' / tahun' : ' / bulan'}
+                  {billingCycle === 'yearly' ? ` ${t('pricing.per_year')}` : ` ${t('pricing.per_month')}`}
                 </span>
               </div>
               <div style={{ fontSize: '0.75rem', color: '#10B981', marginBottom: '18px', fontWeight: 700 }}>
-                {billingCycle === 'yearly' ? 'Hanya Rp 10.750 / bulan' : 'Langganan fleksibel'}
+                {billingCycle === 'yearly' ? t('pricing.pro_sub_yearly') : t('pricing.pro_sub_monthly')}
               </div>
 
               <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 20px 0', fontSize: '0.88rem', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <li>✨ <strong>Riwayat game tanpa batas</strong> seumur hidup</li>
-                <li>📊 <strong>Analitik Head-to-Head</strong> (Winrate vs Teman)</li>
-                <li>📸 <strong>Template Story 9:16 VIP</strong> (Gold, Neon Cyberpunk)</li>
-                <li>🎵 Paket suara mekanikal & selebrasi custom</li>
-                <li>📑 Ekspor laporan turnamen ke Excel / PDF</li>
-                <li>👑 Badge Mahkota Emas di profil & avatar</li>
+                <li>✨ <strong>{t('pricing.pro_f1')}</strong></li>
+                <li>📊 <strong>{t('pricing.pro_f2')}</strong></li>
+                <li>📸 <strong>{t('pricing.pro_f3')}</strong></li>
+                <li>🎵 {t('pricing.pro_f4')}</li>
+                <li>📑 {t('pricing.pro_f5')}</li>
+                <li>👑 {t('pricing.pro_f6')}</li>
               </ul>
             </div>
 
@@ -233,19 +233,19 @@ export default function PricingModal({ isOpen, onClose }) {
               <div style={{ fontSize: '2rem', fontWeight: 900, marginBottom: '4px', color: '#FFF' }}>
                 {billingCycle === 'yearly' ? 'Rp 1.199.000' : 'Rp 149.000'}
                 <span style={{ fontSize: '0.85rem', color: 'var(--text-dim)' }}>
-                  {billingCycle === 'yearly' ? ' / tahun' : ' / bulan'}
+                  {billingCycle === 'yearly' ? ` ${t('pricing.per_year')}` : ` ${t('pricing.per_month')}`}
                 </span>
               </div>
               <div style={{ fontSize: '0.75rem', color: '#F59E0B', marginBottom: '18px', fontWeight: 700 }}>
-                {billingCycle === 'yearly' ? 'Hemat Rp 589.000 per tahun' : 'Solusi lengkap kafe & warkop'}
+                {billingCycle === 'yearly' ? t('pricing.venue_sub_yearly') : t('pricing.venue_sub_monthly')}
               </div>
 
               <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 20px 0', fontSize: '0.88rem', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <li>📺 <strong>Mode TV Layar Lebar</strong> (Klasemen live di TV kafe)</li>
-                <li>🏆 <strong>Bagan Turnamen Otomatis</strong> (Sistem Gugur & Swiss)</li>
-                <li>🏷️ <strong>Branding Kafe Sendiri</strong> di story card pemain</li>
-                <li>👥 Kelola multi-meja & liga komunitas</li>
-                <li>📞 Dukungan Prioritas & Konsultasi Event</li>
+                <li>📺 <strong>{t('pricing.venue_f1')}</strong></li>
+                <li>🏆 <strong>{t('pricing.venue_f2')}</strong></li>
+                <li>🏷️ <strong>{t('pricing.venue_f3')}</strong></li>
+                <li>👥 {t('pricing.venue_f4')}</li>
+                <li>📞 {t('pricing.venue_f5')}</li>
               </ul>
             </div>
 

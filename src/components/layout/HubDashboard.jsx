@@ -27,7 +27,7 @@ export default function HubDashboard({
     setJoining(true)
     const success = await onJoinRoom(roomInput.trim().toUpperCase())
     if (!success) {
-      alert('Room tidak ditemukan. Pastikan kode room sudah benar.')
+      alert(t('hub.room_not_found'))
     }
     setJoining(false)
   }
@@ -38,7 +38,7 @@ export default function HubDashboard({
       title: t('truf.name'),
       desc: t('hub.truf_desc'),
       icon: '🃏',
-      badge: '4 Pemain',
+      badge: t('hub.badge_4_players'),
       color: '#8B5CF6',
       glow: 'rgba(139, 92, 246, 0.4)'
     },
@@ -47,7 +47,7 @@ export default function HubDashboard({
       title: t('remi.name'),
       desc: t('hub.remi_desc'),
       icon: '🎴',
-      badge: '2–6 Pemain',
+      badge: t('hub.badge_2_6_players'),
       color: '#F59E0B',
       glow: 'rgba(245, 158, 11, 0.4)'
     },
@@ -56,7 +56,7 @@ export default function HubDashboard({
       title: t('omben.name'),
       desc: t('hub.omben_desc'),
       icon: '🍺',
-      badge: '2–6 Pemain',
+      badge: t('hub.badge_2_6_players'),
       color: '#F97316',
       glow: 'rgba(249, 115, 22, 0.4)'
     }
@@ -68,7 +68,7 @@ export default function HubDashboard({
       title: t('chess.name'),
       desc: t('hub.chess_desc'),
       icon: '⏱️',
-      badge: 'Dual Touch',
+      badge: t('hub.badge_dual_touch'),
       color: '#3B82F6',
       glow: 'rgba(59, 130, 246, 0.4)'
     },
@@ -77,7 +77,7 @@ export default function HubDashboard({
       title: t('scoreboard.name'),
       desc: t('hub.scoreboard_desc'),
       icon: '📊',
-      badge: '2–8 Pemain',
+      badge: t('hub.badge_2_8_players'),
       color: '#10B981',
       glow: 'rgba(16, 185, 129, 0.4)'
     }
@@ -126,7 +126,7 @@ export default function HubDashboard({
             className="form-input"
             value={roomInput}
             onChange={e => setRoomInput(e.target.value.toUpperCase())}
-            placeholder="Masukkan Kode Room (misal: TRU-8K2N)"
+            placeholder={t('hub.room_input_placeholder')}
             style={{ textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 700 }}
           />
           <button 
@@ -135,7 +135,7 @@ export default function HubDashboard({
             disabled={joining || !roomInput.trim()}
             style={{ whiteSpace: 'nowrap', padding: '0 20px' }}
           >
-            {joining ? '...' : '🚪 Gabung'}
+            {joining ? '...' : `🚪 ${t('hub.join_room')}`}
           </button>
         </form>
       )}
@@ -161,7 +161,7 @@ export default function HubDashboard({
               <p>{game.desc}</p>
             </div>
             <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'flex-end' }}>
-              <button className="btn btn-sm btn-primary">Mulai Main →</button>
+              <button className="btn btn-sm btn-primary">{t('hub.start_game_btn')}</button>
             </div>
           </div>
         ))}
@@ -188,7 +188,7 @@ export default function HubDashboard({
               <p>{item.desc}</p>
             </div>
             <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'flex-end' }}>
-              <button className="btn btn-sm btn-secondary">Buka Alat →</button>
+              <button className="btn btn-sm btn-secondary">{t('hub.open_tool_btn')}</button>
             </div>
           </div>
         ))}
@@ -235,15 +235,15 @@ export default function HubDashboard({
             <span style={{ fontSize: '2rem' }}>⭐</span>
             <div>
               <div style={{ fontWeight: 800, fontSize: '1rem', color: '#FFF' }}>
-                Tingkatkan Pengalaman Main Anda bersama KancaSela
+                {t('hub.pro_banner_title')}
               </div>
               <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                Buka riwayat game tanpa batas, template story VIP, & mode TV Kafe.
+                {t('hub.pro_banner_desc')}
               </div>
             </div>
           </div>
           <button className="btn btn-sm btn-primary" style={{ padding: '6px 14px', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
-            Lihat Paket 💎
+            {t('hub.view_plans')}
           </button>
         </div>
       )}
@@ -259,14 +259,14 @@ export default function HubDashboard({
             style={{ fontSize: '0.78rem', padding: '4px 10px', fontWeight: 800 }}
             onClick={() => setDiaryTab('active')}
           >
-            🟢 Aktif ({activeSessions.length})
+            🟢 {t('hub.tab_active')} ({activeSessions.length})
           </button>
           <button
             className={`btn btn-sm ${diaryTab === 'completed' ? 'btn-primary' : 'btn-secondary'}`}
             style={{ fontSize: '0.78rem', padding: '4px 10px', fontWeight: 800 }}
             onClick={() => setDiaryTab('completed')}
           >
-            🏁 Selesai ({completedSessions.length})
+            🏁 {t('hub.tab_completed')} ({completedSessions.length})
           </button>
         </div>
       </div>
@@ -293,7 +293,7 @@ export default function HubDashboard({
                         )}
                       </div>
                       <div className="diary-meta">
-                        Ronde {roundsCount + 1} • {session.player_names?.join(', ')}
+                        {t('hub.round_n', { num: roundsCount + 1 })} • {session.player_names?.join(', ')}
                       </div>
                     </div>
                   </div>
@@ -304,18 +304,18 @@ export default function HubDashboard({
                         onClick={() => onOpenSession(session)}
                         style={{ fontWeight: 800 }}
                       >
-                        ▶️ Lanjut
+                        ▶️ {t('hub.resume_btn')}
                       </button>
                     )}
                     {onCompleteSession && (
                       <button 
                         className="btn btn-sm btn-secondary"
                         onClick={() => {
-                          if (confirm('Selesaikan game ini dan simpan ke riwayat selesai?')) {
+                          if (confirm(t('hub.confirm_finish'))) {
                             onCompleteSession(session.id)
                           }
                         }}
-                        title="Selesaikan Game"
+                        title={t('hub.finish_game_title')}
                       >
                         🏁
                       </button>
@@ -324,11 +324,11 @@ export default function HubDashboard({
                       <button 
                         className="btn btn-sm btn-danger"
                         onClick={() => {
-                          if (confirm('Hapus game ini?')) {
+                          if (confirm(t('hub.confirm_delete'))) {
                             onDeleteSession(session.id)
                           }
                         }}
-                        title="Hapus"
+                        title={t('hub.delete_game_title')}
                       >
                         🗑️
                       </button>
@@ -339,8 +339,8 @@ export default function HubDashboard({
             })
           ) : (
             <div className="glass-panel" style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>
-              <p style={{ margin: 0 }}>Tidak ada game yang sedang aktif berjalan.</p>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-dim)', marginTop: '4px' }}>Pilih game di atas untuk membuat meja baru!</p>
+              <p style={{ margin: 0 }}>{t('hub.no_active_games')}</p>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-dim)', marginTop: '4px' }}>{t('hub.no_active_games_hint')}</p>
             </div>
           )}
         </div>
@@ -370,9 +370,9 @@ export default function HubDashboard({
                     <button 
                       className="btn btn-sm btn-secondary"
                       onClick={() => onViewRecap(session)}
-                      title="Lihat Rekap Hasil"
+                      title={t('hub.recap_btn')}
                     >
-                      📊 Rekap
+                      📊 {t('hub.recap_btn')}
                     </button>
                   )}
                   {onShareSession && (
@@ -396,11 +396,11 @@ export default function HubDashboard({
                     <button 
                       className="btn btn-sm btn-danger"
                       onClick={() => {
-                        if (confirm('Hapus riwayat pertandingan ini?')) {
+                        if (confirm(t('hub.confirm_delete_history'))) {
                           onDeleteSession(session.id)
                         }
                       }}
-                      title="Hapus"
+                      title={t('hub.delete_game_title')}
                     >
                       🗑️
                     </button>
@@ -410,7 +410,7 @@ export default function HubDashboard({
             ))
           ) : (
             <div className="glass-panel" style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>
-              <p style={{ margin: 0 }}>Belum ada riwayat game yang diselesaikan.</p>
+              <p style={{ margin: 0 }}>{t('hub.no_completed_games')}</p>
             </div>
           )}
         </div>

@@ -1,4 +1,5 @@
 import React from 'react'
+import { useTranslation } from '../../i18n/I18nContext'
 import { soundService } from '../../services/soundService'
 import { hapticsService } from '../../services/hapticsService'
 
@@ -8,6 +9,8 @@ export default function CheckInModal({
   onSelectSeat,
   onEnterAsSpectator
 }) {
+  const { t } = useTranslation()
+
   if (!isOpen || !session) return null
 
   const playerNames = session.player_names || []
@@ -45,15 +48,15 @@ export default function CheckInModal({
             padding: '3px 10px',
             borderRadius: '20px'
           }}>
-            {gameType} ROOM • {session.room_code || 'MEJA'}
+            {gameType} ROOM • {session.room_code || 'ROOM'}
           </span>
           <h2 style={{ fontSize: '1.4rem', fontWeight: 900, marginTop: '10px', marginBottom: '6px' }}>
-            {allSeatsFilled ? '👀 Masuk Sebagai Penonton' : '🪑 Pilih Kursi Pemain'}
+            {allSeatsFilled ? `👀 ${t('room.spectator_title')}` : `🪑 ${t('room.choose_seat_title')}`}
           </h2>
           <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)' }}>
             {allSeatsFilled 
-              ? 'Semua kursi pemain di meja ini telah terisi. Anda dapat bergabung untuk memantau papan skor dan jalannya ronde secara realtime!'
-              : 'Pilih nama Anda di meja ini untuk dapat menginput skor secara mandiri. Perubahan akan disiarkan langsung ke semua pemain.'}
+              ? t('room.all_seats_filled_desc')
+              : t('room.claim_seat_desc')}
           </p>
         </div>
 
@@ -94,7 +97,7 @@ export default function CheckInModal({
                     <div style={{ textAlign: 'left' }}>
                       <div style={{ fontWeight: 800, fontSize: '0.95rem' }}>{name}</div>
                       <div style={{ fontSize: '0.72rem', color: isOccupied ? '#34D399' : 'var(--text-dim)' }}>
-                        {isOccupied ? '✓ Sudah Check-in' : 'Kursi Tersedia'}
+                        {isOccupied ? `✓ ${t('room.occupied_other')}` : t('room.empty_seat')}
                       </div>
                     </div>
                   </div>
@@ -106,11 +109,11 @@ export default function CheckInModal({
                       style={{ fontWeight: 800, padding: '6px 14px', fontSize: '0.82rem' }}
                       onClick={() => handleClaim(idx)}
                     >
-                      Saya {name}
+                      {t('room.claim_this_seat')}
                     </button>
                   ) : (
                     <span style={{ fontSize: '0.78rem', color: 'var(--text-dim)', fontStyle: 'italic' }}>
-                      Terisi
+                      {t('room.occupied_other')}
                     </span>
                   )}
                 </div>
@@ -128,7 +131,7 @@ export default function CheckInModal({
             <span style={{ fontSize: '2rem' }}>📺</span>
             <div style={{ fontWeight: 800, color: '#60A5FA', marginTop: '6px' }}>Live Match Broadcast</div>
             <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-              Skor dan aksi pemain akan ter-update secara instan di layar HP Anda.
+              {t('room.all_seats_filled_desc')}
             </div>
           </div>
         )}
@@ -139,7 +142,7 @@ export default function CheckInModal({
             className={`btn ${allSeatsFilled ? 'btn-primary' : 'btn-secondary'} btn-block`}
             onClick={handleSpectator}
           >
-            👀 {allSeatsFilled ? 'Masuk dan Nonton Sekarang' : 'Hanya Mau Menonton (Spectator)'}
+            👀 {t('room.enter_as_spectator')}
           </button>
         </div>
       </div>

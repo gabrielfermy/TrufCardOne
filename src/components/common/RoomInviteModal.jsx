@@ -103,17 +103,17 @@ export default function RoomInviteModal({ isOpen, onClose, session, user, onClai
         <div className="modal-header">
           <div>
             <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#A78BFA', letterSpacing: '1px', textTransform: 'uppercase' }}>
-              MULTIPLAYER LOBBY
+              {t('room.lobby_tag')}
             </span>
             <h3 className="modal-title" style={{ fontSize: '1.35rem', fontWeight: 900, marginTop: '2px' }}>
-              🔗 Bagikan Meja Permainan
+              🔗 {t('room.share_table_title')}
             </h3>
           </div>
           <button className="btn-close" onClick={onClose}>✕</button>
         </div>
 
         <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', marginBottom: '18px' }}>
-          Ajak teman bermain dengan membagikan kode room atau tautan meja. Teman bisa langsung check-in untuk mengisi skor mereka sendiri, atau bergabung sebagai penonton live!
+          {t('room.share_table_desc')}
         </p>
 
         {/* Room Code Display */}
@@ -141,7 +141,7 @@ export default function RoomInviteModal({ isOpen, onClose, session, user, onClai
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
             >
               <span>{copiedType === 'code' ? '✓' : '🔢'}</span>
-              <span>{copiedType === 'code' ? 'Kode Tersalin!' : 'Salin Kode'}</span>
+              <span>{copiedType === 'code' ? t('room.copy_code_success') : t('app.copy_code')}</span>
             </button>
 
             <button 
@@ -151,7 +151,7 @@ export default function RoomInviteModal({ isOpen, onClose, session, user, onClai
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
             >
               <span>{copiedType === 'link' ? '✓' : '🔗'}</span>
-              <span>{copiedType === 'link' ? 'Link Tersalin!' : 'Salin Link'}</span>
+              <span>{copiedType === 'link' ? t('room.copy_link_success') : t('room.copy_link')}</span>
             </button>
 
             <button 
@@ -180,7 +180,7 @@ export default function RoomInviteModal({ isOpen, onClose, session, user, onClai
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
             >
               <span>{canNativeShare ? '📤' : '🌐'}</span>
-              <span>{canNativeShare ? 'Bagikan...' : 'Share'}</span>
+              <span>{t('room.share_native')}</span>
             </button>
           </div>
         </div>
