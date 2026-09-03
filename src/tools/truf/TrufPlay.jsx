@@ -745,20 +745,21 @@ export default function TrufPlay({
           </div>
         </div>
 
-        {/* Scoreboard Table with Set Rounding */}
+        {/* Scoreboard Table with Set Rounding (Newest Round First on the Left) */}
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '2px', textAlign: 'center', fontSize: '0.88rem' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border-glass)' }}>
                 <th style={{ padding: '10px 8px', textAlign: 'left', minWidth: '100px' }}>{t('truf.players_col')}</th>
                 <th style={{ padding: '10px 8px', minWidth: '85px', background: 'rgba(255,255,255,0.03)' }}>{t('truf.total_score_col')}</th>
-                {localRounds.map((r, i) => {
+                {localRounds.slice().reverse().map((r, i) => {
                   const rNum = r.round_number
-                  const isSetEnd = rNum % 4 === 0
+                  const setNum = Math.ceil(rNum / 4)
+                  const isEndOfSetInReverse = (rNum % 4 === 1) && localRounds.some(rd => rd.round_number === setNum * 4)
                   const rSuitId = r.round_data?.trufSuit ?? r.round_data?.truf_suit ?? r.roundData?.trufSuit ?? r.truf_suit_index ?? 0
                   const rSuit = SUITS.find(s => s.id === rSuitId) || SUITS[0]
                   return (
-                    <React.Fragment key={i}>
+                    <React.Fragment key={r.id || i}>
                       <th style={{ 
                         padding: '8px 6px', 
                         minWidth: '85px',
@@ -770,8 +771,8 @@ export default function TrufPlay({
                           {rSuit?.label} {t('truf.suit_' + rSuit?.key, rSuit?.name)}
                         </div>
                       </th>
-                      {/* Set Rounding Column at every 4th round */}
-                      {isSetEnd && (
+                      {/* Set Rounding Column at every 4th round (rendered after R1/R5/etc. in reverse order) */}
+                      {isEndOfSetInReverse && (
                         <th style={{
                           padding: '8px 6px',
                           minWidth: '95px',
@@ -781,7 +782,7 @@ export default function TrufPlay({
                           color: '#C084FC',
                           fontWeight: 800
                         }}>
-                          <div style={{ fontSize: '0.82rem' }}>⭕ Set {rNum / 4}</div>
+                          <div style={{ fontSize: '0.82rem' }}>⭕ {t('truf.set_title', { num: setNum })}</div>
                           <div style={{ fontSize: '0.68rem', color: '#E9D5FF' }}>Akumulasi</div>
                         </th>
                       )}
@@ -799,18 +800,22 @@ export default function TrufPlay({
                     <td style={{ padding: '10px 8px', fontWeight: 800, fontSize: '1rem', color: total >= 0 ? '#34D399' : '#F87171', background: 'rgba(255,255,255,0.03)', borderRadius: '6px' }}>
                       {total > 0 ? `+${total}` : total}
                     </td>
-                    {localRounds.map((r, rIdx) => {
+                    {localRounds.slice().reverse().map((r, rIdx) => {
                       const rNum = r.round_number
-                      const isSetEnd = rNum % 4 === 0
+                      const setNum = Math.ceil(rNum / 4)
+                      const isEndOfSetInReverse = (rNum % 4 === 1) && localRounds.some(rd => rd.round_number === setNum * 4)
                       const ps = r.player_scores?.find(p => p.player_index === idx)
                       const change = ps?.score_change ?? 0
-                      const cumScore = ps?.score_cumulative ?? 0
                       const bid = ps?.stats?.bid ?? 0
                       const won = ps?.stats?.won ?? 0
                       const isPass = bid === won
 
+                      // Cumulative score of the 4th round for the set total
+                      const setEndRound = isEndOfSetInReverse ? localRounds.find(rd => rd.round_number === setNum * 4) : null
+                      const setCumScore = setEndRound?.player_scores?.find(p => p.player_index === idx)?.score_cumulative ?? 0
+
                       return (
-                        <React.Fragment key={rIdx}>
+                        <React.Fragment key={r.id || rIdx}>
                           <td style={{ padding: '8px 4px', background: 'rgba(0,0,0,0.15)', borderRadius: '6px' }}>
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
                               {/* Bulatan Skor Ronde: Dilingkari jika Pas/Dapat Bid */}
@@ -854,7 +859,7 @@ export default function TrufPlay({
                           </td>
 
                           {/* Set Rounding Total Cell */}
-                          {isSetEnd && (
+                          {isEndOfSetInReverse && (
                             <td style={{
                               padding: '6px 4px',
                               background: 'rgba(168, 85, 247, 0.12)',
@@ -862,9 +867,9 @@ export default function TrufPlay({
                               borderRadius: '8px',
                               fontWeight: 800,
                               fontSize: '0.95rem',
-                              color: cumScore >= 0 ? '#A7F3D0' : '#FECACA'
+                              color: setCumScore >= 0 ? '#A7F3D0' : '#FECACA'
                             }}>
-                              {cumScore > 0 ? `+${cumScore}` : cumScore}
+                              {setCumScore > 0 ? `+${setCumScore}` : setCumScore}
                             </td>
                           )}
                         </React.Fragment>
