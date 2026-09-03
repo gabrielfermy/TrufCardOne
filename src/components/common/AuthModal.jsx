@@ -7,6 +7,9 @@ export default function AuthModal({ isOpen, onClose, user, onAuthSuccess }) {
   const [isRegistering, setIsRegistering] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [displayName, setDisplayName] = useState('')
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
@@ -32,12 +35,26 @@ export default function AuthModal({ isOpen, onClose, user, onAuthSuccess }) {
   const handleEmailAuth = async (e) => {
     e.preventDefault()
     setErrorMsg('')
+
+    if (isRegistering) {
+      if (password.length < 6) {
+        setErrorMsg(t('auth.password_too_short'))
+        return
+      }
+      if (password !== confirmPassword) {
+        setErrorMsg(t('auth.password_mismatch'))
+        return
+      }
+    }
+
     setLoading(true)
     try {
       if (isRegistering) {
         await authService.signUp(email, password, displayName)
         alert('Pendaftaran berhasil! Silakan periksa email Anda atau langsung masuk.')
         setIsRegistering(false)
+        setPassword('')
+        setConfirmPassword('')
       } else {
         await authService.signIn(email, password)
         if (onAuthSuccess) onAuthSuccess()
@@ -151,15 +168,81 @@ export default function AuthModal({ isOpen, onClose, user, onAuthSuccess }) {
 
               <div className="form-group">
                 <label className="form-label">Password</label>
-                <input 
-                  type="password" 
-                  className="form-input"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                />
+                <div style={{ position: 'relative' }}>
+                  <input 
+                    type={showPassword ? "text" : "password"} 
+                    className="form-input"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    style={{ paddingRight: '42px' }}
+                    required
+                    minLength={6}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    style={{
+                      position: 'absolute',
+                      right: '10px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontSize: '1rem',
+                      padding: '4px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      opacity: 0.75
+                    }}
+                    title={showPassword ? "Sembunyikan password" : "Lihat password"}
+                  >
+                    {showPassword ? '🙈' : '👁️'}
+                  </button>
+                </div>
               </div>
+
+              {isRegistering && (
+                <div className="form-group">
+                  <label className="form-label">Konfirmasi Password</label>
+                  <div style={{ position: 'relative' }}>
+                    <input 
+                      type={showConfirmPassword ? "text" : "password"} 
+                      className="form-input"
+                      value={confirmPassword}
+                      onChange={e => setConfirmPassword(e.target.value)}
+                      placeholder="••••••••"
+                      style={{ paddingRight: '42px' }}
+                      required
+                      minLength={6}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      style={{
+                        position: 'absolute',
+                        right: '10px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        fontSize: '1rem',
+                        padding: '4px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        opacity: 0.75
+                      }}
+                      title={showConfirmPassword ? "Sembunyikan password" : "Lihat password"}
+                    >
+                      {showConfirmPassword ? '🙈' : '👁️'}
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <button 
                 type="submit" 
@@ -174,7 +257,14 @@ export default function AuthModal({ isOpen, onClose, user, onAuthSuccess }) {
             <div style={{ textAlign: 'center', marginTop: '16px' }}>
               <button 
                 className="btn btn-sm"
-                onClick={() => { setIsRegistering(!isRegistering); setErrorMsg('') }}
+                onClick={() => {
+                  setIsRegistering(!isRegistering)
+                  setErrorMsg('')
+                  setPassword('')
+                  setConfirmPassword('')
+                  setShowPassword(false)
+                  setShowConfirmPassword(false)
+                }}
                 style={{ background: 'transparent', color: 'var(--primary)' }}
               >
                 {isRegistering ? t('auth.has_account') : t('auth.no_account')}
