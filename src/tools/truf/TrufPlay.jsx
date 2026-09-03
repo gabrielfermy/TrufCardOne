@@ -683,16 +683,23 @@ export default function TrufPlay({
           })}
         </div>
 
-        {/* Suit Selector (In Bid Phase) */}
+        {/* Suit Selector (In Bid Phase - Only Scorer can set) */}
         {inputPhase === 'bid' && (
           <div style={{ marginBottom: '20px' }}>
-            <label className="form-label">{t('truf.truf_suit')}</label>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+              <label className="form-label" style={{ margin: 0 }}>{t('truf.truf_suit')}</label>
+              {!isScorer && (
+                <span style={{ fontSize: '0.72rem', color: '#C084FC', fontWeight: 600 }}>
+                  🔒 {t('truf.scorer_only_suit')}
+                </span>
+              )}
+            </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
               {SUITS.map(suit => (
                 <button
                   key={suit.id}
                   type="button"
-                  disabled={!isLocalOrOffline && !isScorer && myPlayerIndex !== dealerIndex}
+                  disabled={!isScorer}
                   onClick={() => {
                     try { hapticsService.light() } catch {}
                     setTrufSuit(suit.id)
@@ -711,7 +718,8 @@ export default function TrufPlay({
                     alignItems: 'center',
                     gap: '2px',
                     boxShadow: trufSuit === suit.id ? '0 0 15px rgba(168, 85, 247, 0.45)' : 'none',
-                    opacity: (!isLocalOrOffline && !isScorer && myPlayerIndex !== dealerIndex && trufSuit !== suit.id) ? 0.6 : 1
+                    opacity: (!isScorer && trufSuit !== suit.id) ? 0.45 : 1,
+                    cursor: isScorer ? 'pointer' : 'default'
                   }}
                 >
                   <span>{suit.label}</span>
