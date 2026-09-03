@@ -485,9 +485,9 @@ export default function TrufPlay({
             </h3>
             {inputPhase === 'won' && activeSuitObj && (
               <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span>Kembang:</span>
+                <span>{t('truf.truf_suit')}:</span>
                 <span style={{ color: activeSuitObj.color, fontWeight: 800 }}>
-                  {activeSuitObj.label} {activeSuitObj.name}
+                  {activeSuitObj.label} {t('truf.suit_' + activeSuitObj.key, activeSuitObj.name)}
                 </span>
               </div>
             )}
@@ -560,10 +560,10 @@ export default function TrufPlay({
                     <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>{name}</span>
                     {isMe && (
                       <span style={{ fontSize: '0.7rem', background: '#8B5CF6', color: '#FFF', padding: '1px 6px', borderRadius: '4px', fontWeight: 800 }}>
-                        Anda
+                        {t('truf.you_badge')}
                       </span>
                     )}
-                    {isDealer && <span style={{ fontSize: '0.72rem', background: '#F59E0B', color: '#000', padding: '2px 6px', borderRadius: '4px', fontWeight: 800 }}>DEALER</span>}
+                    {isDealer && <span style={{ fontSize: '0.72rem', background: '#F59E0B', color: '#000', padding: '2px 6px', borderRadius: '4px', fontWeight: 800 }}>{t('truf.dealer_badge')}</span>}
                   </div>
 
                   {/* Show Player Bid in Phase 2 */}
@@ -576,14 +576,14 @@ export default function TrufPlay({
                         borderRadius: '6px', 
                         fontWeight: 700 
                       }}>
-                        Target Bid: {bids[idx]}
+                        {t('truf.target_bid')}: {bids[idx]}
                       </span>
                       {wons[idx] === bids[idx] ? (
-                        <span style={{ color: '#34D399', fontWeight: 700 }}>✓ Pas</span>
+                        <span style={{ color: '#34D399', fontWeight: 700 }}>{t('truf.exact_bid')}</span>
                       ) : wons[idx] < bids[idx] ? (
-                        <span style={{ color: '#F87171', fontWeight: 600 }}>Kurang {bids[idx] - wons[idx]}</span>
+                        <span style={{ color: '#F87171', fontWeight: 600 }}>{t('truf.under_bid', { diff: bids[idx] - wons[idx] })}</span>
                       ) : (
-                        <span style={{ color: '#FB923C', fontWeight: 600 }}>Lebih +{wons[idx] - bids[idx]}</span>
+                        <span style={{ color: '#FB923C', fontWeight: 600 }}>{t('truf.over_bid', { diff: wons[idx] - bids[idx] })}</span>
                       )}
                     </div>
                   )}
@@ -642,7 +642,7 @@ export default function TrufPlay({
                     try { hapticsService.light() } catch {}
                     setTrufSuit(suit.id)
                     broadcastState({ trufSuit: suit.id })
-                    addLog(`Memilih Truf: ${suit.name}`, 'suit')
+                    addLog(`Memilih Truf: ${t('truf.suit_' + suit.key, suit.name)}`, 'suit')
                   }}
                   style={{
                     background: trufSuit === suit.id ? 'var(--primary)' : 'var(--bg-glass-strong)',
@@ -660,7 +660,7 @@ export default function TrufPlay({
                   }}
                 >
                   <span>{suit.label}</span>
-                  <span style={{ fontSize: '0.68rem', fontWeight: 700 }}>{suit.name}</span>
+                  <span style={{ fontSize: '0.68rem', fontWeight: 700 }}>{t('truf.suit_' + suit.key, suit.name)}</span>
                 </button>
               ))}
             </div>
@@ -721,7 +721,7 @@ export default function TrufPlay({
           <div style={{ display: 'flex', gap: '8px' }}>
             {isHost && localRounds.length > 0 && onUndoRound && (
               <button type="button" className="btn btn-danger btn-sm" onClick={handleUndo}>
-                ↩️ Undo
+                ↩️ {t('truf.undo_btn')}
               </button>
             )}
             {onOpenShareModal && localRounds.length > 0 && (
@@ -730,7 +730,7 @@ export default function TrufPlay({
                 className="btn btn-secondary btn-sm" 
                 onClick={() => onOpenShareModal(localRounds)}
               >
-                📸 9:16 Share
+                📸 {t('truf.share_916_btn')}
               </button>
             )}
             {isHost && onFinalizeGame && localRounds.length > 0 && (
@@ -739,7 +739,7 @@ export default function TrufPlay({
                 className="btn btn-primary btn-sm" 
                 onClick={() => onFinalizeGame(localRounds)}
               >
-                🏁 Selesai
+                🏁 {t('truf.finish_btn')}
               </button>
             )}
           </div>
@@ -750,8 +750,8 @@ export default function TrufPlay({
           <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '2px', textAlign: 'center', fontSize: '0.88rem' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border-glass)' }}>
-                <th style={{ padding: '10px 8px', textAlign: 'left', minWidth: '100px' }}>Pemain</th>
-                <th style={{ padding: '10px 8px', minWidth: '85px', background: 'rgba(255,255,255,0.03)' }}>Skor Total</th>
+                <th style={{ padding: '10px 8px', textAlign: 'left', minWidth: '100px' }}>{t('truf.players_col')}</th>
+                <th style={{ padding: '10px 8px', minWidth: '85px', background: 'rgba(255,255,255,0.03)' }}>{t('truf.total_score_col')}</th>
                 {localRounds.map((r, i) => {
                   const rNum = r.round_number
                   const isSetEnd = rNum % 4 === 0
@@ -765,9 +765,9 @@ export default function TrufPlay({
                         background: 'rgba(0,0,0,0.2)',
                         borderRadius: '6px'
                       }}>
-                        <div style={{ fontSize: '0.82rem', fontWeight: 800 }}>R{rNum}</div>
+                        <div style={{ fontSize: '0.82rem', fontWeight: 800 }}>{t('truf.table_round', { num: rNum })}</div>
                         <div style={{ fontSize: '0.7rem', color: rSuit?.color || 'var(--text-muted)' }}>
-                          {rSuit?.label} {rSuit?.name}
+                          {rSuit?.label} {t('truf.suit_' + rSuit?.key, rSuit?.name)}
                         </div>
                       </th>
                       {/* Set Rounding Column at every 4th round */}
@@ -883,7 +883,7 @@ export default function TrufPlay({
         <div className="glass-panel" style={{ padding: '20px', marginTop: '16px' }}>
           <h4 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
             <span>📋</span>
-            <span>Rincian Ronde & Bid Masing-Masing Pemain</span>
+            <span>{t('truf.round_details_title')}</span>
           </h4>
           
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -915,16 +915,16 @@ export default function TrufPlay({
                         padding: '2px 8px',
                         borderRadius: '6px'
                       }}>
-                        Ronde {rNum}
+                        {t('truf.table_round_title', { num: rNum })}
                       </span>
                       <span style={{ fontSize: '0.78rem', color: isSetEnd ? '#C084FC' : '#93C5FD', fontWeight: 700 }}>
-                        ⭕ Set {setNum} {isSetEnd ? '(Akhir Set)' : ''}
+                        ⭕ {t('truf.set_title', { num: setNum })} {isSetEnd ? t('truf.end_of_set') : ''}
                       </span>
                     </div>
 
                     <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'flex', gap: '10px' }}>
                       <span>Dealer: <strong>{playerNames[rDealerIdx]}</strong> 🎲</span>
-                      <span>Truf: <strong style={{ color: rSuitObj.color }}>{rSuitObj.label} {rSuitObj.name}</strong></span>
+                      <span>Truf: <strong style={{ color: rSuitObj.color }}>{rSuitObj.label} {t('truf.suit_' + rSuitObj.key, rSuitObj.name)}</strong></span>
                     </div>
                   </div>
 
@@ -993,7 +993,7 @@ export default function TrufPlay({
 
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.7rem', marginTop: '2px' }}>
                             <span style={{ color: isPass ? '#34D399' : '#F87171', fontWeight: 600 }}>
-                              {isPass ? '✓ Pas' : diff > 0 ? `Lebih +${diff}` : `Kurang ${diff}`}
+                              {isPass ? t('truf.exact_bid') : diff > 0 ? t('truf.over_bid', { diff }) : t('truf.under_bid', { diff: Math.abs(diff) })}
                             </span>
                             <span style={{ color: 'var(--text-dim)', fontSize: '0.68rem' }}>
                               Total: <strong>{cumScore}</strong>

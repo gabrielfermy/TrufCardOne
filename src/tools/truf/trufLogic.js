@@ -3,10 +3,10 @@
  */
 
 export const SUITS = [
-  { id: 0, label: '♠', name: 'Sekop', color: '#60A5FA' },
-  { id: 1, label: '♥', name: 'Hati', color: '#F87171' },
-  { id: 2, label: '♦', name: 'Wajik', color: '#FB923C' },
-  { id: 3, label: '♣', name: 'Keriting', color: '#34D399' }
+  { id: 0, label: '♠', key: 'spade', name: 'Sekop', color: '#60A5FA' },
+  { id: 1, label: '♥', key: 'heart', name: 'Hati', color: '#F87171' },
+  { id: 2, label: '♦', key: 'diamond', name: 'Wajik', color: '#FB923C' },
+  { id: 3, label: '♣', key: 'club', name: 'Keriting', color: '#34D399' }
 ]
 
 /**
