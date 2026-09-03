@@ -201,13 +201,25 @@
     "monthly": "Monthly",
     "yearly": "Yearly",
     "current_plan": "Current Plan",
-    "free_name": "Free Starter",
-    "free_desc": "Perfect for casual games at home with friends",
-    "pro_name": "KancaSela Pro",
+    "guest_name": "Guest",
+    "guest_desc": "0-Login instant play & join tables at any game night",
+    "free_name": "Kanca Free",
+    "free_desc": "Free cloud account to host rooms with persistent match diary",
+    "pro_name": "Kanca Pro",
     "pro_desc": "For passionate players who want to flex stats & unlimited history",
-    "venue_name": "Venue Edition (B2B)",
+    "venue_name": "Kanca Warkop (B2B)",
     "venue_desc": "For board game cafes, warkops, and tournament organizers",
-    "upgrade_pro": "Upgrade to Pro",
-    "contact_sales": "Start Cafe Trial"
+    "upgrade_pro": "Upgrade to Kanca Pro",
+    "contact_sales": "Start Cafe Trial",
+    "save_discount": "SAVE 43%"
+  },
+  "room_mode": {
+    "title": "Game Table Type",
+    "multiplayer": "Create Multiplayer Room",
+    "multiplayer_desc": "Shareable via WhatsApp link / code. Realtime scores on each phone.",
+    "offline": "Single Phone Mode (Offline)",
+    "offline_desc": "1 phone on the table replacing pen & paper. No login required.",
+    "host_login_required": "Hosting a multiplayer room requires Google Sign-In (1-Tap) to register the table under your account.",
+    "login_to_host": "Sign In with Google to Host"
   }
 }

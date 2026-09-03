@@ -38,6 +38,27 @@ export default function PricingModal({ isOpen, onClose }) {
           {t('pricing.subtitle')}
         </p>
 
+        {/* Guest 0-Login Banner */}
+        <div style={{
+          background: 'rgba(59, 130, 246, 0.1)',
+          border: '1px solid rgba(59, 130, 246, 0.3)',
+          borderRadius: '12px',
+          padding: '10px 16px',
+          marginBottom: '20px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          fontSize: '0.85rem'
+        }}>
+          <span style={{ fontSize: '1.3rem' }}>👤</span>
+          <div>
+            <strong style={{ color: '#60A5FA' }}>{t('pricing.guest_name')}:</strong>{' '}
+            <span style={{ color: 'var(--text-muted)' }}>
+              {t('pricing.guest_desc')} — Tanpa biaya seumur hidup untuk gabung meja & main 1 HP offline.
+            </span>
+          </div>
+        </div>
+
         {/* Billing Cycle Toggle */}
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '28px' }}>
           <div style={{
@@ -70,7 +91,7 @@ export default function PricingModal({ isOpen, onClose }) {
                 borderRadius: '999px',
                 marginLeft: '6px'
               }}>
-                HEMAT 35%
+                {t('pricing.save_discount')}
               </span>
             </button>
           </div>
@@ -83,7 +104,7 @@ export default function PricingModal({ isOpen, onClose }) {
           gap: '18px',
           marginBottom: '24px'
         }}>
-          {/* 1. FREE PLAN */}
+          {/* 1. FREE PLAN (KANCA BEBAS) */}
           <div style={{
             background: 'var(--bg-glass-strong)',
             border: '1px solid var(--border-glass)',
@@ -106,11 +127,11 @@ export default function PricingModal({ isOpen, onClose }) {
 
               <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 20px 0', fontSize: '0.88rem', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <li>✅ Akses semua game (Truf, Remi, Omben)</li>
+                <li>✅ Bikin room meja multiplayer resmi</li>
                 <li>✅ Jam catur 180° & Papan Skor 2-8</li>
                 <li>✅ Alat dadu 3D, koin, & finger chooser</li>
-                <li>✅ Live spectator room 0-login</li>
                 <li>✅ Ekspor Kartu 9:16 Standar</li>
-                <li>⚠️ Maksimal 5 riwayat game terakhir</li>
+                <li>☁️ <strong>Simpan 10 riwayat game di Cloud</strong></li>
               </ul>
             </div>
 
@@ -123,7 +144,7 @@ export default function PricingModal({ isOpen, onClose }) {
             </button>
           </div>
 
-          {/* 2. KANCASELA PRO (HIGHLIGHTED) */}
+          {/* 2. KANCA PRO (HIGHLIGHTED) */}
           <div style={{
             background: 'linear-gradient(145deg, rgba(139, 92, 246, 0.15), rgba(15, 23, 42, 0.8))',
             border: '2px solid #8B5CF6',
@@ -160,13 +181,13 @@ export default function PricingModal({ isOpen, onClose }) {
                 {t('pricing.pro_desc')}
               </div>
               <div style={{ fontSize: '2rem', fontWeight: 900, marginBottom: '4px', color: '#FFF' }}>
-                {billingCycle === 'yearly' ? 'Rp 149.000' : 'Rp 19.000'}
+                {billingCycle === 'yearly' ? 'Rp 129.000' : 'Rp 19.000'}
                 <span style={{ fontSize: '0.85rem', color: 'var(--text-dim)' }}>
                   {billingCycle === 'yearly' ? ' / tahun' : ' / bulan'}
                 </span>
               </div>
               <div style={{ fontSize: '0.75rem', color: '#10B981', marginBottom: '18px', fontWeight: 700 }}>
-                {billingCycle === 'yearly' ? 'Hanya Rp 12.400 / bulan' : 'Langganan fleksibel'}
+                {billingCycle === 'yearly' ? 'Hanya Rp 10.750 / bulan' : 'Langganan fleksibel'}
               </div>
 
               <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 20px 0', fontSize: '0.88rem', display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -186,13 +207,13 @@ export default function PricingModal({ isOpen, onClose }) {
                 border: 'none',
                 boxShadow: '0 8px 20px rgba(139, 92, 246, 0.4)'
               }}
-              onClick={() => handleSelectPlan('KancaSela Pro')}
+              onClick={() => handleSelectPlan('Kanca Pro')}
             >
               🚀 {t('pricing.upgrade_pro')}
             </button>
           </div>
 
-          {/* 3. VENUE / CAFE EDITION (B2B) */}
+          {/* 3. KANCA WARKOP (B2B VENUE) */}
           <div style={{
             background: 'var(--bg-glass-strong)',
             border: '1px solid var(--border-glass)',
@@ -209,8 +230,14 @@ export default function PricingModal({ isOpen, onClose }) {
               <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '16px' }}>
                 {t('pricing.venue_desc')}
               </div>
-              <div style={{ fontSize: '2rem', fontWeight: 900, marginBottom: '18px' }}>
-                Rp 199.000 <span style={{ fontSize: '0.85rem', color: 'var(--text-dim)' }}>/ bulan</span>
+              <div style={{ fontSize: '2rem', fontWeight: 900, marginBottom: '4px', color: '#FFF' }}>
+                {billingCycle === 'yearly' ? 'Rp 1.199.000' : 'Rp 149.000'}
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-dim)' }}>
+                  {billingCycle === 'yearly' ? ' / tahun' : ' / bulan'}
+                </span>
+              </div>
+              <div style={{ fontSize: '0.75rem', color: '#F59E0B', marginBottom: '18px', fontWeight: 700 }}>
+                {billingCycle === 'yearly' ? 'Hemat Rp 589.000 per tahun' : 'Solusi lengkap kafe & warkop'}
               </div>
 
               <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 20px 0', fontSize: '0.88rem', display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -225,7 +252,7 @@ export default function PricingModal({ isOpen, onClose }) {
             <button 
               className="btn btn-secondary btn-block"
               style={{ borderColor: '#F59E0B', color: '#FBBF24' }}
-              onClick={() => handleSelectPlan('Venue Edition')}
+              onClick={() => handleSelectPlan('Kanca Warkop')}
             >
               ☕ {t('pricing.contact_sales')}
             </button>

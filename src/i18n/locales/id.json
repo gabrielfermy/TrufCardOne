@@ -201,13 +201,25 @@
     "monthly": "Bulanan",
     "yearly": "Tahunan",
     "current_plan": "Paket Saat Ini",
-    "free_name": "Free Starter",
-    "free_desc": "Sempurna untuk bermain santai di rumah bersama teman",
-    "pro_name": "KancaSela Pro",
+    "guest_name": "Tamu (Guest)",
+    "guest_desc": "0-Login untuk main & gabung meja instan di tongkrongan",
+    "free_name": "Kanca Bebas",
+    "free_desc": "Akun Cloud gratis untuk Host meja dengan riwayat tersimpan",
+    "pro_name": "Kanca Pro",
     "pro_desc": "Untuk kanca sejati yang ingin flex statistik & riwayat tanpa batas",
-    "venue_name": "Venue Edition (B2B)",
+    "venue_name": "Kanca Warkop (B2B)",
     "venue_desc": "Untuk pengelola kafe, warkop, dan komunitas turnamen",
-    "upgrade_pro": "Upgrade ke Pro",
-    "contact_sales": "Mulai Uji Coba Kafe"
+    "upgrade_pro": "Upgrade ke Kanca Pro",
+    "contact_sales": "Mulai Uji Coba Warkop",
+    "save_discount": "HEMAT 43%"
+  },
+  "room_mode": {
+    "title": "Tipe Meja Permainan",
+    "multiplayer": "Buat Room Meja (Multiplayer)",
+    "multiplayer_desc": "Bisa di-share lewat link WA/kode. Skor realtime di HP masing-masing.",
+    "offline": "Mode 1 HP (Offline / Lokal)",
+    "offline_desc": "1 HP di tengah meja pengganti kertas bolpoin. Tanpa perlu login.",
+    "host_login_required": "Membuat room multiplayer memerlukan login Google (1-Tap) agar meja terdaftar resmi atas nama Anda.",
+    "login_to_host": "Masuk dengan Google untuk Bikin Room"
   }
 }

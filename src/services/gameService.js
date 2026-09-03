@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient'
+import { networkService } from './networkService'
 
 const GUEST_STORAGE_KEY = 'gamenight_guest_sessions'
 
@@ -22,8 +23,8 @@ function normalizeRoomCode(input) {
 }
 
 export const gameService = {
-  // 1. Create a Game Session (Cloud First, Accessible across all devices)
-  async createSession({ userId, creatorClientId, gameType = 'truf', playerNames, settings, title }) {
+  // 1. Create a Game Session (Cloud First or Local Offline)
+  async createSession({ userId, creatorClientId, gameType = 'truf', playerNames, settings, title, isOfflineLocal = false }) {
     const roomCode = generateRoomCode(gameType)
     const isRealUser = userId && userId !== 'guest-user'
     const hostClientId = creatorClientId || (isRealUser ? userId : 'host')
@@ -40,12 +41,21 @@ export const gameService = {
       title: title || `${gameType.toUpperCase()} Match - ${new Date().toLocaleDateString()}`,
       player_names: playerNames,
       player_user_ids: initialUserIds,
-      settings: settings || {},
+      settings: { ...settings, isOfflineLocal: Boolean(isOfflineLocal) },
       is_completed: false,
       created_at: new Date().toISOString()
     }
 
-    // 1. Always attempt saving to Supabase so roomCode is globally joinable across devices
+    // If explicit offline local mode or offline, save directly to localStorage and skip cloud insert
+    if (isOfflineLocal || !networkService.isOnline()) {
+      console.log('📱 Creating Offline / 1-HP Local Session in LocalStorage:', roomCode)
+      const guestId = `guest-session-${Date.now()}`
+      const guestSession = { ...sessionPayload, id: guestId, rounds: [], scores: {} }
+      const existing = JSON.parse(localStorage.getItem(GUEST_STORAGE_KEY) || '[]')
+      existing.unshift(guestSession)
+      localStorage.setItem(GUEST_STORAGE_KEY, JSON.stringify(existing.slice(0, 20)))
+      return guestSession
+    }
     try {
       const { data, error } = await supabase
         .from('game_sessions')
@@ -241,7 +251,92 @@ export const gameService = {
     }
   },
 
-  // 4. Save a Game Round + Player Scores
+  // 4a. Helper to Save Round directly to Supabase Cloud
+  async _saveRoundToCloud({ sessionId, roundNumber, roundData, playerScores }) {
+    // 1. Insert game round (supports both new JSONB round_data and legacy columns)
+    const roundPayload = {
+      session_id: sessionId,
+      round_number: roundNumber,
+      round_data: roundData || {},
+      dealer_index: roundData?.dealerIndex ?? 0,
+      truf_suit_index: roundData?.trufSuit ?? 4,
+      play_mode: roundData?.forcedPlayMode ?? null
+    }
+
+    let { data: round, error: roundError } = await supabase
+      .from('game_rounds')
+      .insert([roundPayload])
+      .select()
+      .single()
+
+    // Fallback: If round_data column missing in DB, retry with legacy columns only
+    if (roundError) {
+      console.warn('Primary game_rounds insert error, trying legacy schema:', roundError.message)
+      const legacyRoundPayload = {
+        session_id: sessionId,
+        round_number: roundNumber,
+        dealer_index: roundData?.dealerIndex ?? 0,
+        truf_suit_index: roundData?.trufSuit ?? 4,
+        play_mode: roundData?.forcedPlayMode ?? null
+      }
+      const { data: retryRound, error: retryRoundError } = await supabase
+        .from('game_rounds')
+        .insert([legacyRoundPayload])
+        .select()
+        .single()
+
+      if (!retryRoundError && retryRound) {
+        round = retryRound
+        roundError = null
+      } else {
+        console.error('❌ Supabase game_rounds insert failed:', retryRoundError || roundError)
+        throw retryRoundError || roundError
+      }
+    }
+
+    // 2. Insert player scores (supports both new stats JSONB and legacy bid/won)
+    const scoreRecords = playerScores.map((ps, idx) => ({
+      round_id: round.id,
+      player_index: idx,
+      bid: ps.stats?.bid ?? (ps.bid ?? 0),
+      won: ps.stats?.won ?? (ps.won ?? 0),
+      stats: ps.stats || {},
+      score_change: ps.score_change,
+      score_cumulative: ps.score_cumulative
+    }))
+
+    let { error: scoresError } = await supabase
+      .from('player_scores')
+      .insert(scoreRecords)
+
+    // Fallback: If stats column missing in DB, retry with legacy columns only
+    if (scoresError) {
+      console.warn('Primary player_scores insert error, trying legacy schema:', scoresError.message)
+      const legacyScoreRecords = playerScores.map((ps, idx) => ({
+        round_id: round.id,
+        player_index: idx,
+        bid: ps.stats?.bid ?? (ps.bid ?? 0),
+        won: ps.stats?.won ?? (ps.won ?? 0),
+        score_change: ps.score_change,
+        score_cumulative: ps.score_cumulative
+      }))
+      const { error: retryScoresError } = await supabase
+        .from('player_scores')
+        .insert(legacyScoreRecords)
+
+      if (!retryScoresError) {
+        scoresError = null
+      } else {
+        console.error('❌ Supabase player_scores insert failed:', retryScoresError)
+        throw retryScoresError
+      }
+    }
+
+    console.log('✅ Round & scores saved successfully to Supabase Cloud:', round.id, 'Round:', roundNumber)
+    return { ...round, player_scores: scoreRecords }
+  },
+
+  // 4b. Save a Game Round (Cloud First with Resilient Late Sync Queue)
   async saveRound({ sessionId, roundNumber, roundData, playerScores }) {
     if (!sessionId || sessionId.startsWith('guest-session')) {
       const guestList = JSON.parse(localStorage.getItem(GUEST_STORAGE_KEY) || '[]')
@@ -270,97 +365,17 @@ export const gameService = {
       return null
     }
 
-    try {
-      // 1. Insert game round (supports both new JSONB round_data and legacy columns)
-      const roundPayload = {
-        session_id: sessionId,
-        round_number: roundNumber,
-        round_data: roundData || {},
-        dealer_index: roundData?.dealerIndex ?? 0,
-        truf_suit_index: roundData?.trufSuit ?? 4,
-        play_mode: roundData?.forcedPlayMode ?? null
-      }
-
-      let { data: round, error: roundError } = await supabase
-        .from('game_rounds')
-        .insert([roundPayload])
-        .select()
-        .single()
-
-      // Fallback: If round_data column missing in DB, retry with legacy columns only
-      if (roundError) {
-        console.warn('Primary game_rounds insert error, trying legacy schema:', roundError.message)
-        const legacyRoundPayload = {
-          session_id: sessionId,
-          round_number: roundNumber,
-          dealer_index: roundData?.dealerIndex ?? 0,
-          truf_suit_index: roundData?.trufSuit ?? 4,
-          play_mode: roundData?.forcedPlayMode ?? null
-        }
-        const { data: retryRound, error: retryRoundError } = await supabase
-          .from('game_rounds')
-          .insert([legacyRoundPayload])
-          .select()
-          .single()
-
-        if (!retryRoundError && retryRound) {
-          round = retryRound
-          roundError = null
-        } else {
-          console.error('❌ Supabase game_rounds insert failed:', retryRoundError || roundError)
-          throw retryRoundError || roundError
-        }
-      }
-
-      // 2. Insert player scores (supports both new stats JSONB and legacy bid/won)
-      const scoreRecords = playerScores.map((ps, idx) => ({
-        round_id: round.id,
-        player_index: idx,
-        bid: ps.stats?.bid ?? (ps.bid ?? 0),
-        won: ps.stats?.won ?? (ps.won ?? 0),
-        stats: ps.stats || {},
-        score_change: ps.score_change,
-        score_cumulative: ps.score_cumulative
-      }))
-
-      let { error: scoresError } = await supabase
-        .from('player_scores')
-        .insert(scoreRecords)
-
-      // Fallback: If stats column missing in DB, retry with legacy columns only
-      if (scoresError) {
-        console.warn('Primary player_scores insert error, trying legacy schema:', scoresError.message)
-        const legacyScoreRecords = playerScores.map((ps, idx) => ({
-          round_id: round.id,
-          player_index: idx,
-          bid: ps.stats?.bid ?? (ps.bid ?? 0),
-          won: ps.stats?.won ?? (ps.won ?? 0),
-          score_change: ps.score_change,
-          score_cumulative: ps.score_cumulative
-        }))
-        const { error: retryScoresError } = await supabase
-          .from('player_scores')
-          .insert(legacyScoreRecords)
-
-        if (!retryScoresError) {
-          scoresError = null
-        } else {
-          console.error('❌ Supabase player_scores insert failed:', retryScoresError)
-          throw retryScoresError
-        }
-      }
-
-      console.log('✅ Round & scores saved successfully to Supabase Cloud:', round.id, 'Round:', roundNumber)
-      return { ...round, player_scores: scoreRecords }
-    } catch (err) {
-      console.warn('Cloud saveRound error, falling back locally so game progress is preserved:', err)
-      const roundId = `local-round-${Date.now()}`
-      return {
+    // Check online status
+    if (!networkService.isOnline()) {
+      console.warn('⚠️ Offline: Enqueuing round to late sync queue for session', sessionId)
+      const roundId = `queued-round-${Date.now()}`
+      const offlineRound = {
         id: roundId,
         session_id: sessionId,
         round_number: roundNumber,
         round_data: roundData,
         created_at: new Date().toISOString(),
+        is_pending_sync: true,
         player_scores: playerScores.map((ps, idx) => ({
           id: `ps-${roundId}-${idx}`,
           player_index: idx,
@@ -369,7 +384,70 @@ export const gameService = {
           score_cumulative: ps.score_cumulative
         }))
       }
+      networkService.enqueue({
+        type: 'SAVE_ROUND',
+        sessionId,
+        payload: { sessionId, roundNumber, roundData, playerScores }
+      })
+      return offlineRound
     }
+
+    try {
+      return await this._saveRoundToCloud({ sessionId, roundNumber, roundData, playerScores })
+    } catch (err) {
+      console.warn('⚠️ Cloud saveRound error, enqueuing for late sync:', err)
+      const roundId = `queued-round-${Date.now()}`
+      const offlineRound = {
+        id: roundId,
+        session_id: sessionId,
+        round_number: roundNumber,
+        round_data: roundData,
+        created_at: new Date().toISOString(),
+        is_pending_sync: true,
+        player_scores: playerScores.map((ps, idx) => ({
+          id: `ps-${roundId}-${idx}`,
+          player_index: idx,
+          stats: ps.stats || {},
+          score_change: ps.score_change,
+          score_cumulative: ps.score_cumulative
+        }))
+      }
+      networkService.enqueue({
+        type: 'SAVE_ROUND',
+        sessionId,
+        payload: { sessionId, roundNumber, roundData, playerScores }
+      })
+      return offlineRound
+    }
+  },
+
+  // 4c. Flush Late Sync Queue when connection returns
+  async flushPendingRounds(sessionId) {
+    if (!networkService.isOnline()) return { synced: 0 }
+    const queue = sessionId ? networkService.getPendingForSession(sessionId) : networkService.getQueue()
+    if (!queue || queue.length === 0) return { synced: 0 }
+
+    let syncedCount = 0
+    console.log(`🚀 [gameService] Flushing ${queue.length} pending items to Supabase...`)
+
+    for (const item of queue) {
+      if (item.type === 'SAVE_ROUND') {
+        try {
+          const savedRound = await this._saveRoundToCloud(item.payload)
+          networkService.dequeue(item.id)
+          syncedCount++
+          if (sessionId && this.broadcastRound) {
+            this.broadcastRound(sessionId, savedRound)
+          }
+        } catch (err) {
+          console.error('[gameService] Error flushing round from queue:', item.id, err)
+          break // Keep chronological order
+        }
+      }
+    }
+
+    console.log(`✅ [gameService] Late sync completed: ${syncedCount} items uploaded.`)
+    return { synced: syncedCount }
   },
 
   // 5. Undo / Delete Round

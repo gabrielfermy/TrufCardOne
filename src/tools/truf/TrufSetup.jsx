@@ -9,6 +9,7 @@ export default function TrufSetup({ onStartGame, onBack }) {
   const [bid0Bonus, setBid0Bonus] = useState(0)
   const [bid13Decision, setBid13Decision] = useState(true)
   const [showAdvanced, setShowAdvanced] = useState(false)
+  const [roomMode, setRoomMode] = useState('multiplayer') // 'multiplayer' | 'offline'
 
   const handleNameChange = (index, value) => {
     const updated = [...playerNames]
@@ -21,6 +22,7 @@ export default function TrufSetup({ onStartGame, onBack }) {
     onStartGame({
       playerNames,
       firstDealer,
+      isOfflineLocal: roomMode === 'offline',
       settings: {
         multiplier,
         bid0Bonus,
@@ -41,7 +43,53 @@ export default function TrufSetup({ onStartGame, onBack }) {
       </div>
 
       <form onSubmit={handleStart}>
-        <div className="section-label" style={{ marginTop: 0 }}>{t('truf.players')}</div>
+        {/* Table Type / Room Mode */}
+        <div className="section-label" style={{ marginTop: 0 }}>{t('room_mode.title')}</div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '20px' }}>
+          <div 
+            onClick={() => setRoomMode('multiplayer')}
+            style={{
+              padding: '12px',
+              borderRadius: '12px',
+              border: `2px solid ${roomMode === 'multiplayer' ? '#8B5CF6' : 'var(--border-glass)'}`,
+              background: roomMode === 'multiplayer' ? 'rgba(139, 92, 246, 0.15)' : 'var(--bg-glass)',
+              cursor: 'pointer',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '4px'
+            }}
+          >
+            <div style={{ fontWeight: 800, fontSize: '0.85rem', color: roomMode === 'multiplayer' ? '#C084FC' : '#FFF' }}>
+              🌐 {t('room_mode.multiplayer')}
+            </div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: 1.3 }}>
+              {t('room_mode.multiplayer_desc')}
+            </div>
+          </div>
+
+          <div 
+            onClick={() => setRoomMode('offline')}
+            style={{
+              padding: '12px',
+              borderRadius: '12px',
+              border: `2px solid ${roomMode === 'offline' ? '#10B981' : 'var(--border-glass)'}`,
+              background: roomMode === 'offline' ? 'rgba(16, 185, 129, 0.15)' : 'var(--bg-glass)',
+              cursor: 'pointer',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '4px'
+            }}
+          >
+            <div style={{ fontWeight: 800, fontSize: '0.85rem', color: roomMode === 'offline' ? '#34D399' : '#FFF' }}>
+              📱 {t('room_mode.offline')}
+            </div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: 1.3 }}>
+              {t('room_mode.offline_desc')}
+            </div>
+          </div>
+        </div>
+
+        <div className="section-label">{t('truf.players')}</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
           {playerNames.map((name, idx) => (
             <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>

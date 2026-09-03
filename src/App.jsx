@@ -3,6 +3,7 @@ import { I18nProvider, useTranslation } from './i18n/I18nContext'
 import { authService } from './services/authService'
 import { gameService } from './services/gameService'
 import { deviceService } from './services/deviceService'
+import { networkService } from './services/networkService'
 
 import AppHeader from './components/layout/AppHeader'
 import BottomNav from './components/layout/BottomNav'
@@ -73,6 +74,8 @@ function MainApp() {
   const [isRecapModalOpen, setIsRecapModalOpen] = useState(false)
   const [selectedRecapSession, setSelectedRecapSession] = useState(null)
   const [shareData, setShareData] = useState(null)
+  const [isOnline, setIsOnline] = useState(() => networkService.isOnline())
+  const [syncNotice, setSyncNotice] = useState(null)
 
   // Navigation View State (Synced with Browser URL)
   const [currentView, setCurrentView] = useState(() => {
@@ -141,6 +144,27 @@ function MainApp() {
       localStorage.removeItem('gns_current_view')
     } catch {}
   }, [])
+
+  // Listen to network changes and auto-flush pending late sync queue
+  useEffect(() => {
+    const unsub = networkService.subscribe((online) => {
+      setIsOnline(online)
+      if (online) {
+        gameService.flushPendingRounds().then(({ synced }) => {
+          if (synced > 0) {
+            setSyncNotice(`✅ ${synced} ronde berhasil disinkronkan ke cloud!`)
+            setTimeout(() => setSyncNotice(null), 5000)
+            if (activeSession?.id) {
+              gameService.getSession(activeSession.id).then(fresh => {
+                if (fresh?.game_rounds) setSessionRounds(fresh.game_rounds)
+              })
+            }
+          }
+        })
+      }
+    })
+    return () => unsub()
+  }, [activeSession?.id])
 
   const loadUserSessions = async (userId) => {
     const data = await gameService.getUserSessions(userId || 'guest-user')
@@ -340,6 +364,15 @@ function MainApp() {
 
   // 1. Start a New Game Session (Host binds to Seat 0)
   const handleStartGame = async (gameType, setupData) => {
+    const isOfflineLocal = Boolean(setupData?.isOfflineLocal) || !networkService.isOnline()
+
+    // Host Login Enforcement: Creating a shareable multiplayer room requires login
+    if (!isOfflineLocal && !user) {
+      alert(t('room_mode.host_login_required'))
+      setIsAuthModalOpen(true)
+      return
+    }
+
     const currentClientId = deviceService.getClientIdentifier(user)
     const session = await gameService.createSession({
       userId: user?.id || 'guest-user',
@@ -347,7 +380,8 @@ function MainApp() {
       gameType,
       playerNames: setupData.playerNames,
       settings: setupData.settings,
-      title: `${gameType.toUpperCase()} - ${new Date().toLocaleDateString()}`
+      title: `${gameType.toUpperCase()} - ${new Date().toLocaleDateString()}`,
+      isOfflineLocal
     })
 
     deviceService.setSessionSeat(session.id, 0)
@@ -370,6 +404,9 @@ function MainApp() {
 
     if (saved) {
       setSessionRounds(prev => [...prev, saved])
+      if (!activeSession.settings?.isOfflineLocal && activeSession.id) {
+        gameService.broadcastRound(activeSession.id, saved)
+      }
       loadUserSessions(user?.id)
     }
   }
@@ -477,6 +514,47 @@ function MainApp() {
 
   return (
     <div className="app-container">
+      {/* Offline Connection Banner */}
+      {!isOnline && (
+        <div style={{
+          background: 'linear-gradient(90deg, #F59E0B, #D97706)',
+          color: '#000',
+          fontWeight: 700,
+          fontSize: '0.8rem',
+          padding: '8px 16px',
+          textAlign: 'center',
+          position: 'sticky',
+          top: 0,
+          zIndex: 9999,
+          boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '8px'
+        }}>
+          <span>⚠️</span>
+          <span>Koneksi Terputus • Skor tersimpan aman di HP & otomatis disinkronkan ke room saat online kembali.</span>
+        </div>
+      )}
+
+      {/* Sync Success Notice */}
+      {syncNotice && (
+        <div style={{
+          background: 'linear-gradient(90deg, #10B981, #059669)',
+          color: '#FFF',
+          fontWeight: 700,
+          fontSize: '0.8rem',
+          padding: '8px 16px',
+          textAlign: 'center',
+          position: 'sticky',
+          top: 0,
+          zIndex: 9999,
+          boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
+        }}>
+          {syncNotice}
+        </div>
+      )}
+
       {/* Top Header */}
       <AppHeader
         user={user}

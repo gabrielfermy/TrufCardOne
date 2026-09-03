@@ -6,6 +6,7 @@ export default function OmbenSetup({ onStartGame, onBack }) {
   const [playerCount, setPlayerCount] = useState(4)
   const [playerNames, setPlayerNames] = useState(['Pemain 1', 'Pemain 2', 'Pemain 3', 'Pemain 4'])
   const [targetLoss, setTargetLoss] = useState(5)
+  const [roomMode, setRoomMode] = useState('multiplayer') // 'multiplayer' | 'offline'
 
   const handleCountChange = (count) => {
     setPlayerCount(count)
@@ -30,6 +31,7 @@ export default function OmbenSetup({ onStartGame, onBack }) {
     e.preventDefault()
     onStartGame({
       playerNames,
+      isOfflineLocal: roomMode === 'offline',
       settings: {
         targetLoss
       }
@@ -44,6 +46,52 @@ export default function OmbenSetup({ onStartGame, onBack }) {
       </div>
 
       <form onSubmit={handleStart}>
+        {/* Table Type / Room Mode */}
+        <div className="section-label" style={{ marginTop: 0 }}>{t('room_mode.title')}</div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '20px' }}>
+          <div 
+            onClick={() => setRoomMode('multiplayer')}
+            style={{
+              padding: '12px',
+              borderRadius: '12px',
+              border: `2px solid ${roomMode === 'multiplayer' ? '#8B5CF6' : 'var(--border-glass)'}`,
+              background: roomMode === 'multiplayer' ? 'rgba(139, 92, 246, 0.15)' : 'var(--bg-glass)',
+              cursor: 'pointer',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '4px'
+            }}
+          >
+            <div style={{ fontWeight: 800, fontSize: '0.85rem', color: roomMode === 'multiplayer' ? '#C084FC' : '#FFF' }}>
+              🌐 {t('room_mode.multiplayer')}
+            </div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: 1.3 }}>
+              {t('room_mode.multiplayer_desc')}
+            </div>
+          </div>
+
+          <div 
+            onClick={() => setRoomMode('offline')}
+            style={{
+              padding: '12px',
+              borderRadius: '12px',
+              border: `2px solid ${roomMode === 'offline' ? '#10B981' : 'var(--border-glass)'}`,
+              background: roomMode === 'offline' ? 'rgba(16, 185, 129, 0.15)' : 'var(--bg-glass)',
+              cursor: 'pointer',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '4px'
+            }}
+          >
+            <div style={{ fontWeight: 800, fontSize: '0.85rem', color: roomMode === 'offline' ? '#34D399' : '#FFF' }}>
+              📱 {t('room_mode.offline')}
+            </div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: 1.3 }}>
+              {t('room_mode.offline_desc')}
+            </div>
+          </div>
+        </div>
+
         <div className="form-group">
           <label className="form-label">{t('omben.player_count')}</label>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '8px' }}>
