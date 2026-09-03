@@ -50,7 +50,13 @@ export default function TrufPlay({
 
   const myPlayerIndex = effectiveSeat
   const isSpectator = myPlayerIndex === null && !isHost
-  const canEditPlayer = (idx) => isHost || myPlayerIndex === idx
+
+  // Scorer role state (defaults to Player 0 / Host)
+  const [scorerIndex, setScorerIndex] = useState(session?.settings?.scorerIndex ?? 0)
+  const [showTransferScorerModal, setShowTransferScorerModal] = useState(false)
+  const isScorer = isLocalOrOffline || myPlayerIndex === scorerIndex
+  // Only the active Scorer can edit all players. When host is not the scorer, host can only edit their own score!
+  const canEditPlayer = (idx) => isScorer || myPlayerIndex === idx
 
   // Optimistic local state for rounds to guarantee instant Round advancement
   const [localRounds, setLocalRounds] = useState(rounds || [])
@@ -111,8 +117,25 @@ export default function TrufPlay({
       trufSuit,
       inputPhase,
       forcedPlayMode,
+      scorerIndex,
       ...overrides
     })
+  }
+
+  // Scorer transfer & takeover handlers
+  const handleTransferScorer = (newIdx) => {
+    if (newIdx < 0 || newIdx > 3) return
+    try { hapticsService.medium() } catch {}
+    setScorerIndex(newIdx)
+    broadcastState({ scorerIndex: newIdx })
+    setShowTransferScorerModal(false)
+    const newName = playerNames[newIdx] || `Pemain ${newIdx + 1}`
+    addLog(`Peran Pencatat Skor (Scorer) dialihkan ke ${newName}`, 'role')
+  }
+
+  const handleTakeOverScorer = () => {
+    if (myPlayerIndex === null) return
+    handleTransferScorer(myPlayerIndex)
   }
 
   // Subscribe to Realtime Live Room (Instant Broadcast + DB Changes + Smart Polling Fallback)
@@ -128,6 +151,7 @@ export default function TrufPlay({
           if (payload.trufSuit !== undefined) setTrufSuit(payload.trufSuit)
           if (payload.inputPhase) setInputPhase(payload.inputPhase)
           if (payload.forcedPlayMode !== undefined) setForcedPlayMode(payload.forcedPlayMode)
+          if (payload.scorerIndex !== undefined) setScorerIndex(payload.scorerIndex)
         }
       },
       onActivityLog: (logEntry) => {
@@ -160,11 +184,16 @@ export default function TrufPlay({
           })
           setBids([0, 0, 0, 0])
           setWons([0, 0, 0, 0])
-          setTrufSuit(4)
+          setTrufSuit(0)
           setInputPhase('bid')
           setForcedPlayMode(null)
           setErrorMsg('')
           soundService.playVictory()
+
+          // If this client is the host and not the scorer, ensure round is safely saved under host's session
+          if (isHost && onSaveRound) {
+            onSaveRound(payload.round).catch(err => console.warn('Host auto-sync round error:', err))
+          }
         }
       },
       onDbUpdate: async () => {
@@ -218,7 +247,7 @@ export default function TrufPlay({
         next[playerIdx] = newVal
         broadcastState({ bids: next })
         const targetName = playerNames[playerIdx]
-        const text = isHost && myPlayerIndex !== playerIdx
+        const text = isScorer && myPlayerIndex !== playerIdx
           ? `Mengubah Bid ${targetName} dari ${oldVal} menjadi ${newVal}`
           : `Memasang Bid: ${newVal}`
         addLog(text, 'bid')
@@ -243,7 +272,7 @@ export default function TrufPlay({
         next[playerIdx] = newVal
         broadcastState({ wons: next })
         const targetName = playerNames[playerIdx]
-        const text = isHost && myPlayerIndex !== playerIdx
+        const text = isScorer && myPlayerIndex !== playerIdx
           ? `Mengubah Trik ${targetName} dari ${oldVal} menjadi ${newVal}`
           : `Mengatur Trik Menang: ${newVal}`
         addLog(text, 'won')
@@ -468,10 +497,31 @@ export default function TrufPlay({
             {t('truf.round', { num: currentRoundNumber })}
           </h2>
         </div>
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{t('truf.dealer')}</div>
-          <div style={{ fontWeight: 700, color: '#F59E0B' }}>
-            🎲 {playerNames[dealerIndex]}
+        <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>✍️ {t('truf.scorer')}</div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
+              <span style={{ fontWeight: 700, color: isScorer ? '#C084FC' : '#CBD5E1', fontSize: '0.88rem' }}>
+                {playerNames[scorerIndex]} {isScorer && !isLocalOrOffline ? `(${t('truf.you_badge')})` : ''}
+              </span>
+              {!isLocalOrOffline && (
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  style={{ padding: '1px 5px', fontSize: '0.68rem', height: '20px', borderRadius: '4px' }}
+                  onClick={() => setShowTransferScorerModal(true)}
+                  title={t('truf.transfer_scorer')}
+                >
+                  ⇄
+                </button>
+              )}
+            </div>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{t('truf.dealer')}</div>
+            <div style={{ fontWeight: 700, color: '#F59E0B', fontSize: '0.88rem' }}>
+              🎲 {playerNames[dealerIndex]}
+            </div>
           </div>
         </div>
       </div>
@@ -556,7 +606,7 @@ export default function TrufPlay({
                 }}
               >
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                     <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>{name}</span>
                     {isMe && (
                       <span style={{ fontSize: '0.7rem', background: '#8B5CF6', color: '#FFF', padding: '1px 6px', borderRadius: '4px', fontWeight: 800 }}>
@@ -564,6 +614,11 @@ export default function TrufPlay({
                       </span>
                     )}
                     {isDealer && <span style={{ fontSize: '0.72rem', background: '#F59E0B', color: '#000', padding: '2px 6px', borderRadius: '4px', fontWeight: 800 }}>{t('truf.dealer_badge')}</span>}
+                    {idx === scorerIndex && (
+                      <span style={{ fontSize: '0.7rem', background: 'rgba(168, 85, 247, 0.22)', color: '#C084FC', border: '1px solid rgba(168, 85, 247, 0.45)', padding: '1px 6px', borderRadius: '4px', fontWeight: 800 }}>
+                        ✍️ {t('truf.scorer_badge')}
+                      </span>
+                    )}
                   </div>
 
                   {/* Show Player Bid in Phase 2 */}
@@ -637,7 +692,7 @@ export default function TrufPlay({
                 <button
                   key={suit.id}
                   type="button"
-                  disabled={!isLocalOrOffline && !isHost && myPlayerIndex !== dealerIndex}
+                  disabled={!isLocalOrOffline && !isScorer && myPlayerIndex !== dealerIndex}
                   onClick={() => {
                     try { hapticsService.light() } catch {}
                     setTrufSuit(suit.id)
@@ -656,7 +711,7 @@ export default function TrufPlay({
                     alignItems: 'center',
                     gap: '2px',
                     boxShadow: trufSuit === suit.id ? '0 0 15px rgba(168, 85, 247, 0.45)' : 'none',
-                    opacity: (!isLocalOrOffline && !isHost && myPlayerIndex !== dealerIndex && trufSuit !== suit.id) ? 0.6 : 1
+                    opacity: (!isLocalOrOffline && !isScorer && myPlayerIndex !== dealerIndex && trufSuit !== suit.id) ? 0.6 : 1
                   }}
                 >
                   <span>{suit.label}</span>
@@ -682,28 +737,73 @@ export default function TrufPlay({
               ? '⏳ Pemain sedang memasang target bid masing-masing...'
               : `⏳ Pertandingan ronde sedang berlangsung (Trik: ${totalWon}/13).`}
           </div>
-        ) : inputPhase === 'bid' ? (
-          <button className="btn btn-primary btn-block" onClick={handleProceedToWon}>
-            ➡️ {t('truf.save_bid')}
-          </button>
+        ) : isScorer ? (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <span style={{ fontSize: '0.75rem', color: '#C084FC', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                ✍️ {t('truf.you_are_scorer')}
+              </span>
+              {!isLocalOrOffline && (
+                <button
+                  type="button"
+                  onClick={() => setShowTransferScorerModal(true)}
+                  style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '0.75rem', cursor: 'pointer', textDecoration: 'underline' }}
+                >
+                  ⇄ {t('truf.transfer_scorer')}
+                </button>
+              )}
+            </div>
+
+            {inputPhase === 'bid' ? (
+              <button className="btn btn-primary btn-block" onClick={handleProceedToWon}>
+                ➡️ {t('truf.save_bid')}
+              </button>
+            ) : (
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button 
+                  className="btn btn-secondary" 
+                  onClick={() => {
+                    setInputPhase('bid')
+                    broadcastState({ inputPhase: 'bid' })
+                    addLog('Mengembalikan ke fase Bid', 'bid')
+                  }}
+                >
+                  ← Ubah Bid
+                </button>
+                <button 
+                  className={`btn ${totalWon === 13 ? 'btn-success' : 'btn-secondary'}`} 
+                  style={{ flex: 1, fontWeight: 800 }} 
+                  onClick={handleSaveRoundSubmit}
+                >
+                  {totalWon === 13 ? `💾 ${t('truf.save_round')} & Lanjut` : `⚠️ Trik: ${totalWon} / 13 (Harus 13)`}
+                </button>
+              </div>
+            )}
+          </div>
         ) : (
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <button 
-              className="btn btn-secondary" 
-              onClick={() => {
-                setInputPhase('bid')
-                broadcastState({ inputPhase: 'bid' })
-                addLog('Mengembalikan ke fase Bid', 'bid')
-              }}
+          <div style={{
+            background: 'rgba(168, 85, 247, 0.08)',
+            border: '1px solid rgba(168, 85, 247, 0.25)',
+            borderRadius: '12px',
+            padding: '14px 16px',
+            textAlign: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            <div style={{ fontSize: '0.88rem', color: '#E2E8F0', fontWeight: 600 }}>
+              ⏳ {inputPhase === 'bid'
+                ? t('truf.waiting_for_scorer_bid', { name: playerNames[scorerIndex] })
+                : t('truf.waiting_for_scorer_save', { name: playerNames[scorerIndex] })}
+            </div>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              style={{ fontSize: '0.78rem', borderColor: 'rgba(168, 85, 247, 0.45)', color: '#C084FC', background: 'rgba(168, 85, 247, 0.12)' }}
+              onClick={handleTakeOverScorer}
             >
-              ← Ubah Bid
-            </button>
-            <button 
-              className={`btn ${totalWon === 13 ? 'btn-success' : 'btn-secondary'}`} 
-              style={{ flex: 1, fontWeight: 800 }} 
-              onClick={handleSaveRoundSubmit}
-            >
-              {totalWon === 13 ? `💾 ${t('truf.save_round')} & Lanjut` : `⚠️ Trik: ${totalWon} / 13 (Harus 13)`}
+              ✋ {t('truf.take_over_scorer')}
             </button>
           </div>
         )}
@@ -719,7 +819,7 @@ export default function TrufPlay({
             </span>
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
-            {isHost && localRounds.length > 0 && onUndoRound && (
+            {(isHost || isScorer) && localRounds.length > 0 && onUndoRound && (
               <button type="button" className="btn btn-danger btn-sm" onClick={handleUndo}>
                 ↩️ {t('truf.undo_btn')}
               </button>
@@ -733,7 +833,7 @@ export default function TrufPlay({
                 📸 {t('truf.share_916_btn')}
               </button>
             )}
-            {isHost && onFinalizeGame && localRounds.length > 0 && (
+            {(isHost || isScorer) && onFinalizeGame && localRounds.length > 0 && (
               <button 
                 type="button" 
                 className="btn btn-primary btn-sm" 
@@ -758,6 +858,10 @@ export default function TrufPlay({
                   const isEndOfSetInReverse = (rNum % 4 === 1) && localRounds.some(rd => rd.round_number === setNum * 4)
                   const rSuitId = r.round_data?.trufSuit ?? r.round_data?.truf_suit ?? r.roundData?.trufSuit ?? r.truf_suit_index ?? 0
                   const rSuit = SUITS.find(s => s.id === rSuitId) || SUITS[0]
+                  const rTotalBid = r.round_data?.totalBid ?? r.roundData?.totalBid ?? r.player_scores?.reduce((sum, p) => sum + (p.stats?.bid ?? 0), 0) ?? 0
+                  const rForcedMode = r.round_data?.forcedPlayMode ?? r.roundData?.forcedPlayMode
+                  const rIsMainAtas = rForcedMode ? rForcedMode === 'atas' : rTotalBid > 13
+
                   return (
                     <React.Fragment key={r.id || i}>
                       <th style={{ 
@@ -769,6 +873,20 @@ export default function TrufPlay({
                         <div style={{ fontSize: '0.82rem', fontWeight: 800 }}>{t('truf.table_round', { num: rNum })}</div>
                         <div style={{ fontSize: '0.7rem', color: rSuit?.color || 'var(--text-muted)' }}>
                           {rSuit?.label} {t('truf.suit_' + rSuit?.key, rSuit?.name)}
+                        </div>
+                        <div style={{
+                          marginTop: '3px',
+                          fontSize: '0.65rem',
+                          fontWeight: 800,
+                          padding: '1px 5px',
+                          borderRadius: '4px',
+                          display: 'inline-block',
+                          background: rIsMainAtas ? 'rgba(59, 130, 246, 0.2)' : 'rgba(249, 115, 22, 0.2)',
+                          color: rIsMainAtas ? '#60A5FA' : '#FB923C',
+                          border: `1px solid ${rIsMainAtas ? 'rgba(59, 130, 246, 0.35)' : 'rgba(249, 115, 22, 0.35)'}`,
+                          whiteSpace: 'nowrap'
+                        }}>
+                          {rIsMainAtas ? '▲ ' + t('truf.mode_atas_short') : '▼ ' + t('truf.mode_bawah_short')} ({rTotalBid})
                         </div>
                       </th>
                       {/* Set Rounding Column at every 4th round (rendered after R1/R5/etc. in reverse order) */}
@@ -898,6 +1016,9 @@ export default function TrufPlay({
               const rDealerIdx = round.round_data?.dealerIndex ?? ((firstDealer + rNum - 1) % 4)
               const rSuitId = round.round_data?.trufSuit ?? round.round_data?.truf_suit ?? round.roundData?.trufSuit ?? round.truf_suit_index ?? 0
               const rSuitObj = SUITS.find(s => s.id === rSuitId) || SUITS[0]
+              const rTotalBid = round.round_data?.totalBid ?? round.roundData?.totalBid ?? round.player_scores?.reduce((sum, p) => sum + (p.stats?.bid ?? 0), 0) ?? 0
+              const rForcedMode = round.round_data?.forcedPlayMode ?? round.roundData?.forcedPlayMode
+              const rIsMainAtas = rForcedMode ? rForcedMode === 'atas' : rTotalBid > 13
               const isSetEnd = rNum % 4 === 0
 
               return (
@@ -911,7 +1032,7 @@ export default function TrufPlay({
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '6px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                       <span style={{ 
                         fontWeight: 800, 
                         color: '#A855F7', 
@@ -924,6 +1045,17 @@ export default function TrufPlay({
                       </span>
                       <span style={{ fontSize: '0.78rem', color: isSetEnd ? '#C084FC' : '#93C5FD', fontWeight: 700 }}>
                         ⭕ {t('truf.set_title', { num: setNum })} {isSetEnd ? t('truf.end_of_set') : ''}
+                      </span>
+                      <span style={{
+                        fontSize: '0.75rem',
+                        fontWeight: 800,
+                        padding: '2px 8px',
+                        borderRadius: '6px',
+                        background: rIsMainAtas ? 'rgba(59, 130, 246, 0.2)' : 'rgba(249, 115, 22, 0.2)',
+                        color: rIsMainAtas ? '#60A5FA' : '#FB923C',
+                        border: `1px solid ${rIsMainAtas ? 'rgba(59, 130, 246, 0.4)' : 'rgba(249, 115, 22, 0.4)'}`
+                      }}>
+                        {rIsMainAtas ? '▲ ' + t('truf.mode_atas') : '▼ ' + t('truf.mode_bawah')} ({t('truf.total_bid', { count: rTotalBid })})
                       </span>
                     </div>
 
@@ -1052,6 +1184,64 @@ export default function TrufPlay({
           </div>
         </div>
       )}
+      {/* Transfer Scorer Modal */}
+      {showTransferScorerModal && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '420px', padding: '24px' }}>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span>✍️</span>
+              <span>{t('truf.transfer_scorer')}</span>
+            </h3>
+            <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)', marginBottom: '18px' }}>
+              {t('truf.select_new_scorer')}
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '20px' }}>
+              {playerNames.map((name, pIdx) => {
+                const isCurrent = pIdx === scorerIndex
+                const isThisPlayer = pIdx === myPlayerIndex
+                return (
+                  <button
+                    key={pIdx}
+                    type="button"
+                    className={`btn ${isCurrent ? 'btn-primary' : 'btn-secondary'}`}
+                    style={{
+                      justifyContent: 'space-between',
+                      display: 'flex',
+                      alignItems: 'center',
+                      padding: '12px 16px',
+                      opacity: isCurrent ? 0.9 : 1
+                    }}
+                    onClick={() => handleTransferScorer(pIdx)}
+                  >
+                    <span style={{ fontWeight: 700 }}>
+                      {name} {isThisPlayer ? `(${t('truf.you_badge')})` : ''}
+                    </span>
+                    {isCurrent ? (
+                      <span style={{ fontSize: '0.72rem', background: 'rgba(255,255,255,0.25)', padding: '2px 8px', borderRadius: '4px', fontWeight: 800 }}>
+                        {t('truf.scorer_badge')}
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: '0.75rem', color: '#C084FC' }}>
+                        Pilih ➔
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+
+            <button
+              type="button"
+              className="btn btn-secondary btn-block"
+              onClick={() => setShowTransferScorerModal(false)}
+            >
+              {t('common.cancel') || 'Batal'}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Room Invite & Multiplayer Seat Claim Modal */}
       <RoomInviteModal
         isOpen={isInviteModalOpen}
