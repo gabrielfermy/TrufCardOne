@@ -167,7 +167,17 @@
     "force_atas": "Force High Bid Mode (Main Atas)",
     "force_bawah": "Force Low Bid Mode (Main Bawah)",
     "validation_won_13": "Total Won tricks of all 4 players must equal exactly 13!",
-    "winner_congrats": "Congratulations! The winner of Truf is {{name}} 🏆"
+    "winner_congrats": "Congratulations! The winner of Truf is {{name}} 🏆",
+    "scorer": "Scorer",
+    "scorer_badge": "SCORER",
+    "scorer_role_desc": "Only the designated Scorer can advance phases or save rounds.",
+    "waiting_for_scorer_bid": "Waiting for {{name}} (Scorer) to proceed to won phase...",
+    "waiting_for_scorer_save": "Waiting for {{name}} (Scorer) to save this round...",
+    "take_over_scorer": "Take Over as Scorer",
+    "transfer_scorer": "Transfer Scorer Role",
+    "select_new_scorer": "Select New Player as Scorer:",
+    "you_are_scorer": "You are the Scorer",
+    "scorer_transferred": "Scorer role transferred to {{name}}"
   },
   "remi": {
     "name": "Remi (7-Card)",

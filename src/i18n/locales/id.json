@@ -167,7 +167,17 @@
     "force_atas": "Paksa Main Atas",
     "force_bawah": "Paksa Main Bawah",
     "validation_won_13": "Total Won dari ke-4 pemain harus tepat 13!",
-    "winner_congrats": "Selamat! Juara Truf adalah {{name}} 🏆"
+    "winner_congrats": "Selamat! Juara Truf adalah {{name}} 🏆",
+    "scorer": "Pencatat Skor",
+    "scorer_badge": "SCORER",
+    "scorer_role_desc": "Hanya Pencatat Skor yang dapat melanjutkan fase atau menyimpan ronde.",
+    "waiting_for_scorer_bid": "Menunggu {{name}} (Pencatat Skor) untuk lanjut ke fase hasil...",
+    "waiting_for_scorer_save": "Menunggu {{name}} (Pencatat Skor) untuk menyimpan ronde ini...",
+    "take_over_scorer": "Ambil Alih Sebagai Pencatat Skor",
+    "transfer_scorer": "Alihkan Pencatat Skor",
+    "select_new_scorer": "Pilih Pemain Sebagai Pencatat Skor Baru:",
+    "you_are_scorer": "Anda adalah Pencatat Skor",
+    "scorer_transferred": "Peran Pencatat Skor dialihkan ke {{name}}"
   },
   "remi": {
     "name": "Remi (7-Card)",
