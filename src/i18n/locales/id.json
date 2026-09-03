@@ -177,7 +177,8 @@
     "transfer_scorer": "Alihkan Pencatat Skor",
     "select_new_scorer": "Pilih Pemain Sebagai Pencatat Skor Baru:",
     "you_are_scorer": "Anda adalah Pencatat Skor",
-    "scorer_transferred": "Peran Pencatat Skor dialihkan ke {{name}}"
+    "scorer_transferred": "Peran Pencatat Skor dialihkan ke {{name}}",
+    "scorer_only_suit": "Hanya dapat diatur oleh Pencatat Skor"
   },
   "remi": {
     "name": "Remi (7-Card)",
