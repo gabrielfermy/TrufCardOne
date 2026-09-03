@@ -758,6 +758,10 @@ export default function TrufPlay({
                   const isEndOfSetInReverse = (rNum % 4 === 1) && localRounds.some(rd => rd.round_number === setNum * 4)
                   const rSuitId = r.round_data?.trufSuit ?? r.round_data?.truf_suit ?? r.roundData?.trufSuit ?? r.truf_suit_index ?? 0
                   const rSuit = SUITS.find(s => s.id === rSuitId) || SUITS[0]
+                  const rTotalBid = r.round_data?.totalBid ?? r.roundData?.totalBid ?? r.player_scores?.reduce((sum, p) => sum + (p.stats?.bid ?? 0), 0) ?? 0
+                  const rForcedMode = r.round_data?.forcedPlayMode ?? r.roundData?.forcedPlayMode
+                  const rIsMainAtas = rForcedMode ? rForcedMode === 'atas' : rTotalBid > 13
+
                   return (
                     <React.Fragment key={r.id || i}>
                       <th style={{ 
@@ -769,6 +773,20 @@ export default function TrufPlay({
                         <div style={{ fontSize: '0.82rem', fontWeight: 800 }}>{t('truf.table_round', { num: rNum })}</div>
                         <div style={{ fontSize: '0.7rem', color: rSuit?.color || 'var(--text-muted)' }}>
                           {rSuit?.label} {t('truf.suit_' + rSuit?.key, rSuit?.name)}
+                        </div>
+                        <div style={{
+                          marginTop: '3px',
+                          fontSize: '0.65rem',
+                          fontWeight: 800,
+                          padding: '1px 5px',
+                          borderRadius: '4px',
+                          display: 'inline-block',
+                          background: rIsMainAtas ? 'rgba(59, 130, 246, 0.2)' : 'rgba(249, 115, 22, 0.2)',
+                          color: rIsMainAtas ? '#60A5FA' : '#FB923C',
+                          border: `1px solid ${rIsMainAtas ? 'rgba(59, 130, 246, 0.35)' : 'rgba(249, 115, 22, 0.35)'}`,
+                          whiteSpace: 'nowrap'
+                        }}>
+                          {rIsMainAtas ? '▲ ' + t('truf.mode_atas_short') : '▼ ' + t('truf.mode_bawah_short')} ({rTotalBid})
                         </div>
                       </th>
                       {/* Set Rounding Column at every 4th round (rendered after R1/R5/etc. in reverse order) */}
@@ -898,6 +916,9 @@ export default function TrufPlay({
               const rDealerIdx = round.round_data?.dealerIndex ?? ((firstDealer + rNum - 1) % 4)
               const rSuitId = round.round_data?.trufSuit ?? round.round_data?.truf_suit ?? round.roundData?.trufSuit ?? round.truf_suit_index ?? 0
               const rSuitObj = SUITS.find(s => s.id === rSuitId) || SUITS[0]
+              const rTotalBid = round.round_data?.totalBid ?? round.roundData?.totalBid ?? round.player_scores?.reduce((sum, p) => sum + (p.stats?.bid ?? 0), 0) ?? 0
+              const rForcedMode = round.round_data?.forcedPlayMode ?? round.roundData?.forcedPlayMode
+              const rIsMainAtas = rForcedMode ? rForcedMode === 'atas' : rTotalBid > 13
               const isSetEnd = rNum % 4 === 0
 
               return (
@@ -911,7 +932,7 @@ export default function TrufPlay({
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '6px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                       <span style={{ 
                         fontWeight: 800, 
                         color: '#A855F7', 
@@ -924,6 +945,17 @@ export default function TrufPlay({
                       </span>
                       <span style={{ fontSize: '0.78rem', color: isSetEnd ? '#C084FC' : '#93C5FD', fontWeight: 700 }}>
                         ⭕ {t('truf.set_title', { num: setNum })} {isSetEnd ? t('truf.end_of_set') : ''}
+                      </span>
+                      <span style={{
+                        fontSize: '0.75rem',
+                        fontWeight: 800,
+                        padding: '2px 8px',
+                        borderRadius: '6px',
+                        background: rIsMainAtas ? 'rgba(59, 130, 246, 0.2)' : 'rgba(249, 115, 22, 0.2)',
+                        color: rIsMainAtas ? '#60A5FA' : '#FB923C',
+                        border: `1px solid ${rIsMainAtas ? 'rgba(59, 130, 246, 0.4)' : 'rgba(249, 115, 22, 0.4)'}`
+                      }}>
+                        {rIsMainAtas ? '▲ ' + t('truf.mode_atas') : '▼ ' + t('truf.mode_bawah')} ({t('truf.total_bid', { count: rTotalBid })})
                       </span>
                     </div>
 
