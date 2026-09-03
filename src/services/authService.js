@@ -6,6 +6,7 @@ const GOOGLE_CLIENT_ID = '833136604965-vhbj0lutqsqc7vraquadp3bcjatis4cf.apps.goo
 export const authService = {
   // Sign Up with Email and Password
   async signUp(email, password, displayName) {
+    const redirectTo = typeof window !== 'undefined' ? window.location.origin : 'https://kancasela.my.id'
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -13,6 +14,7 @@ export const authService = {
         data: {
           full_name: displayName,
         },
+        emailRedirectTo: redirectTo
       },
     })
     if (error) throw error

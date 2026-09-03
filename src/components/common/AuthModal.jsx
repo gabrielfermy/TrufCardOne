@@ -10,6 +10,7 @@ export default function AuthModal({ isOpen, onClose, user, onAuthSuccess }) {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [registrationSuccessEmail, setRegistrationSuccessEmail] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
@@ -50,11 +51,15 @@ export default function AuthModal({ isOpen, onClose, user, onAuthSuccess }) {
     setLoading(true)
     try {
       if (isRegistering) {
-        await authService.signUp(email, password, displayName)
-        alert('Pendaftaran berhasil! Silakan periksa email Anda atau langsung masuk.')
-        setIsRegistering(false)
-        setPassword('')
-        setConfirmPassword('')
+        const data = await authService.signUp(email, password, displayName)
+        if (data?.session) {
+          if (onAuthSuccess) onAuthSuccess()
+          onClose()
+        } else {
+          setRegistrationSuccessEmail(email)
+          setPassword('')
+          setConfirmPassword('')
+        }
       } else {
         await authService.signIn(email, password)
         if (onAuthSuccess) onAuthSuccess()
@@ -108,6 +113,43 @@ export default function AuthModal({ isOpen, onClose, user, onAuthSuccess }) {
               🚪 {t('nav.logout')}
             </button>
           </div>
+        ) : registrationSuccessEmail ? (
+          <div style={{ textAlign: 'center', padding: '16px 8px' }}>
+            <div style={{ fontSize: '3.2rem', marginBottom: '12px' }}>✉️</div>
+            <h4 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '8px', color: '#FFF' }}>
+              Periksa Email Anda
+            </h4>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', lineHeight: 1.5, marginBottom: '14px' }}>
+              Tautan konfirmasi pendaftaran telah dikirim ke:<br />
+              <strong style={{ color: '#A78BFA', wordBreak: 'break-all' }}>{registrationSuccessEmail}</strong>
+            </p>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.84rem', lineHeight: 1.5, marginBottom: '20px' }}>
+              Silakan buka email Anda dan klik tautan konfirmasi untuk mengaktifkan akun KancaSela Anda sebelum masuk.
+            </p>
+            <div style={{
+              background: 'rgba(139, 92, 246, 0.1)',
+              border: '1px solid rgba(139, 92, 246, 0.3)',
+              borderRadius: '12px',
+              padding: '12px',
+              fontSize: '0.8rem',
+              color: '#C084FC',
+              marginBottom: '20px',
+              textAlign: 'left'
+            }}>
+              💡 <em>Tidak menemukan email di Inbox? Jangan lupa periksa folder <strong>Spam / Promosi</strong>.</em>
+            </div>
+            <button
+              type="button"
+              className="btn btn-primary btn-block"
+              onClick={() => {
+                setRegistrationSuccessEmail('')
+                setIsRegistering(false)
+                setErrorMsg('')
+              }}
+            >
+              Kembali ke Halaman Masuk
+            </button>
+          </div>
         ) : (
           <div>
             {errorMsg && (
@@ -116,7 +158,7 @@ export default function AuthModal({ isOpen, onClose, user, onAuthSuccess }) {
               </div>
             )}
 
-            {/* Official Native Google Sign-In Button (In-Page on gns.avl.my.id) */}
+            {/* Official Native Google Sign-In Button (In-Page on kancasela.my.id) */}
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px', minHeight: '44px' }}>
               <div ref={googleBtnRef} style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
                 {/* Fallback button if Google script is loading */}
