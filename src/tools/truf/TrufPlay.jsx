@@ -55,7 +55,8 @@ export default function TrufPlay({
   const [scorerIndex, setScorerIndex] = useState(session?.settings?.scorerIndex ?? 0)
   const [showTransferScorerModal, setShowTransferScorerModal] = useState(false)
   const isScorer = isLocalOrOffline || myPlayerIndex === scorerIndex
-  const canEditPlayer = (idx) => isHost || isScorer || myPlayerIndex === idx
+  // Only the active Scorer can edit all players. When host is not the scorer, host can only edit their own score!
+  const canEditPlayer = (idx) => isScorer || myPlayerIndex === idx
 
   // Optimistic local state for rounds to guarantee instant Round advancement
   const [localRounds, setLocalRounds] = useState(rounds || [])
@@ -188,6 +189,11 @@ export default function TrufPlay({
           setForcedPlayMode(null)
           setErrorMsg('')
           soundService.playVictory()
+
+          // If this client is the host and not the scorer, ensure round is safely saved under host's session
+          if (isHost && onSaveRound) {
+            onSaveRound(payload.round).catch(err => console.warn('Host auto-sync round error:', err))
+          }
         }
       },
       onDbUpdate: async () => {
@@ -241,7 +247,7 @@ export default function TrufPlay({
         next[playerIdx] = newVal
         broadcastState({ bids: next })
         const targetName = playerNames[playerIdx]
-        const text = isHost && myPlayerIndex !== playerIdx
+        const text = isScorer && myPlayerIndex !== playerIdx
           ? `Mengubah Bid ${targetName} dari ${oldVal} menjadi ${newVal}`
           : `Memasang Bid: ${newVal}`
         addLog(text, 'bid')
@@ -266,7 +272,7 @@ export default function TrufPlay({
         next[playerIdx] = newVal
         broadcastState({ wons: next })
         const targetName = playerNames[playerIdx]
-        const text = isHost && myPlayerIndex !== playerIdx
+        const text = isScorer && myPlayerIndex !== playerIdx
           ? `Mengubah Trik ${targetName} dari ${oldVal} menjadi ${newVal}`
           : `Mengatur Trik Menang: ${newVal}`
         addLog(text, 'won')
@@ -686,7 +692,7 @@ export default function TrufPlay({
                 <button
                   key={suit.id}
                   type="button"
-                  disabled={!isLocalOrOffline && !isHost && myPlayerIndex !== dealerIndex}
+                  disabled={!isLocalOrOffline && !isScorer && myPlayerIndex !== dealerIndex}
                   onClick={() => {
                     try { hapticsService.light() } catch {}
                     setTrufSuit(suit.id)
@@ -705,7 +711,7 @@ export default function TrufPlay({
                     alignItems: 'center',
                     gap: '2px',
                     boxShadow: trufSuit === suit.id ? '0 0 15px rgba(168, 85, 247, 0.45)' : 'none',
-                    opacity: (!isLocalOrOffline && !isHost && myPlayerIndex !== dealerIndex && trufSuit !== suit.id) ? 0.6 : 1
+                    opacity: (!isLocalOrOffline && !isScorer && myPlayerIndex !== dealerIndex && trufSuit !== suit.id) ? 0.6 : 1
                   }}
                 >
                   <span>{suit.label}</span>
