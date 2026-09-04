@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { I18nProvider, useTranslation } from './i18n/I18nContext'
 import { authService } from './services/authService'
+import { sessionTimeoutService } from './services/sessionTimeoutService'
 import { gameService } from './services/gameService'
 import { deviceService } from './services/deviceService'
 import { networkService } from './services/networkService'
@@ -66,7 +67,13 @@ function updateBrowserUrl(view, mode, session, extraTab) {
 function MainApp() {
   const { t } = useTranslation()
   const [user, setUser] = useState(null)
+  const userRef = useRef(user)
+  useEffect(() => {
+    userRef.current = user
+  }, [user])
+
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
+  const [sessionExpiredNotice, setSessionExpiredNotice] = useState(false)
   const [isShareModalOpen, setIsShareModalOpen] = useState(false)
   const [isCheckInModalOpen, setIsCheckInModalOpen] = useState(false)
   const [pendingJoinSession, setPendingJoinSession] = useState(null)
@@ -286,9 +293,30 @@ function MainApp() {
   useEffect(() => {
     authService.initMobileDeepLinks()
 
-    authService.getCurrentUser().then(currUser => {
-      setUser(currUser)
-      loadUserSessions(currUser?.id)
+    const handleSessionTimeout = async () => {
+      try {
+        await authService.signOut()
+      } catch (e) {
+        console.warn('Timeout signout error:', e)
+      }
+      setUser(null)
+      loadUserSessions('guest-user')
+      setSessionExpiredNotice(true)
+      setIsAuthModalOpen(true)
+    }
+
+    if (sessionTimeoutService.isSessionExpired()) {
+      handleSessionTimeout()
+    } else {
+      authService.getCurrentUser().then(currUser => {
+        setUser(currUser)
+        loadUserSessions(currUser?.id)
+      })
+    }
+
+    const destroyTimeout = sessionTimeoutService.initSessionTimeout({
+      onTimeout: handleSessionTimeout,
+      getIsAuthenticated: () => !!userRef.current
     })
 
     const subscription = authService.onAuthStateChange(async (event, session) => {
@@ -337,6 +365,7 @@ function MainApp() {
     window.addEventListener('popstate', handlePopState)
 
     return () => {
+      destroyTimeout()
       if (subscription) subscription.unsubscribe()
       window.removeEventListener('popstate', handlePopState)
     }
@@ -769,9 +798,14 @@ function MainApp() {
       {/* Auth Modal */}
       <AuthModal
         isOpen={isAuthModalOpen}
-        onClose={() => setIsAuthModalOpen(false)}
+        onClose={() => {
+          setIsAuthModalOpen(false)
+          setSessionExpiredNotice(false)
+        }}
         user={user}
+        sessionExpiredNotice={sessionExpiredNotice}
         onAuthSuccess={() => {
+          setSessionExpiredNotice(false)
           authService.getCurrentUser().then(currUser => {
             setUser(currUser)
             loadUserSessions(currUser?.id)

@@ -105,7 +105,9 @@
     "sign_up": "Register",
     "no_account": "Don't have an account? Register",
     "has_account": "Already have an account? Sign In",
-    "guest_mode": "Play as Guest (No Account)"
+    "guest_mode": "Play as Guest (No Account)",
+    "session_expired_title": "Session Expired",
+    "session_expired_message": "Your session has expired due to 3 hours of inactivity. Please sign in again."
   },
   "truf": {
     "name": "Truf (Trup)",

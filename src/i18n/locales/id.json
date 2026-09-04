@@ -105,7 +105,9 @@
     "sign_up": "Daftar",
     "no_account": "Belum punya akun? Daftar",
     "has_account": "Sudah punya akun? Masuk",
-    "guest_mode": "Bermain Sebagai Tamu (Tanpa Akun)"
+    "guest_mode": "Bermain Sebagai Tamu (Tanpa Akun)",
+    "session_expired_title": "Sesi Kedaluwarsa",
+    "session_expired_message": "Sesi Anda telah berakhir karena tidak ada aktivitas selama 3 jam. Silakan masuk kembali."
   },
   "truf": {
     "name": "Truf (Trup)",
