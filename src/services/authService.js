@@ -1,5 +1,6 @@
 import { supabase } from './supabaseClient'
 import { App } from '@capacitor/app'
+import { sessionTimeoutService } from './sessionTimeoutService'
 
 const GOOGLE_CLIENT_ID = '833136604965-vhbj0lutqsqc7vraquadp3bcjatis4cf.apps.googleusercontent.com'
 
@@ -18,6 +19,9 @@ export const authService = {
       },
     })
     if (error) throw error
+    if (data?.session) {
+      sessionTimeoutService.setLastActivity()
+    }
     return data
   },
 
@@ -28,6 +32,7 @@ export const authService = {
       password,
     })
     if (error) throw error
+    sessionTimeoutService.setLastActivity()
     return data
   },
 
@@ -38,6 +43,7 @@ export const authService = {
       token: idToken,
     })
     if (error) throw error
+    sessionTimeoutService.setLastActivity()
     return data
   },
 
@@ -110,6 +116,7 @@ export const authService = {
 
   // Sign Out
   async signOut() {
+    sessionTimeoutService.clearLastActivity()
     const { error } = await supabase.auth.signOut()
     if (error) throw error
   },
@@ -124,8 +131,17 @@ export const authService = {
 
   // Get Current Authenticated User & Profile (Auto-Provision)
   async getCurrentUser() {
+    if (sessionTimeoutService.isSessionExpired()) {
+      await authService.signOut()
+      return null
+    }
+
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return null
+
+    if (!sessionTimeoutService.getLastActivity()) {
+      sessionTimeoutService.setLastActivity()
+    }
 
     let { data: profile } = await supabase
       .from('profiles')

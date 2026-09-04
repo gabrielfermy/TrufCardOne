@@ -49,7 +49,7 @@ const evaluatePassword = (pwd) => {
   }
 }
 
-export default function AuthModal({ isOpen, onClose, user, onAuthSuccess }) {
+export default function AuthModal({ isOpen, onClose, user, onAuthSuccess, sessionExpiredNotice = false }) {
   const { t } = useTranslation()
   const [isRegistering, setIsRegistering] = useState(false)
   const [email, setEmail] = useState('')
@@ -64,6 +64,13 @@ export default function AuthModal({ isOpen, onClose, user, onAuthSuccess }) {
   const googleBtnRef = useRef(null)
 
   const passEval = evaluatePassword(password)
+
+  useEffect(() => {
+    if (isOpen && sessionExpiredNotice) {
+      setIsRegistering(false)
+      setErrorMsg('')
+    }
+  }, [isOpen, sessionExpiredNotice])
 
   useEffect(() => {
     if (isOpen && !user && googleBtnRef.current) {
@@ -201,6 +208,30 @@ export default function AuthModal({ isOpen, onClose, user, onAuthSuccess }) {
           </div>
         ) : (
           <div>
+            {sessionExpiredNotice && (
+              <div style={{
+                background: 'rgba(245, 158, 11, 0.15)',
+                color: '#FBBF24',
+                padding: '12px 14px',
+                borderRadius: '10px',
+                fontSize: '0.85rem',
+                lineHeight: 1.5,
+                marginBottom: '16px',
+                border: '1px solid rgba(245, 158, 11, 0.35)',
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '10px'
+              }}>
+                <span style={{ fontSize: '1.25rem', lineHeight: 1 }}>⚠️</span>
+                <div>
+                  <strong style={{ display: 'block', marginBottom: '2px', color: '#FCD34D' }}>
+                    {t('auth.session_expired_title')}
+                  </strong>
+                  <span>{t('auth.session_expired_message')}</span>
+                </div>
+              </div>
+            )}
+
             {errorMsg && (
               <div style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#F87171', padding: '10px 14px', borderRadius: '8px', fontSize: '0.85rem', marginBottom: '16px', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
                 {errorMsg}
