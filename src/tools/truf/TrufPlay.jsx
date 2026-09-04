@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { SUITS, calculateTrufRoundScores } from './trufLogic'
+import { SUITS, calculateTrufRoundScores, determineNextDealer, getDealerConsecutiveStreak } from './trufLogic'
 import { soundService } from '../../services/soundService'
 import { hapticsService } from '../../services/hapticsService'
 import { gameService } from '../../services/gameService'
@@ -91,8 +91,32 @@ export default function TrufPlay({
   }, [rounds])
 
   const currentRoundNumber = localRounds.length + 1
+
+  // Cumulative Leaderboard / Current Cumulative Scores
+  const latestScores = [0, 0, 0, 0]
+  if (localRounds.length > 0) {
+    const lastRound = localRounds[localRounds.length - 1]
+    const hasCumulative = lastRound.player_scores?.some(ps => ps.score_cumulative !== undefined && ps.score_cumulative !== null)
+    if (hasCumulative) {
+      lastRound.player_scores?.forEach(ps => {
+        if (ps.player_index !== undefined) {
+          latestScores[ps.player_index] = ps.score_cumulative ?? 0
+        }
+      })
+    } else {
+      localRounds.forEach(r => {
+        const pScores = r.player_scores || r.playerScores || []
+        pScores.forEach(ps => {
+          const pIdx = ps.player_index ?? 0
+          latestScores[pIdx] += (ps.score_change ?? 0)
+        })
+      })
+    }
+  }
+
   const firstDealer = session?.first_dealer ?? session?.settings?.first_dealer ?? session?.settings?.firstDealer ?? 0
-  const dealerIndex = (firstDealer + (currentRoundNumber - 1)) % 4
+  const dealerIndex = determineNextDealer(localRounds, firstDealer)
+  const dealerConsecutiveStreak = getDealerConsecutiveStreak(localRounds, dealerIndex, firstDealer) + 1
 
   // Input states for current round
   const [bids, setBids] = useState([0, 0, 0, 0])
@@ -101,6 +125,7 @@ export default function TrufPlay({
   const [inputPhase, setInputPhase] = useState('bid') // 'bid' | 'won'
   const [forcedPlayMode, setForcedPlayMode] = useState(null)
   const [showBid13Modal, setShowBid13Modal] = useState(false)
+  const [showConfirmFinishModal, setShowConfirmFinishModal] = useState(false)
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
 
@@ -177,10 +202,11 @@ export default function TrufPlay({
       },
       onRoundAdvance: (payload) => {
         if (payload?.round) {
+          let updated = []
           setLocalRounds(prev => {
             const exists = prev.some(r => r.round_number === payload.round.round_number)
-            if (exists) return prev
-            return [...prev, payload.round]
+            updated = exists ? prev : [...prev, payload.round]
+            return updated
           })
           setBids([0, 0, 0, 0])
           setWons([0, 0, 0, 0])
@@ -194,10 +220,23 @@ export default function TrufPlay({
           if (isHost && onSaveRound) {
             onSaveRound(payload.round).catch(err => console.warn('Host auto-sync round error:', err))
           }
+
+          // Check if game ended due to 10 consecutive dealer rounds
+          const dIdx = payload.round.round_data?.dealerIndex ?? payload.round.dealer_index
+          const streak = getDealerConsecutiveStreak(updated.length > 0 ? updated : [payload.round], dIdx, firstDealer)
+          if ((streak >= 10 || payload.isGameOver10x) && onFinalizeGame) {
+            setTimeout(() => {
+              onFinalizeGame(updated.length > 0 ? updated : undefined)
+            }, 400)
+          }
         }
       },
       onDbUpdate: async () => {
         const refreshed = await gameService.getSession(session.id)
+        if (refreshed?.is_completed && onFinalizeGame) {
+          onFinalizeGame(refreshed.game_rounds || localRounds)
+          return
+        }
         if (refreshed?.game_rounds && refreshed.game_rounds.length >= localRounds.length) {
           setLocalRounds(refreshed.game_rounds)
         }
@@ -210,6 +249,10 @@ export default function TrufPlay({
     const pollInterval = setInterval(async () => {
       try {
         const refreshed = await gameService.getSession(session.id)
+        if (refreshed?.is_completed && onFinalizeGame) {
+          onFinalizeGame(refreshed.game_rounds || localRounds)
+          return
+        }
         if (refreshed?.game_rounds && refreshed.game_rounds.length > 0) {
           setLocalRounds(prev => {
             if (refreshed.game_rounds.length > prev.length) {
@@ -337,12 +380,15 @@ export default function TrufPlay({
       roundNumber: currentRoundNumber,
       round_data: roundData,
       roundData: roundData,
+      dealer_index: dealerIndex,
+      dealerIndex: dealerIndex,
       player_scores: scoreRecords,
       playerScores: scoreRecords
     }
 
     // 1. Instantly advance UI locally
-    setLocalRounds(prev => [...prev, newRoundPayload])
+    const updatedRounds = [...localRounds, newRoundPayload]
+    setLocalRounds(updatedRounds)
     setBids([0, 0, 0, 0])
     setWons([0, 0, 0, 0])
     setTrufSuit(0)
@@ -357,9 +403,20 @@ export default function TrufPlay({
 
     addLog(`Menyimpan Ronde ${currentRoundNumber} & melangkah ke ronde berikutnya`, 'save_round')
 
+    // Check if this round concludes 10 consecutive rounds with the same dealer without replacement
+    const completedStreak = getDealerConsecutiveStreak(updatedRounds, dealerIndex, firstDealer)
+    const isGameOver10x = completedStreak >= 10
+
+    if (isGameOver10x) {
+      addLog(t('truf.game_over_10_dealer', { name: playerNames[dealerIndex] }), 'game_over')
+    }
+
     // 2. Broadcast round advance to all other phones in 0ms!
     if (realtimeChannelRef.current) {
-      gameService.broadcastRoundAdvance(realtimeChannelRef.current, { round: newRoundPayload })
+      gameService.broadcastRoundAdvance(realtimeChannelRef.current, { 
+        round: newRoundPayload,
+        isGameOver10x
+      })
     }
 
     // 3. Background async sync to server/storage
@@ -370,21 +427,19 @@ export default function TrufPlay({
     } catch (err) {
       console.warn('Background round sync note:', err)
     }
+
+    // 4. If 10 consecutive rounds reached, automatically end and finalize the game!
+    if (isGameOver10x && onFinalizeGame) {
+      setTimeout(() => {
+        onFinalizeGame(updatedRounds)
+      }, 400)
+    }
   }
 
   const handleUndo = () => {
     setLocalRounds(prev => prev.slice(0, -1))
     addLog(`Membatalkan (Undo) ronde terakhir`, 'undo')
     if (onUndoRound) onUndoRound()
-  }
-
-  // Cumulative Leaderboard
-  const latestScores = [0, 0, 0, 0]
-  if (localRounds.length > 0) {
-    const lastRound = localRounds[localRounds.length - 1]
-    lastRound.player_scores?.forEach(ps => {
-      latestScores[ps.player_index] = ps.score_cumulative
-    })
   }
 
   const isMainAtas = forcedPlayMode ? forcedPlayMode === 'atas' : totalBid > 13
@@ -519,12 +574,70 @@ export default function TrufPlay({
           </div>
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{t('truf.dealer')}</div>
-            <div style={{ fontWeight: 700, color: '#F59E0B', fontSize: '0.88rem' }}>
-              🎲 {playerNames[dealerIndex]}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
+              <span style={{ fontWeight: 700, color: dealerConsecutiveStreak >= 7 ? '#EF4444' : '#F59E0B', fontSize: '0.88rem' }}>
+                🎲 {playerNames[dealerIndex]}
+              </span>
+              {dealerConsecutiveStreak > 1 && (
+                <span 
+                  style={{
+                    fontSize: '0.72rem',
+                    padding: '1px 6px',
+                    borderRadius: '4px',
+                    fontWeight: 800,
+                    background: dealerConsecutiveStreak >= 7 ? 'rgba(239, 68, 68, 0.2)' : 'rgba(245, 158, 11, 0.2)',
+                    color: dealerConsecutiveStreak >= 7 ? '#F87171' : '#FBBF24',
+                    border: `1px solid ${dealerConsecutiveStreak >= 7 ? 'rgba(239, 68, 68, 0.4)' : 'rgba(245, 158, 11, 0.4)'}`
+                  }}
+                  title={`${dealerConsecutiveStreak}x berturut-turut`}
+                >
+                  {dealerConsecutiveStreak}/10x
+                </span>
+              )}
             </div>
           </div>
         </div>
       </div>
+
+      {/* Dealer Streak Warning Banner */}
+      {dealerConsecutiveStreak >= 7 && (
+        <div style={{
+          background: dealerConsecutiveStreak >= 10 ? 'rgba(239, 68, 68, 0.18)' : 'rgba(245, 158, 11, 0.12)',
+          border: `1px solid ${dealerConsecutiveStreak >= 10 ? 'rgba(239, 68, 68, 0.5)' : 'rgba(245, 158, 11, 0.4)'}`,
+          borderRadius: '12px',
+          padding: '12px 16px',
+          marginBottom: '16px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '10px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '1.4rem' }}>{dealerConsecutiveStreak >= 10 ? '🚨' : '⚠️'}</span>
+            <div>
+              <div style={{ fontWeight: 700, color: dealerConsecutiveStreak >= 10 ? '#FCA5A5' : '#FCD34D', fontSize: '0.88rem' }}>
+                {t('truf.dealer_streak_warning', { name: playerNames[dealerIndex], count: dealerConsecutiveStreak })}
+              </div>
+              <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                {dealerConsecutiveStreak >= 10
+                  ? 'Pemain telah mencapai batas 10 ronde berturut-turut. Permainan akan otomatis selesai setelah ronde ini disimpan.'
+                  : 'Game akan otomatis berakhir jika mencapai 10x berturut-turut tanpa pergantian dealer.'}
+              </div>
+            </div>
+          </div>
+          {isScorer && onFinalizeGame && localRounds.length > 0 && (
+            <button
+              type="button"
+              className="btn btn-sm btn-primary"
+              onClick={() => setShowConfirmFinishModal(true)}
+              style={{ fontSize: '0.8rem', padding: '6px 12px' }}
+            >
+              🏁 Selesaikan Sekarang
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Input Form Panel */}
       <div className="glass-panel" style={{ padding: '20px', marginBottom: '16px' }}>
@@ -841,11 +954,11 @@ export default function TrufPlay({
                 📸 {t('truf.share_916_btn')}
               </button>
             )}
-            {(isHost || isScorer) && onFinalizeGame && localRounds.length > 0 && (
+            {isScorer && onFinalizeGame && localRounds.length > 0 && (
               <button 
                 type="button" 
                 className="btn btn-primary btn-sm" 
-                onClick={() => onFinalizeGame(localRounds)}
+                onClick={() => setShowConfirmFinishModal(true)}
               >
                 🏁 {t('truf.finish_btn')}
               </button>
@@ -1246,6 +1359,46 @@ export default function TrufPlay({
             >
               {t('common.cancel') || 'Batal'}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm Finish Game Modal (Scorer Only) */}
+      {showConfirmFinishModal && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '420px', padding: '24px' }}>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span>🏁</span>
+              <span>{t('truf.confirm_finish_title')}</span>
+            </h3>
+            <p style={{ fontSize: '0.86rem', color: 'var(--text-muted)', marginBottom: '20px', lineHeight: 1.5 }}>
+              {t('truf.confirm_finish_desc')}
+            </p>
+
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                style={{ flex: 1 }}
+                onClick={() => setShowConfirmFinishModal(false)}
+              >
+                {t('common.cancel') || 'Batal'}
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ flex: 1, fontWeight: 700 }}
+                onClick={() => {
+                  setShowConfirmFinishModal(false)
+                  addLog('Pencatat Skor (Scorer) mengakhiri permainan', 'finalize')
+                  if (onFinalizeGame) {
+                    onFinalizeGame(localRounds)
+                  }
+                }}
+              >
+                🏁 {t('truf.finish_btn')}
+              </button>
+            </div>
           </div>
         </div>
       )}
