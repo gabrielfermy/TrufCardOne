@@ -391,6 +391,18 @@ function MainApp() {
     setCurrentView(viewId)
   }
 
+  // Always refresh user sessions when entering lobby or hub view
+  useEffect(() => {
+    if (gameMode === 'lobby' || currentView === 'hub') {
+      loadUserSessions(user?.id)
+    }
+  }, [gameMode, currentView, user?.id])
+
+  const handleBackToLobby = () => {
+    setGameMode('lobby')
+    loadUserSessions(user?.id)
+  }
+
   // 1. Start a New Game Session (Host binds to Seat 0)
   const handleStartGame = async (gameType, setupData) => {
     const isOfflineLocal = Boolean(setupData?.isOfflineLocal) || !networkService.isOnline()
@@ -403,12 +415,18 @@ function MainApp() {
     }
 
     const currentClientId = deviceService.getClientIdentifier(user)
+    const firstDealer = setupData?.firstDealer ?? 0
     const session = await gameService.createSession({
       userId: user?.id || 'guest-user',
       creatorClientId: currentClientId,
       gameType,
       playerNames: setupData.playerNames,
-      settings: setupData.settings,
+      firstDealer,
+      settings: {
+        ...setupData.settings,
+        first_dealer: firstDealer,
+        firstDealer: firstDealer
+      },
       title: `${gameType.toUpperCase()} - ${new Date().toLocaleDateString()}`,
       isOfflineLocal
     })
@@ -679,7 +697,7 @@ function MainApp() {
             onUndoRound={handleUndoRound}
             onFinalizeGame={handleFinalizeGame}
             onOpenShareModal={handleShareCurrentSession}
-            onBackToLobby={() => setGameMode('lobby')}
+            onBackToLobby={handleBackToLobby}
             user={user}
             onClaimSeat={handleClaimSeat}
           />
@@ -714,7 +732,7 @@ function MainApp() {
             onUndoRound={handleUndoRound}
             onFinalizeGame={handleFinalizeGame}
             onOpenShareModal={handleShareCurrentSession}
-            onBackToLobby={() => setGameMode('lobby')}
+            onBackToLobby={handleBackToLobby}
             user={user}
             onClaimSeat={handleClaimSeat}
           />
@@ -749,7 +767,7 @@ function MainApp() {
             onUndoRound={handleUndoRound}
             onFinalizeGame={handleFinalizeGame}
             onOpenShareModal={handleShareCurrentSession}
-            onBackToLobby={() => setGameMode('lobby')}
+            onBackToLobby={handleBackToLobby}
             user={user}
             onClaimSeat={handleClaimSeat}
           />

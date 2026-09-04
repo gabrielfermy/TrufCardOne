@@ -24,7 +24,7 @@ function normalizeRoomCode(input) {
 
 export const gameService = {
   // 1. Create a Game Session (Cloud First or Local Offline)
-  async createSession({ userId, creatorClientId, gameType = 'truf', playerNames, settings, title, isOfflineLocal = false }) {
+  async createSession({ userId, creatorClientId, gameType = 'truf', playerNames, firstDealer = 0, settings, title, isOfflineLocal = false }) {
     const roomCode = generateRoomCode(gameType)
     const isRealUser = userId && userId !== 'guest-user'
     const hostClientId = creatorClientId || (isRealUser ? userId : 'host')
@@ -34,6 +34,8 @@ export const gameService = {
       initialUserIds[0] = hostClientId
     }
 
+    const resolvedFirstDealer = firstDealer ?? settings?.first_dealer ?? settings?.firstDealer ?? 0
+
     const sessionPayload = {
       user_id: isRealUser ? userId : null,
       game_type: gameType,
@@ -41,9 +43,23 @@ export const gameService = {
       title: title || `${gameType.toUpperCase()} Match - ${new Date().toLocaleDateString()}`,
       player_names: playerNames,
       player_user_ids: initialUserIds,
-      settings: { ...settings, isOfflineLocal: Boolean(isOfflineLocal) },
+      first_dealer: resolvedFirstDealer,
+      settings: {
+        ...settings,
+        first_dealer: resolvedFirstDealer,
+        firstDealer: resolvedFirstDealer,
+        isOfflineLocal: Boolean(isOfflineLocal)
+      },
       is_completed: false,
       created_at: new Date().toISOString()
+    }
+
+    // Supply legacy player columns for maximum backward-compatibility with older DB instances
+    if (playerNames && playerNames.length >= 4) {
+      sessionPayload.player1_name = playerNames[0] || 'Pemain 1'
+      sessionPayload.player2_name = playerNames[1] || 'Pemain 2'
+      sessionPayload.player3_name = playerNames[2] || 'Pemain 3'
+      sessionPayload.player4_name = playerNames[3] || 'Pemain 4'
     }
 
     // If explicit offline local mode or offline, save directly to localStorage and skip cloud insert
@@ -65,7 +81,15 @@ export const gameService = {
 
       if (!error && data) {
         console.log('✅ Session created successfully in Supabase Cloud:', data.id, data.room_code)
-        return data
+        return {
+          ...data,
+          first_dealer: resolvedFirstDealer,
+          settings: {
+            ...data.settings,
+            first_dealer: resolvedFirstDealer,
+            firstDealer: resolvedFirstDealer
+          }
+        }
       }
 
       if (error) {
@@ -86,7 +110,15 @@ export const gameService = {
 
           if (!retryError && retryData) {
             console.log('✅ Session created with user_id=null fallback:', retryData.id)
-            return retryData
+            return {
+              ...retryData,
+              first_dealer: resolvedFirstDealer,
+              settings: {
+                ...retryData.settings,
+                first_dealer: resolvedFirstDealer,
+                firstDealer: resolvedFirstDealer
+              }
+            }
           }
           if (retryError) {
             console.error('❌ Retry without user_id also failed:', retryError.message)
@@ -109,8 +141,16 @@ export const gameService = {
 
   // 2. Fetch User Match Diary (Hosted + Participated)
   async getUserSessions(userId) {
+    const localGuestSessions = (() => {
+      try {
+        return JSON.parse(localStorage.getItem(GUEST_STORAGE_KEY) || '[]')
+      } catch {
+        return []
+      }
+    })()
+
     if (!userId || userId === 'guest-user') {
-      return JSON.parse(localStorage.getItem(GUEST_STORAGE_KEY) || '[]')
+      return localGuestSessions
     }
 
     try {
@@ -135,10 +175,28 @@ export const gameService = {
         .order('created_at', { ascending: false })
 
       if (error) throw error
-      return data || []
+
+      const normalizedCloud = (data || []).map(s => ({
+        ...s,
+        player_names: (Array.isArray(s.player_names) && s.player_names.length > 0)
+          ? s.player_names
+          : [s.player1_name, s.player2_name, s.player3_name, s.player4_name].filter(Boolean),
+        first_dealer: s.first_dealer ?? s.settings?.first_dealer ?? s.settings?.firstDealer ?? 0
+      }))
+
+      // Merge local sessions that are on this device
+      const cloudIds = new Set(normalizedCloud.map(s => s.id))
+      const combined = [...normalizedCloud]
+      for (const local of localGuestSessions) {
+        if (!cloudIds.has(local.id)) {
+          combined.push(local)
+        }
+      }
+
+      return combined
     } catch (err) {
       console.warn('Error loading cloud sessions', err)
-      return JSON.parse(localStorage.getItem(GUEST_STORAGE_KEY) || '[]')
+      return localGuestSessions
     }
   },
 
