@@ -91,7 +91,7 @@ export default function TrufPlay({
   }, [rounds])
 
   const currentRoundNumber = localRounds.length + 1
-  const firstDealer = session?.first_dealer || 0
+  const firstDealer = session?.first_dealer ?? session?.settings?.first_dealer ?? session?.settings?.firstDealer ?? 0
   const dealerIndex = (firstDealer + (currentRoundNumber - 1)) % 4
 
   // Input states for current round
