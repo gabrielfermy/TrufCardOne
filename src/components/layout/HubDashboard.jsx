@@ -1,5 +1,7 @@
 import React, { useState } from 'react'
 import { useTranslation } from '../../i18n/I18nContext'
+import AdBanner from '../ads/AdBanner'
+import { authService } from '../../services/authService'
 
 export default function HubDashboard({ 
   user,
@@ -16,6 +18,7 @@ export default function HubDashboard({
   onDeleteSession
 }) {
   const { t } = useTranslation()
+  const isPro = authService.isUserPro(user)
   const [roomInput, setRoomInput] = useState('')
   const [joining, setJoining] = useState(false)
   const [diaryTab, setDiaryTab] = useState('active') // 'active' | 'completed'
@@ -215,17 +218,17 @@ export default function HubDashboard({
         ))}
       </div>
 
-      {/* Pricing / Pro Promotion Banner */}
-      {onOpenPricing && (
+      {/* Pricing / Pro Promotion Banner or Active Pro Badge */}
+      {isPro ? (
         <div 
           onClick={onOpenPricing}
           className="glass-panel" 
           style={{
-            padding: '16px 20px',
-            marginTop: '28px',
+            padding: '12px 18px',
+            marginTop: '24px',
             marginBottom: '12px',
-            background: 'linear-gradient(90deg, rgba(139, 92, 246, 0.15), rgba(245, 158, 11, 0.12))',
-            border: '1px solid rgba(139, 92, 246, 0.3)',
+            background: 'linear-gradient(90deg, rgba(245, 158, 11, 0.15), rgba(139, 92, 246, 0.12))',
+            border: '1px solid rgba(245, 158, 11, 0.35)',
             borderRadius: '16px',
             display: 'flex',
             alignItems: 'center',
@@ -233,21 +236,60 @@ export default function HubDashboard({
             cursor: 'pointer'
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-            <span style={{ fontSize: '2rem' }}>⭐</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <span style={{ fontSize: '1.6rem' }}>👑</span>
             <div>
-              <div style={{ fontWeight: 800, fontSize: '1rem', color: '#FFF' }}>
-                {t('hub.pro_banner_title')}
+              <div style={{ fontWeight: 800, fontSize: '0.95rem', color: '#FCD34D' }}>
+                Kanca Pro Aktif
               </div>
-              <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                {t('hub.pro_banner_desc')}
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                Pengalaman 100% Bebas Iklan & Riwayat Tanpa Batas Aktif
               </div>
             </div>
           </div>
-          <button className="btn btn-sm btn-primary" style={{ padding: '6px 14px', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
-            {t('hub.view_plans')}
-          </button>
+          <span style={{ fontSize: '0.75rem', color: '#F59E0B', fontWeight: 600 }}>
+            Kelola &rarr;
+          </span>
         </div>
+      ) : (
+        <>
+          {onOpenPricing && (
+            <div 
+              onClick={onOpenPricing}
+              className="glass-panel" 
+              style={{
+                padding: '16px 20px',
+                marginTop: '28px',
+                marginBottom: '12px',
+                background: 'linear-gradient(90deg, rgba(139, 92, 246, 0.15), rgba(245, 158, 11, 0.12))',
+                border: '1px solid rgba(139, 92, 246, 0.3)',
+                borderRadius: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                cursor: 'pointer'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                <span style={{ fontSize: '2rem' }}>⭐</span>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: '1rem', color: '#FFF' }}>
+                    {t('hub.pro_banner_title')}
+                  </div>
+                  <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                    {t('hub.pro_banner_desc')}
+                  </div>
+                </div>
+              </div>
+              <button className="btn btn-sm btn-primary" style={{ padding: '6px 14px', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
+                {t('hub.view_plans')}
+              </button>
+            </div>
+          )}
+
+          {/* Ad Banner Slot (Web & Mobile Native) */}
+          <AdBanner isPro={isPro} onOpenPricing={onOpenPricing} placement="dashboard" />
+        </>
       )}
 
       {/* 4. Match Management Diary Section */}

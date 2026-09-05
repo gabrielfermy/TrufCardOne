@@ -157,6 +157,8 @@ export const authService = {
         email: user.email,
         avatar_url: user.user_metadata?.avatar_url || null,
         role: 'user',
+        is_pro: false,
+        subscription_tier: 'free',
       }
       try {
         const { data: created } = await supabase
@@ -175,6 +177,23 @@ export const authService = {
       ...user,
       profile
     }
+  },
+
+  // Check whether a user is an active Pro / Ad-Free subscriber
+  isUserPro(user) {
+    if (!user) return false
+    const profile = user.profile || user
+    if (profile.role === 'admin') return true // Admins are always ad-free
+    if (profile.is_pro === true) return true
+    if (profile.subscription_tier === 'pro' || profile.subscription_tier === 'venue') return true
+    if (profile.pro_expires_at) {
+      try {
+        return new Date(profile.pro_expires_at).getTime() > Date.now()
+      } catch {
+        return false
+      }
+    }
+    return false
   },
 
   // Mobile Deep Link Handler (Capacitor)
