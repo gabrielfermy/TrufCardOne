@@ -27,6 +27,7 @@ import GenericScoreboard from './tools/scoreboard/GenericScoreboard'
 import UtilitiesView from './tools/utilities/UtilitiesView'
 import AdminDashboard from './components/admin/AdminDashboard'
 import PricingModal from './components/pricing/PricingModal'
+import { adService } from './services/adService'
 
 import './App.css'
 
@@ -71,6 +72,13 @@ function MainApp() {
   useEffect(() => {
     userRef.current = user
   }, [user])
+
+  const isPro = authService.isUserPro(user)
+
+  // Synchronize Ad Service with Pro status
+  useEffect(() => {
+    adService.initAds(isPro)
+  }, [isPro])
 
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
   const [sessionExpiredNotice, setSessionExpiredNotice] = useState(false)
@@ -561,6 +569,9 @@ function MainApp() {
     setActiveSession(prev => prev ? { ...prev, is_completed: true } : null)
     setIsShareModalOpen(true)
     loadUserSessions(user?.id)
+
+    // Trigger interstitial ad at match conclusion if eligible (skipped for Pro users)
+    adService.showInterstitialIfEligible()
   }
 
   // 6. Quick Rematch with Same Roster

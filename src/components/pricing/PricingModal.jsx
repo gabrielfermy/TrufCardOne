@@ -191,6 +191,7 @@ export default function PricingModal({ isOpen, onClose }) {
               </div>
 
               <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 20px 0', fontSize: '0.88rem', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <li style={{ color: '#FCD34D' }}>🚫 <strong>{t('pricing.pro_f0')}</strong></li>
                 <li>✨ <strong>{t('pricing.pro_f1')}</strong></li>
                 <li>📊 <strong>{t('pricing.pro_f2')}</strong></li>
                 <li>📸 <strong>{t('pricing.pro_f3')}</strong></li>
