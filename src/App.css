@@ -412,13 +412,23 @@
   background: var(--bg-glass);
   border: 1px solid var(--border-glass);
   color: var(--text-muted);
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 1.1rem;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: all 0.2s ease;
+  z-index: 10;
+}
+
+.btn-close:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #FFF;
+  transform: scale(1.08);
 }
 
 /* Keypad Grid for Remi */

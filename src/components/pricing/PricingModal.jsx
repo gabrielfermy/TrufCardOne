@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useTranslation } from '../../i18n/I18nContext'
 import { soundService } from '../../services/soundService'
 import { hapticsService } from '../../services/hapticsService'
@@ -8,6 +8,21 @@ export default function PricingModal({ isOpen, onClose, user, onOpenAuth, onPaym
   const { t } = useTranslation()
   const [billingCycle, setBillingCycle] = useState('yearly') // 'monthly' | 'yearly'
   const [isCheckingOut, setIsCheckingOut] = useState(false)
+
+  // Listen to Escape key to dismiss modal
+  useEffect(() => {
+    if (!isOpen) return
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        try { soundService.playClick() } catch (err) {}
+        onClose()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isOpen, onClose])
+
+  if (!isOpen) return null
 
   const isGuest = !user || user.is_guest || !user.email || user.id === 'guest' || (typeof user.id === 'string' && user.id.startsWith('guest'))
 
@@ -53,12 +68,25 @@ export default function PricingModal({ isOpen, onClose, user, onOpenAuth, onPaym
     }
   }
 
+  const handleModalClose = (e) => {
+    if (e) {
+      e.preventDefault()
+      e.stopPropagation()
+    }
+    try { soundService.playClick() } catch (err) {}
+    onClose()
+  }
+
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div 
+      className="modal-overlay" 
+      onClick={handleModalClose}
+      style={{ zIndex: 9999, cursor: 'pointer' }}
+    >
       <div 
         className="modal-content" 
         onClick={e => e.stopPropagation()} 
-        style={{ maxWidth: '840px', width: '95%', maxHeight: '90vh', overflowY: 'auto' }}
+        style={{ maxWidth: '840px', width: '95%', maxHeight: '90vh', overflowY: 'auto', cursor: 'default', position: 'relative' }}
       >
         <div className="modal-header">
           <div>
@@ -69,7 +97,15 @@ export default function PricingModal({ isOpen, onClose, user, onOpenAuth, onPaym
               💎 {t('pricing.title')}
             </h3>
           </div>
-          <button className="btn-close" onClick={onClose}>✕</button>
+          <button 
+            type="button" 
+            className="btn-close" 
+            onClick={handleModalClose}
+            aria-label="Tutup"
+            style={{ cursor: 'pointer' }}
+          >
+            ✕
+          </button>
         </div>
 
         <p style={{ color: 'var(--text-muted)', fontSize: '0.92rem', marginBottom: '20px' }}>
@@ -350,6 +386,24 @@ export default function PricingModal({ isOpen, onClose, user, onOpenAuth, onPaym
             <strong>Pengiriman Layanan:</strong> Akses fitur Kanca Pro aktif secara otomatis dan instan segera setelah pembayaran terkonfirmasi. <br />
             <strong>Kebijakan Pengembalian Dana:</strong> Jika terjadi kendala transaksi atau pemotongan ganda, hubungi <code>support@kancasela.my.id</code> untuk proses pengembalian dana 100% dalam 3x24 jam kerja.
           </div>
+        </div>
+
+        {/* Explicit Dismiss Button at Bottom */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginTop: '16px' }}>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={handleModalClose}
+            style={{
+              padding: '8px 24px',
+              fontSize: '0.85rem',
+              borderRadius: '999px',
+              color: 'var(--text-muted, #94A3B8)',
+              borderColor: 'rgba(255, 255, 255, 0.1)',
+            }}
+          >
+            ✕ Tutup & Lanjutkan Bermain
+          </button>
         </div>
       </div>
     </div>
