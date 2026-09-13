@@ -1,0 +1,56 @@
+PROPRIETARY AND SOURCE-AVAILABLE COMMERCIAL LICENSE
+================================================================================
+Copyright (c) 2026 Gabriel Aswinta / KancaSela (Konco Selo). All Rights Reserved.
+================================================================================
+
+PEMBERITAHUAN HAK CIPTA & KETENTUAN LISENSI KEPEMILIKAN KHUSUS (PROPRIETARY)
+UNDANG-UNDANG REPUBLIK INDONESIA NOMOR 28 TAHUN 2014 TENTANG HAK CIPTA & 
+PERJANJIAN HAK CIPTA INTERNASIONAL (BERNE CONVENTION & WIPO COPYRIGHT TREATY)
+
+Perangkat lunak ini, termasuk namun tidak terbatas pada seluruh kode sumber (source code),
+algoritma penilaian (scoring engines), logika permainan kartu (Truf/Trup, Remi 7-Kartu,
+Omben/Cangkulan, Jam Catur Split-Screen), desain antarmuka pengguna (UI/UX), tata letak,
+sistem audio sintetis, aset grafis, dan merek dagang "KancaSela", "Konco Selo", dan
+"TrufCard" adalah properti intelektual eksklusif milik Pemegang Hak Cipta (Gabriel Aswinta).
+
+DENGAN MENGAKSES, MELIHAT, MENGUNDUH, ATAU MENGINSPEKSI REPOSITORI INI, ANDA SECARA
+HUKUM MENYATAKAN TUNDUK DAN MENYETUJUI SYARAT DAN KETENTUAN BERIKUT:
+
+1. HAK MELIHAT TERBATAS (SOURCE-AVAILABLE FOR AUDIT ONLY):
+   Repositori ini dipublikasikan secara terbuka semata-mata untuk keperluan:
+   a. Transparansi dan audit teknis oleh penyedia layanan pihak ketiga (termasuk verifikasi kepatuhan Midtrans Payment Gateway dan Google).
+   b. Portofolio profesional dan evaluasi teknis non-eksekusi.
+
+2. LARANGAN KERAS PENJIPLAKAN & PENGGUNAAN KOMERSIAL (NO COMMERCIAL / COMPETING USE):
+   Dilarang keras bagi individu, kelompok, organisasi, atau badan hukum manapun untuk:
+   a. Menyalin (copying), menggandakan (duplicating), mengklon (cloning), mempublikasikan ulang (redistributing), atau menjual kembali (reselling) seluruh atau sebagian dari kode sumber, basis data, skema database, atau logika matematika perangkat lunak ini.
+   b. Membuat karya turunan (derivative works), melakukan re-branding (white-labeling), atau membangun aplikasi/layanan tandingan (competing services) baik untuk permainan kartu meja, jam catur, papan skor, maupun aplikasi pendamping tabletop games berbasis web, PWA, mobile (Android/iOS), atau platform lainnya.
+   c. Menghosting (hosting), menyebarkan (deploying), atau mengoperasikan instance publik/komersial dari perangkat lunak ini tanpa izin tertulis resmi bertanda tangan basah / meterai dari Pemegang Hak Cipta.
+
+3. PERLINDUNGAN LOGIKA ALGORITMA & SISTEM PERMAINAN:
+   Seluruh formula matematika penghitungan trik Truf (Main Atas, Main Bawah, Bid 13 tiebreaker,
+   denda excess/lack), sistem kalkulator denda kartu Remi 7-kartu Indonesia, sistem pencatatan
+   eliminasi Omben, serta generator kartu cerita sosial 9:16 dilindungi sebagai Rahasia Dagang
+   dan Hak Cipta Eksklusif.
+
+4. MEREK DAGANG & ASSET BRAND:
+   Nama "KancaSela", "Konco Selo", "TrufCard", logo, skema warna HSL, tipografi, dan suara
+   sintetis prosedural adalah merek dagang dan hak cipta milik Pemegang Hak Cipta. Tidak ada hak
+   atau lisensi atas merek dagang yang diberikan melalui publikasi kode ini.
+
+5. PENEGAKAN HUKUM & SANKSI PIDANA/PERDATA:
+   Setiap pelanggaran atas hak cipta dan ketentuan lisensi ini akan ditindaklanjuti secara
+   hukum melalui tuntutan ganti rugi perdata serta tuntutan pidana sesuai ketentuan:
+   - Pasal 113 UU No. 28 Tahun 2014 tentang Hak Cipta (Pidana Penjara hingga 10 tahun dan/atau Denda hingga Rp 4.000.000.000,-).
+   - Digital Millennium Copyright Act (DMCA) Takedown Notices terhadap seluruh domain/server/hosting pelanggar.
+   - Litigasi hukum internasional di bawah naungan WIPO (World Intellectual Property Organization).
+
+6. PENOLAKAN JAMINAN (DISCLAIMER OF WARRANTY):
+   PERANGKAT LUNAK INI DISEDIAKAN "SEBAGAIMANA ADANYA" (AS-IS), TANPA JAMINAN APAPUN BAIK TERSURAT
+   MAUPUN TERSIRAT.
+
+--------------------------------------------------------------------------------
+Untuk permohonan lisensi komersial, kemitraan B2B, atau izin khusus tertulis, hubungi:
+Email: legal@kancasela.my.id / gabriel.aswinta@gmail.com
+Website Resmi: https://www.kancasela.my.id
+--------------------------------------------------------------------------------
