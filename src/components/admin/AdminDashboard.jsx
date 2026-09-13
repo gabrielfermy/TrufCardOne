@@ -6,7 +6,7 @@ import { hapticsService } from '../../services/hapticsService'
 
 export default function AdminDashboard({ onBack }) {
   const { t } = useTranslation()
-  const [activeTab, setActiveTab] = useState('overview') // 'overview' | 'users' | 'games' | 'tickets' | 'audit'
+  const [activeTab, setActiveTab] = useState('overview') // 'overview' | 'users' | 'games' | 'transactions' | 'tickets' | 'audit'
   const [loading, setLoading] = useState(true)
 
   // Metrics
@@ -36,6 +36,15 @@ export default function AdminDashboard({ onBack }) {
   const [selectedSessionRounds, setSelectedSessionRounds] = useState(null)
   const [loadingRounds, setLoadingRounds] = useState(false)
 
+  // Payment Transactions Tab
+  const [transactions, setTransactions] = useState([])
+  const [txStatusFilter, setTxStatusFilter] = useState('all')
+  const [txTierFilter, setTxTierFilter] = useState('all')
+  const [txSearchTerm, setTxSearchTerm] = useState('')
+  const [selectedReceiptTx, setSelectedReceiptTx] = useState(null)
+  const [processingTxId, setProcessingTxId] = useState(null)
+  const [copiedTxId, setCopiedTxId] = useState(null)
+
   // Support Tickets Tab
   const [tickets, setTickets] = useState([])
   const [ticketStatusFilter, setTicketStatusFilter] = useState('all')
@@ -53,16 +62,18 @@ export default function AdminDashboard({ onBack }) {
   const loadDashboardData = async () => {
     setLoading(true)
     try {
-      const [statsData, usersData, sessionsData, ticketsData, auditData] = await Promise.all([
+      const [statsData, usersData, sessionsData, transactionsData, ticketsData, auditData] = await Promise.all([
         adminService.getGlobalStats(),
         adminService.getUsersList(userSearchTerm, userFilterTier, userFilterRole),
         adminService.getGlobalSessions(50, gameFilterType),
+        adminService.getAllPaymentTransactions({ statusFilter: txStatusFilter, tierFilter: txTierFilter, searchTerm: txSearchTerm, limit: 100 }),
         adminService.getSupportTickets(ticketStatusFilter),
         adminService.getAuditLogs({ category: auditCategory, searchTerm: auditSearchTerm, limit: 100 })
       ])
       setStats(statsData)
       setUsers(usersData)
       setSessions(sessionsData)
+      setTransactions(transactionsData)
       setTickets(ticketsData)
       setAuditLogs(auditData)
     } finally {
@@ -201,6 +212,82 @@ export default function AdminDashboard({ onBack }) {
   }
 
   // ============================================================================
+  // PAYMENT TRANSACTIONS EXPLORER & MANUAL ACTIONS
+  // ============================================================================
+  const handleSearchTransactions = async (e) => {
+    e?.preventDefault()
+    setLoading(true)
+    try {
+      const data = await adminService.getAllPaymentTransactions({
+        statusFilter: txStatusFilter,
+        tierFilter: txTierFilter,
+        searchTerm: txSearchTerm,
+        limit: 100
+      })
+      setTransactions(data)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleManualSettlePayment = async (tx) => {
+    const confirmMsg = `Konfirmasi pelunasan manual untuk:\nOrder ID: ${tx.order_id}\nCustomer: ${tx.profiles?.display_name || tx.profiles?.email || 'User'}\nPaket: ${tx.plan_tier.toUpperCase()} (${tx.billing_cycle})\nNominal: ${formatRupiah(tx.gross_amount)}\n\nStatus transaksi akan diubah menjadi SETTLEMENT dan paket PRO pengguna akan langsung diaktifkan.`
+    if (!window.confirm(confirmMsg)) return
+
+    const adminNotes = window.prompt('Masukkan catatan audit pelunasan manual (misal: Transfer Bank Manual / Konfirmasi WhatsApp):', 'Manual settlement via Superadmin console')
+    if (adminNotes === null) return
+
+    setProcessingTxId(tx.id)
+    try {
+      await adminService.manualSettleTransaction(tx.id, tx.user_id, tx.plan_tier, tx.billing_cycle, adminNotes)
+      soundService.playVictory()
+      hapticsService.success()
+      alert('Transaksi berhasil dilunasi dan paket Kanca Pro pengguna telah aktif!')
+      await loadDashboardData()
+    } catch (err) {
+      alert('Gagal melunasi transaksi: ' + err.message)
+    } finally {
+      setProcessingTxId(null)
+    }
+  }
+
+  const exportTransactionsToCSV = () => {
+    if (!transactions.length) return alert('Tidak ada data transaksi untuk diekspor.')
+    const headers = ['Order ID', 'Waktu Transaksi (UTC)', 'Pelanggan Nama', 'Pelanggan Email', 'Paket Tier', 'Siklus Tagihan', 'Nominal (IDR)', 'Status', 'Metode Bayar', 'Bank / VA', 'Waktu Lunas (UTC)']
+    const rows = transactions.map(tx => [
+      tx.order_id,
+      tx.transaction_time || tx.created_at,
+      tx.profiles?.display_name || '',
+      tx.profiles?.email || '',
+      tx.plan_tier,
+      tx.billing_cycle,
+      tx.gross_amount,
+      tx.status,
+      tx.payment_type || '',
+      tx.va_number || tx.bank || '',
+      tx.settlement_time || ''
+    ])
+
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(r => r.map(c => `"${c}"`).join(','))].join('\n')
+    const encodedUri = encodeURI(csvContent)
+    const link = document.createElement('a')
+    link.setAttribute('href', encodedUri)
+    link.setAttribute('download', `kancasela_transactions_${new Date().toISOString().slice(0,10)}.csv`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
+  const handleCopyTx = (text, id) => {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text)
+      hapticsService.light()
+      setCopiedTxId(id)
+      setTimeout(() => setCopiedTxId(null), 2000)
+    }
+  }
+
+  // ============================================================================
   // AUDIT LOGS SEARCH & EXPORT
   // ============================================================================
   const handleFilterAuditLogs = async () => {
@@ -285,6 +372,19 @@ export default function AdminDashboard({ onBack }) {
           onClick={() => setActiveTab('games')}
         >
           🎮 Manajemen Game ({sessions.length})
+        </button>
+
+        <button
+          className={`btn btn-sm ${activeTab === 'transactions' ? 'btn-primary' : 'btn-secondary'}`}
+          style={{ whiteSpace: 'nowrap', borderRadius: '10px', position: 'relative' }}
+          onClick={() => { setActiveTab('transactions'); handleSearchTransactions() }}
+        >
+          💳 Riwayat Transaksi ({transactions.length})
+          {stats.pendingTxCount > 0 && (
+            <span style={{ background: '#F59E0B', color: '#000', fontSize: '0.68rem', fontWeight: 900, padding: '1px 6px', borderRadius: '999px', marginLeft: '6px' }}>
+              {stats.pendingTxCount}
+            </span>
+          )}
         </button>
 
         <button
@@ -594,6 +694,273 @@ export default function AdminDashboard({ onBack }) {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* ============================================================================ */}
+      {/* TAB: GLOBAL PAYMENT TRANSACTIONS EXPLORER                                    */}
+      {/* ============================================================================ */}
+      {activeTab === 'transactions' && (
+        <div className="glass-panel" style={{ padding: '20px' }}>
+          {/* Top Quick Metrics */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '10px', marginBottom: '18px' }}>
+            <div style={{ background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: '12px', padding: '12px 14px' }}>
+              <div style={{ fontSize: '0.74rem', color: '#34D399', fontWeight: 800 }}>💰 OMSET LUNAS (GMV)</div>
+              <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#FFF', marginTop: '2px' }}>
+                {formatRupiah(stats.totalRevenue)}
+              </div>
+            </div>
+
+            <div style={{ background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: '12px', padding: '12px 14px' }}>
+              <div style={{ fontSize: '0.74rem', color: '#FCD34D', fontWeight: 800 }}>🟡 MENUNGGU PEMBAYARAN</div>
+              <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#FCD34D', marginTop: '2px' }}>
+                {stats.pendingTxCount} Transaksi
+              </div>
+            </div>
+
+            <div style={{ background: 'rgba(139, 92, 246, 0.1)', border: '1px solid rgba(139, 92, 246, 0.3)', borderRadius: '12px', padding: '12px 14px' }}>
+              <div style={{ fontSize: '0.74rem', color: '#C084FC', fontWeight: 800 }}>👑 PRO AKTIF</div>
+              <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#C084FC', marginTop: '2px' }}>
+                {stats.totalProUsers} Akun
+              </div>
+            </div>
+
+            <div style={{ background: 'rgba(255, 255, 255, 0.05)', border: '1px solid var(--border-glass)', borderRadius: '12px', padding: '12px 14px' }}>
+              <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontWeight: 800 }}>📜 TOTAL TRANSAKSI</div>
+              <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#FFF', marginTop: '2px' }}>
+                {transactions.length} Catatan
+              </div>
+            </div>
+          </div>
+
+          {/* Search & Filter Controls */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '18px' }}>
+            <form onSubmit={handleSearchTransactions} style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="Cari Order ID, Email, Nama, Bank, No. VA..."
+                value={txSearchTerm}
+                onChange={e => setTxSearchTerm(e.target.value)}
+                style={{ flex: 1, minWidth: '220px' }}
+              />
+
+              <select
+                className="form-input"
+                value={txStatusFilter}
+                onChange={e => {
+                  setTxStatusFilter(e.target.value)
+                  adminService.getAllPaymentTransactions({
+                    statusFilter: e.target.value,
+                    tierFilter: txTierFilter,
+                    searchTerm: txSearchTerm
+                  }).then(setTransactions)
+                }}
+                style={{ width: '150px', background: '#1E293B', color: '#FFF' }}
+              >
+                <option value="all">Semua Status</option>
+                <option value="settlement">🟢 Lunas (Settlement)</option>
+                <option value="pending">🟡 Menunggu (Pending)</option>
+                <option value="failed">🔴 Gagal / Expired</option>
+              </select>
+
+              <select
+                className="form-input"
+                value={txTierFilter}
+                onChange={e => {
+                  setTxTierFilter(e.target.value)
+                  adminService.getAllPaymentTransactions({
+                    statusFilter: txStatusFilter,
+                    tierFilter: e.target.value,
+                    searchTerm: txSearchTerm
+                  }).then(setTransactions)
+                }}
+                style={{ width: '130px', background: '#1E293B', color: '#FFF' }}
+              >
+                <option value="all">Semua Paket</option>
+                <option value="pro">👑 Kanca Pro</option>
+                <option value="venue">☕ Kanca Venue</option>
+              </select>
+
+              <button type="submit" className="btn btn-primary btn-sm" style={{ padding: '0 18px' }}>
+                Cari
+              </button>
+
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={exportTransactionsToCSV}
+                title="Unduh seluruh data transaksi dalam format CSV"
+              >
+                📥 Ekspor CSV
+              </button>
+            </form>
+          </div>
+
+          {/* Transactions List */}
+          {transactions.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+              Tidak ada transaksi yang cocok dengan filter pencarian.
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {transactions.map(tx => {
+                const isSuccess = tx.status === 'settlement' || tx.status === 'capture'
+                const isPending = tx.status === 'pending'
+                const isFailed = ['expire', 'deny', 'cancel', 'failure'].includes(tx.status)
+                const isCopied = copiedTxId === tx.id
+
+                return (
+                  <div
+                    key={tx.id}
+                    style={{
+                      background: isPending ? 'rgba(245, 158, 11, 0.05)' : 'rgba(0,0,0,0.3)',
+                      padding: '16px',
+                      borderRadius: '12px',
+                      border: isPending ? '1px solid rgba(245, 158, 11, 0.35)' : isSuccess ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid var(--border-glass)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '12px'
+                    }}
+                  >
+                    {/* Header Row: Order ID & Status */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <strong style={{ color: '#FFF', fontSize: '0.95rem' }}>
+                          {tx.order_id}
+                        </strong>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyTx(tx.order_id, tx.id)}
+                          style={{
+                            background: 'rgba(255,255,255,0.08)',
+                            border: '1px solid var(--border-glass)',
+                            borderRadius: '6px',
+                            color: isCopied ? '#34D399' : 'var(--text-muted)',
+                            fontSize: '0.72rem',
+                            padding: '2px 8px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {isCopied ? '✓ Disalin' : '📋 Salin'}
+                        </button>
+                      </div>
+
+                      <div>
+                        {isSuccess && (
+                          <span style={{ background: 'rgba(16, 185, 129, 0.2)', border: '1px solid rgba(16, 185, 129, 0.5)', color: '#34D399', fontSize: '0.74rem', fontWeight: 900, padding: '3px 12px', borderRadius: '999px' }}>
+                            🟢 LUNAS / BERHASIL
+                          </span>
+                        )}
+                        {isPending && (
+                          <span style={{ background: 'rgba(245, 158, 11, 0.2)', border: '1px solid rgba(245, 158, 11, 0.5)', color: '#FCD34D', fontSize: '0.74rem', fontWeight: 900, padding: '3px 12px', borderRadius: '999px', animation: 'pulse 2s infinite' }}>
+                            🟡 MENUNGGU PEMBAYARAN
+                          </span>
+                        )}
+                        {isFailed && (
+                          <span style={{ background: 'rgba(239, 68, 68, 0.2)', border: '1px solid rgba(239, 68, 68, 0.5)', color: '#F87171', fontSize: '0.74rem', fontWeight: 800, padding: '3px 12px', borderRadius: '999px' }}>
+                            🔴 {tx.status.toUpperCase()}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Middle Row: Customer Profile & Plan Info */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px', fontSize: '0.84rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div className="avatar-circle" style={{ width: '36px', height: '36px', fontSize: '0.95rem' }}>
+                          {tx.profiles?.display_name?.charAt(0)?.toUpperCase() || 'U'}
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: 800, color: '#FFF' }}>
+                            {tx.profiles?.display_name || 'Tanpa Nama'}
+                          </div>
+                          <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+                            {tx.profiles?.email || 'Guest / Tanpa Email'}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>Paket & Siklus</div>
+                        <div style={{ fontWeight: 800, color: tx.plan_tier === 'venue' ? '#FBBF24' : '#C084FC' }}>
+                          {tx.plan_tier === 'venue' ? '☕ Kanca Venue' : '👑 Kanca Pro'} • {tx.billing_cycle === 'yearly' ? '1 Tahun Penuh' : '1 Bulan'}
+                        </div>
+                      </div>
+
+                      <div>
+                        <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>Nominal Pembayaran</div>
+                        <div style={{ fontSize: '1.05rem', fontWeight: 900, color: isSuccess ? '#34D399' : '#FFF' }}>
+                          {formatRupiah(tx.gross_amount)}
+                        </div>
+                      </div>
+
+                      <div>
+                        <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>Metode Bayar / VA</div>
+                        <div style={{ fontWeight: 700, color: '#FFF' }}>
+                          {tx.payment_type ? tx.payment_type.replace('_', ' ').toUpperCase() : 'MIDTRANS SNAP'}
+                          {tx.bank ? ` (${tx.bank.toUpperCase()})` : ''}
+                        </div>
+                        {tx.va_number && (
+                          <div style={{ fontSize: '0.76rem', color: '#38BDF8', fontFamily: 'monospace' }}>
+                            VA: {tx.va_number}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Timestamps & Actions */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border-glass)', paddingTop: '10px', flexWrap: 'wrap', gap: '8px' }}>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>
+                        Waktu Order: {new Date(tx.transaction_time || tx.created_at).toLocaleString('id-ID')}
+                        {tx.settlement_time && (
+                          <span style={{ color: '#34D399', marginLeft: '8px' }}>
+                            • Lunas: {new Date(tx.settlement_time).toLocaleString('id-ID')}
+                          </span>
+                        )}
+                        {tx.expiry_time && isPending && (
+                          <span style={{ color: '#FBBF24', marginLeft: '8px' }}>
+                            • Batas: {new Date(tx.expiry_time).toLocaleString('id-ID')}
+                          </span>
+                        )}
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        {isPending && (
+                          <button
+                            type="button"
+                            className="btn btn-sm"
+                            style={{
+                              background: '#10B981',
+                              color: '#FFF',
+                              fontWeight: 800,
+                              fontSize: '0.76rem',
+                              border: 'none',
+                              padding: '5px 12px'
+                            }}
+                            disabled={processingTxId === tx.id}
+                            onClick={() => handleManualSettlePayment(tx)}
+                            title="Selesaikan transaksi secara manual dan aktifkan paket Pro pengguna"
+                          >
+                            {processingTxId === tx.id ? 'Memproses...' : '⚡ Settle Manual & Aktifkan Pro'}
+                          </button>
+                        )}
+
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-sm"
+                          style={{ fontSize: '0.76rem', padding: '5px 12px', borderColor: 'rgba(167, 139, 250, 0.4)', color: '#C084FC' }}
+                          onClick={() => setSelectedReceiptTx(tx)}
+                        >
+                          🧾 Lihat Struk Digital
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
       )}
 
@@ -1038,6 +1405,187 @@ export default function AdminDashboard({ onBack }) {
                   🟢 Selesaikan
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================================ */}
+      {/* MODAL: ADMIN DIGITAL RECEIPT INSPECTOR                                       */}
+      {/* ============================================================================ */}
+      {selectedReceiptTx && (
+        <div 
+          className="modal-overlay" 
+          onClick={() => setSelectedReceiptTx(null)}
+          style={{ zIndex: 9999, background: 'rgba(0,0,0,0.85)' }}
+        >
+          <div 
+            className="modal-content" 
+            onClick={e => e.stopPropagation()} 
+            style={{
+              maxWidth: '480px',
+              width: '95%',
+              background: '#0F172A',
+              border: '2px solid #334155',
+              borderRadius: '20px',
+              padding: '24px',
+              boxShadow: '0 20px 50px rgba(0,0,0,0.6)',
+              position: 'relative'
+            }}
+          >
+            {/* Watermark Status */}
+            <div style={{
+              position: 'absolute',
+              top: '40%',
+              left: '50%',
+              transform: 'translate(-50%, -50%) rotate(-25deg)',
+              fontSize: '4rem',
+              fontWeight: 900,
+              color: selectedReceiptTx.status === 'settlement' || selectedReceiptTx.status === 'capture'
+                ? 'rgba(16, 185, 129, 0.08)'
+                : 'rgba(245, 158, 11, 0.08)',
+              border: '6px dashed currentColor',
+              padding: '10px 30px',
+              borderRadius: '16px',
+              pointerEvents: 'none',
+              letterSpacing: '6px',
+              textTransform: 'uppercase'
+            }}>
+              {selectedReceiptTx.status === 'settlement' || selectedReceiptTx.status === 'capture' ? 'LUNAS' : selectedReceiptTx.status.toUpperCase()}
+            </div>
+
+            {/* Receipt Header */}
+            <div style={{ textAlign: 'center', borderBottom: '1px dashed #334155', paddingBottom: '16px', marginBottom: '16px' }}>
+              <div style={{ fontSize: '1.8rem', marginBottom: '4px' }}>♠️ KancaSela</div>
+              <h4 style={{ fontSize: '1.1rem', fontWeight: 900, color: '#FFF', margin: '0 0 4px 0' }}>
+                STRUK PEMBAYARAN RESMI
+              </h4>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                Midtrans Official Payment Gateway • Superadmin Copy
+              </div>
+
+              <div style={{
+                display: 'inline-block',
+                marginTop: '10px',
+                background: selectedReceiptTx.status === 'settlement' || selectedReceiptTx.status === 'capture'
+                  ? 'rgba(16, 185, 129, 0.2)'
+                  : 'rgba(245, 158, 11, 0.2)',
+                border: selectedReceiptTx.status === 'settlement' || selectedReceiptTx.status === 'capture'
+                  ? '1px solid #10B981'
+                  : '1px solid #F59E0B',
+                color: selectedReceiptTx.status === 'settlement' || selectedReceiptTx.status === 'capture'
+                  ? '#34D399'
+                  : '#FCD34D',
+                fontWeight: 900,
+                fontSize: '0.78rem',
+                padding: '3px 14px',
+                borderRadius: '999px',
+                letterSpacing: '1px'
+              }}>
+                {selectedReceiptTx.status === 'settlement' || selectedReceiptTx.status === 'capture' ? '✓ PEMBAYARAN LUNAS' : '⏳ ' + selectedReceiptTx.status.toUpperCase()}
+              </div>
+            </div>
+
+            {/* Key Info */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.82rem', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Order ID:</span>
+                <strong style={{ color: '#A78BFA' }}>{selectedReceiptTx.order_id}</strong>
+              </div>
+              {selectedReceiptTx.transaction_id && (
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Midtrans ID:</span>
+                  <span style={{ color: 'var(--text-dim)', fontSize: '0.76rem' }}>{selectedReceiptTx.transaction_id}</span>
+                </div>
+              )}
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Pelanggan:</span>
+                <span style={{ color: '#FFF' }}>
+                  {selectedReceiptTx.profiles?.display_name || 'User'} ({selectedReceiptTx.profiles?.email || 'No email'})
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-muted)' }}>User ID:</span>
+                <code style={{ fontSize: '0.74rem' }}>{selectedReceiptTx.user_id}</code>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Waktu Order:</span>
+                <span style={{ color: '#FFF' }}>
+                  {new Date(selectedReceiptTx.transaction_time || selectedReceiptTx.created_at).toLocaleString('id-ID')}
+                </span>
+              </div>
+              {selectedReceiptTx.settlement_time && (
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#34D399' }}>Waktu Lunas:</span>
+                  <span style={{ color: '#34D399', fontWeight: 800 }}>
+                    {new Date(selectedReceiptTx.settlement_time).toLocaleString('id-ID')}
+                  </span>
+                </div>
+              )}
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Metode Bayar:</span>
+                <span style={{ color: '#FFF', textTransform: 'capitalize' }}>
+                  {selectedReceiptTx.payment_type ? selectedReceiptTx.payment_type.replace('_', ' ') : 'Snap VA / QRIS'} 
+                  {selectedReceiptTx.bank ? ` (${selectedReceiptTx.bank.toUpperCase()})` : ''}
+                </span>
+              </div>
+              {selectedReceiptTx.va_number && (
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>No. Virtual Account:</span>
+                  <span style={{ color: '#38BDF8', fontWeight: 800, fontFamily: 'monospace' }}>
+                    {selectedReceiptTx.va_number}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Itemized breakdown */}
+            <div style={{
+              background: 'rgba(0,0,0,0.3)',
+              borderRadius: '12px',
+              padding: '12px',
+              border: '1px solid #334155',
+              marginBottom: '16px'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', fontWeight: 800, color: '#FFF', marginBottom: '8px' }}>
+                <span>Item Tagihan</span>
+                <span>Nominal</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                <span>
+                  KancaSela {selectedReceiptTx.plan_tier === 'venue' ? 'Venue (B2B)' : 'Pro'} 
+                  ({selectedReceiptTx.billing_cycle === 'yearly' ? '1 Tahun Penuh' : '1 Bulan'})
+                </span>
+                <span style={{ color: '#FFF' }}>{formatRupiah(selectedReceiptTx.gross_amount)}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: 'var(--text-dim)', marginBottom: '8px' }}>
+                <span>Biaya Platform & PPN</span>
+                <span>Rp 0</span>
+              </div>
+              <div style={{ borderTop: '1px dashed #475569', paddingTop: '8px', display: 'flex', justifyContent: 'space-between', fontSize: '1.05rem', fontWeight: 900, color: '#34D399' }}>
+                <span>Total Pembayaran</span>
+                <span>{formatRupiah(selectedReceiptTx.gross_amount)}</span>
+              </div>
+            </div>
+
+            {/* Footer / Actions */}
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                style={{ flex: 1, fontSize: '0.82rem' }}
+                onClick={() => window.print()}
+              >
+                🖨️ Cetak Struk
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ flex: 1, fontSize: '0.82rem' }}
+                onClick={() => setSelectedReceiptTx(null)}
+              >
+                Tutup
+              </button>
             </div>
           </div>
         </div>

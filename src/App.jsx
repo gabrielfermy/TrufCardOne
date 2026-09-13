@@ -904,6 +904,10 @@ function MainApp() {
           setIsPricingModalOpen(false)
           setIsAuthModalOpen(true)
         }}
+        onOpenProfile={() => {
+          setIsPricingModalOpen(false)
+          setIsProfileModalOpen(true)
+        }}
         onPaymentSuccess={() => {
           authService.getCurrentUser().then(currUser => {
             setUser(currUser)

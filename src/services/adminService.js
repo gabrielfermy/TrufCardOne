@@ -405,5 +405,95 @@ export const adminService = {
       console.warn('Admin audit logs fetch error:', err)
       return []
     }
+  },
+
+  // ============================================================================
+  // 6. GLOBAL PAYMENT TRANSACTIONS EXPLORER
+  // ============================================================================
+  async getAllPaymentTransactions({ statusFilter = 'all', tierFilter = 'all', searchTerm = '', limit = 100 } = {}) {
+    try {
+      let query = supabase
+        .from('payment_transactions')
+        .select(`
+          *,
+          profiles:user_id (
+            id,
+            display_name,
+            email,
+            avatar_url,
+            role,
+            is_pro,
+            subscription_tier
+          )
+        `)
+        .order('transaction_time', { ascending: false })
+
+      if (statusFilter === 'settlement') {
+        query = query.in('status', ['settlement', 'capture'])
+      } else if (statusFilter === 'pending') {
+        query = query.eq('status', 'pending')
+      } else if (statusFilter === 'failed') {
+        query = query.in('status', ['expire', 'deny', 'cancel', 'failure'])
+      }
+
+      if (tierFilter !== 'all') {
+        query = query.eq('plan_tier', tierFilter)
+      }
+
+      if (searchTerm) {
+        query = query.or(`order_id.ilike.%${searchTerm}%,payment_type.ilike.%${searchTerm}%,va_number.ilike.%${searchTerm}%,bank.ilike.%${searchTerm}%`)
+      }
+
+      const { data, error } = await query.limit(limit)
+      if (error) throw error
+      return data || []
+    } catch (err) {
+      console.warn('Admin payment transactions fetch error:', err)
+      return []
+    }
+  },
+
+  async manualSettleTransaction(transactionId, userId, planTier = 'pro', billingCycle = 'yearly', adminNotes = '') {
+    const now = new Date().toISOString()
+    
+    // 1. Update transaction status
+    const { data: tx, error: txErr } = await supabase
+      .from('payment_transactions')
+      .update({
+        status: 'settlement',
+        settlement_time: now,
+        raw_response: { manual_settlement_by_admin: true, admin_notes: adminNotes, settled_at: now }
+      })
+      .eq('id', transactionId)
+      .select()
+      .single()
+
+    if (txErr) throw txErr
+
+    // 2. Grant Pro / Venue to user profile
+    if (userId) {
+      const durationMonths = billingCycle === 'yearly' ? 12 : 1
+      await this.updateUserSubscription(userId, {
+        tier: planTier,
+        durationMonths,
+        isPro: true
+      })
+    }
+
+    // 3. Immutable audit log
+    auditService.logEvent({
+      action: 'admin.manual_settle_payment',
+      category: 'financial',
+      targetId: transactionId,
+      details: {
+        userId,
+        planTier,
+        billingCycle,
+        adminNotes,
+        orderId: tx?.order_id
+      }
+    })
+
+    return tx
   }
 }

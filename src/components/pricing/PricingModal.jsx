@@ -5,7 +5,7 @@ import { hapticsService } from '../../services/hapticsService'
 import { midtransService } from '../../services/midtransService'
 import { authService } from '../../services/authService'
 
-export default function PricingModal({ isOpen, onClose, user, onOpenAuth, onPaymentSuccess }) {
+export default function PricingModal({ isOpen, onClose, user, onOpenAuth, onPaymentSuccess, onOpenProfile }) {
   const { t } = useTranslation()
   const [billingCycle, setBillingCycle] = useState('yearly') // 'monthly' | 'yearly'
   const [isCheckingOut, setIsCheckingOut] = useState(false)
@@ -487,15 +487,40 @@ export default function PricingModal({ isOpen, onClose, user, onOpenAuth, onPaym
           </div>
         </div>
 
+        {/* Transaction History / Profile Quick Action */}
+        {!isGuest && onOpenProfile && (
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: '12px' }}>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => {
+                try { soundService.playClick() } catch (err) {}
+                onClose()
+                onOpenProfile()
+              }}
+              style={{
+                fontSize: '0.82rem',
+                color: '#A78BFA',
+                borderColor: 'rgba(167, 139, 250, 0.4)',
+                background: 'rgba(167, 139, 250, 0.08)',
+                padding: '6px 18px',
+                borderRadius: '999px'
+              }}
+            >
+              📜 Cek Riwayat Transaksi & Struk Pembayaran
+            </button>
+          </div>
+        )}
+
         {/* Explicit Dismiss Button at Bottom */}
-        <div style={{ display: 'flex', justifyContent: 'center', marginTop: '16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', marginTop: '10px' }}>
           <button
             type="button"
             className="btn btn-secondary btn-sm"
             onClick={handleModalClose}
             style={{
-              padding: '8px 24px',
-              fontSize: '0.85rem',
+              padding: '6px 20px',
+              fontSize: '0.8rem',
               borderRadius: '999px',
               color: 'var(--text-muted, #94A3B8)',
               borderColor: 'rgba(255, 255, 255, 0.1)',
