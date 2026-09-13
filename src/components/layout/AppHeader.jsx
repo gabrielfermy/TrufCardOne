@@ -1,8 +1,10 @@
 import React from 'react'
 import { useTranslation } from '../../i18n/I18nContext'
+import { authService } from '../../services/authService'
 
 export default function AppHeader({ user, onOpenAuth, onNavigate, currentView, onOpenPricing }) {
   const { locale, toggleLocale, t } = useTranslation()
+  const isPro = authService.isUserPro(user)
 
   return (
     <header className="app-header">
@@ -12,25 +14,48 @@ export default function AppHeader({ user, onOpenAuth, onNavigate, currentView, o
       </div>
 
       <div className="header-actions">
-        {/* Pricing / Upgrade Button */}
-        <button
-          className="btn btn-sm"
-          onClick={onOpenPricing}
-          style={{
-            background: 'linear-gradient(90deg, rgba(139, 92, 246, 0.2), rgba(236, 72, 153, 0.2))',
-            border: '1px solid rgba(139, 92, 246, 0.4)',
-            color: '#C084FC',
-            fontWeight: 800,
-            fontSize: '0.78rem',
-            padding: '5px 10px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px'
-          }}
-        >
-          <span>⭐</span>
-          <span>Pro</span>
-        </button>
+        {/* Pricing / Pro Badge Button */}
+        {isPro ? (
+          <div
+            onClick={onOpenPricing}
+            style={{
+              background: 'linear-gradient(90deg, rgba(245, 158, 11, 0.25), rgba(217, 119, 6, 0.25))',
+              border: '1px solid rgba(245, 158, 11, 0.6)',
+              color: '#FCD34D',
+              fontWeight: 800,
+              fontSize: '0.76rem',
+              padding: '4px 10px',
+              borderRadius: '999px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+              cursor: 'pointer',
+              boxShadow: '0 0 12px rgba(245, 158, 11, 0.2)'
+            }}
+          >
+            <span>👑</span>
+            <span>PRO</span>
+          </div>
+        ) : (
+          <button
+            className="btn btn-sm"
+            onClick={onOpenPricing}
+            style={{
+              background: 'linear-gradient(90deg, rgba(139, 92, 246, 0.2), rgba(236, 72, 153, 0.2))',
+              border: '1px solid rgba(139, 92, 246, 0.4)',
+              color: '#C084FC',
+              fontWeight: 800,
+              fontSize: '0.78rem',
+              padding: '5px 10px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}
+          >
+            <span>⭐</span>
+            <span>Upgrade</span>
+          </button>
+        )}
 
         {/* Language Switcher */}
         <button 

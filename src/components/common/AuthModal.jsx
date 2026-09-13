@@ -154,14 +154,92 @@ export default function AuthModal({ isOpen, onClose, user, onAuthSuccess, sessio
         </div>
 
         {user ? (
-          <div style={{ textAlign: 'center', padding: '12px 0' }}>
-            <div className="avatar-circle" style={{ width: '64px', height: '64px', fontSize: '1.8rem', margin: '0 auto 12px auto' }}>
+          <div style={{ textAlign: 'center', padding: '8px 0' }}>
+            <div 
+              className="avatar-circle" 
+              style={{ 
+                width: '68px', 
+                height: '68px', 
+                fontSize: '1.9rem', 
+                margin: '0 auto 12px auto',
+                border: authService.isUserPro(user) ? '2px solid #F59E0B' : '1px solid var(--border-glass)',
+                boxShadow: authService.isUserPro(user) ? '0 0 20px rgba(245, 158, 11, 0.35)' : 'none',
+                position: 'relative'
+              }}
+            >
               {user.profile?.display_name?.charAt(0)?.toUpperCase() || 'U'}
+              {authService.isUserPro(user) && (
+                <span style={{ position: 'absolute', top: '-6px', right: '-6px', fontSize: '1.1rem' }}>👑</span>
+              )}
             </div>
-            <h4 style={{ fontSize: '1.2rem', marginBottom: '4px' }}>{user.profile?.display_name || 'Player'}</h4>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '16px' }}>{user.email}</p>
+            <h4 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '2px' }}>
+              {user.profile?.display_name || 'Player'}
+            </h4>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '14px' }}>{user.email}</p>
 
-            <div style={{ display: 'inline-block', padding: '4px 12px', borderRadius: '999px', background: 'var(--bg-glass-strong)', fontSize: '0.78rem', marginBottom: '24px' }}>
+            {/* Membership Tier Status Card */}
+            {authService.isUserPro(user) ? (
+              <div style={{
+                background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(217, 119, 6, 0.08))',
+                border: '1px solid rgba(245, 158, 11, 0.4)',
+                borderRadius: '14px',
+                padding: '12px 14px',
+                marginBottom: '16px',
+                textAlign: 'center'
+              }}>
+                <div style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: 'linear-gradient(90deg, #F59E0B, #D97706)',
+                  color: '#FFF',
+                  fontWeight: 800,
+                  fontSize: '0.82rem',
+                  padding: '3px 12px',
+                  borderRadius: '999px',
+                  marginBottom: '6px'
+                }}>
+                  👑 KANCA PRO AKTIF
+                </div>
+                <div style={{ fontSize: '0.82rem', color: '#FCD34D', fontWeight: 600 }}>
+                  Bebas Iklan 100% & Fitur VIP Terbuka
+                </div>
+                {user.profile?.pro_expires_at && (
+                  <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                    Berlaku sampai: {new Date(user.profile.pro_expires_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div style={{
+                background: 'rgba(255, 255, 255, 0.04)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                borderRadius: '14px',
+                padding: '10px 14px',
+                marginBottom: '16px',
+                textAlign: 'center'
+              }}>
+                <div style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  color: 'var(--text-muted)',
+                  fontWeight: 700,
+                  fontSize: '0.78rem',
+                  padding: '3px 10px',
+                  borderRadius: '999px',
+                  marginBottom: '4px'
+                }}>
+                  🎮 Paket Kanca Free
+                </div>
+                <div style={{ fontSize: '0.76rem', color: 'var(--text-dim)' }}>
+                  Akses standar game room & scoreboard
+                </div>
+              </div>
+            )}
+
+            <div style={{ display: 'inline-block', padding: '3px 10px', borderRadius: '999px', background: 'var(--bg-glass-strong)', fontSize: '0.74rem', color: 'var(--text-muted)', marginBottom: '20px' }}>
               Peran: <strong style={{ color: 'var(--primary)' }}>{user.profile?.role?.toUpperCase() || 'USER'}</strong>
             </div>
 
