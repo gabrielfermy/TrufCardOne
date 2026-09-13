@@ -49,6 +49,12 @@ HUKUM MENYATAKAN TUNDUK DAN MENYETUJUI SYARAT DAN KETENTUAN BERIKUT:
    PERANGKAT LUNAK INI DISEDIAKAN "SEBAGAIMANA ADANYA" (AS-IS), TANPA JAMINAN APAPUN BAIK TERSURAT
    MAUPUN TERSIRAT.
 
+7. PEMBERITAHUAN LISENSI PIHAK KETIGA (THIRD-PARTY NOTICES):
+   Proyek ini menggunakan dependensi open-source berlisensi permisif (MIT / ISC) seperti React,
+   Vite, Supabase JS Client, dan Capacitor Plugins. Lisensi kepemilikan khusus (proprietary) ini
+   hanya berlaku untuk kode asli, logika bisnis, algoritma game, dan desain KancaSela, serta tidak
+   mengubah atau membatasi hak cipta bawaan dari pustaka pihak ketiga tersebut.
+
 --------------------------------------------------------------------------------
 Untuk permohonan lisensi komersial, kemitraan B2B, atau izin khusus tertulis, hubungi:
 Email: legal@kancasela.my.id / gabriel.aswinta@gmail.com
