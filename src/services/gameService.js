@@ -3,8 +3,6 @@ import { networkService } from './networkService'
 import { sanitizePlayerNames, sanitizeText, sanitizeRoomCode } from '../utils/securityUtils'
 import { auditService } from './auditService'
 
-const GUEST_STORAGE_KEY = 'gamenight_guest_sessions'
-
 function generateRoomCode(gameType = 'TRUF') {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
   let code = ''
@@ -73,16 +71,6 @@ export const gameService = {
       details: { gameType, roomCode, title: safeTitle, players: safePlayerNames, isOfflineLocal }
     })
 
-    // If explicit offline local mode or offline, save directly to localStorage and skip cloud insert
-    if (isOfflineLocal || !networkService.isOnline()) {
-      console.log('📱 Creating Offline / 1-HP Local Session in LocalStorage:', roomCode)
-      const guestId = `guest-session-${Date.now()}`
-      const guestSession = { ...sessionPayload, id: guestId, rounds: [], scores: {} }
-      const existing = JSON.parse(localStorage.getItem(GUEST_STORAGE_KEY) || '[]')
-      existing.unshift(guestSession)
-      localStorage.setItem(GUEST_STORAGE_KEY, JSON.stringify(existing.slice(0, 20)))
-      return guestSession
-    }
     try {
       const { data, error } = await supabase
         .from('game_sessions')
@@ -111,7 +99,7 @@ export const gameService = {
           hint: error.hint
         })
 
-        // Fallback retry with user_id = null if user profile wasn't ready
+        // Fallback retry with user_id = null if guest or user profile wasn't ready
         if (sessionPayload.user_id) {
           const { data: retryData, error: retryError } = await supabase
             .from('game_sessions')
@@ -131,42 +119,26 @@ export const gameService = {
               }
             }
           }
-          if (retryError) {
-            console.error('❌ Retry without user_id also failed:', retryError.message)
-          }
         }
       }
     } catch (err) {
       console.error('❌ Cloud session save exception:', err)
     }
 
-    // 2. Offline / Local fallback
-    console.warn('⚠️ Falling back to browser LocalStorage for session', roomCode)
-    const guestId = `guest-session-${Date.now()}`
-    const guestSession = { ...sessionPayload, id: guestId, rounds: [], scores: {} }
-    const existing = JSON.parse(localStorage.getItem(GUEST_STORAGE_KEY) || '[]')
-    existing.unshift(guestSession)
-    localStorage.setItem(GUEST_STORAGE_KEY, JSON.stringify(existing.slice(0, 20)))
-    return guestSession
+    // In-memory fallback if temporary network error occurs during match setup
+    const tempId = `temp-session-${Date.now()}`
+    return { ...sessionPayload, id: tempId, rounds: [], scores: {} }
   },
 
   // 2. Fetch User Match Diary (Hosted + Participated)
-  async getUserSessions(userId) {
-    const localGuestSessions = (() => {
-      try {
-        return JSON.parse(localStorage.getItem(GUEST_STORAGE_KEY) || '[]')
-      } catch {
-        return []
-      }
-    })()
-
-    if (!userId || userId === 'guest-user') {
-      return localGuestSessions
+  async getUserSessions(userId, isPro = false) {
+    // Guests do not have persistent match diary in Cloud or LocalStorage
+    if (!userId || userId === 'guest-user' || (typeof userId === 'string' && userId.startsWith('guest'))) {
+      return []
     }
 
     try {
-      // Fetch games where user is host OR claimed a seat
-      const { data, error } = await supabase
+      let query = supabase
         .from('game_sessions')
         .select(`
           *,
@@ -185,38 +157,30 @@ export const gameService = {
         .or(`user_id.eq.${userId},player_user_ids.cs.["${userId}"]`)
         .order('created_at', { ascending: false })
 
+      // Free tier saves up to 10 recent sessions; Pro/Venue has unlimited lifetime history
+      if (!isPro) {
+        query = query.limit(10)
+      }
+
+      const { data, error } = await query
       if (error) throw error
 
-      const normalizedCloud = (data || []).map(s => ({
+      return (data || []).map(s => ({
         ...s,
         player_names: (Array.isArray(s.player_names) && s.player_names.length > 0)
           ? s.player_names
           : [s.player1_name, s.player2_name, s.player3_name, s.player4_name].filter(Boolean),
         first_dealer: s.first_dealer ?? s.settings?.first_dealer ?? s.settings?.firstDealer ?? 0
       }))
-
-      // Merge local sessions that are on this device
-      const cloudIds = new Set(normalizedCloud.map(s => s.id))
-      const combined = [...normalizedCloud]
-      for (const local of localGuestSessions) {
-        if (!cloudIds.has(local.id)) {
-          combined.push(local)
-        }
-      }
-
-      return combined
     } catch (err) {
       console.warn('Error loading cloud sessions', err)
-      return localGuestSessions
+      return []
     }
   },
 
   // 3. Fetch Single Session by ID or Room Code
   async getSession(sessionId, roomCode) {
-    if (sessionId?.startsWith('guest-session')) {
-      const guestList = JSON.parse(localStorage.getItem(GUEST_STORAGE_KEY) || '[]')
-      return guestList.find(s => s.id === sessionId) || null
-    }
+    if (!sessionId && !roomCode) return null
 
     try {
       // 1. Fetch Session Header first (case-insensitive & robust)
@@ -248,13 +212,7 @@ export const gameService = {
         console.error('❌ getSession error from Supabase:', sessionErr)
       }
 
-      // Check local guest storage if not in Cloud
       if (!session) {
-        if (roomCode) {
-          const guestList = JSON.parse(localStorage.getItem(GUEST_STORAGE_KEY) || '[]')
-          const code = normalizeRoomCode(roomCode)
-          return guestList.find(s => normalizeRoomCode(s.room_code) === code) || null
-        }
         return null
       }
 
@@ -311,11 +269,6 @@ export const gameService = {
       return session
     } catch (err) {
       console.error('❌ Exception in getSession:', err)
-      if (roomCode) {
-        const guestList = JSON.parse(localStorage.getItem(GUEST_STORAGE_KEY) || '[]')
-        const code = normalizeRoomCode(roomCode)
-        return guestList.find(s => normalizeRoomCode(s.room_code) === code) || null
-      }
       return null
     }
   },
@@ -407,33 +360,7 @@ export const gameService = {
 
   // 4b. Save a Game Round (Cloud First with Resilient Late Sync Queue)
   async saveRound({ sessionId, roundNumber, roundData, playerScores }) {
-    if (!sessionId || sessionId.startsWith('guest-session') || sessionId.startsWith('local-session')) {
-      const guestList = JSON.parse(localStorage.getItem(GUEST_STORAGE_KEY) || '[]')
-      const session = guestList.find(s => s.id === sessionId)
-      if (session) {
-        const roundId = `guest-round-${Date.now()}`
-        const newRound = {
-          id: roundId,
-          session_id: sessionId,
-          round_number: roundNumber,
-          round_data: roundData,
-          roundData: roundData,
-          created_at: new Date().toISOString(),
-          player_scores: playerScores.map((ps, idx) => ({
-            id: `ps-${roundId}-${idx}`,
-            player_index: idx,
-            stats: ps.stats || {},
-            score_change: ps.score_change,
-            score_cumulative: ps.score_cumulative
-          }))
-        }
-        session.rounds = session.rounds || []
-        session.rounds.push(newRound)
-        localStorage.setItem(GUEST_STORAGE_KEY, JSON.stringify(guestList))
-        return newRound
-      }
-      return null
-    }
+    if (!sessionId) return null
 
     // Check online status
     if (!networkService.isOnline()) {
@@ -522,15 +449,7 @@ export const gameService = {
 
   // 5. Undo / Delete Round
   async deleteRound(roundId, sessionId) {
-    if (sessionId?.startsWith('guest-session')) {
-      const guestList = JSON.parse(localStorage.getItem(GUEST_STORAGE_KEY) || '[]')
-      const session = guestList.find(s => s.id === sessionId)
-      if (session && session.rounds) {
-        session.rounds = session.rounds.filter(r => r.id !== roundId)
-        localStorage.setItem(GUEST_STORAGE_KEY, JSON.stringify(guestList))
-      }
-      return true
-    }
+    if (!roundId) return true
 
     const { error } = await supabase
       .from('game_rounds')
@@ -543,15 +462,7 @@ export const gameService = {
 
   // 6. Complete Session
   async completeSession(sessionId) {
-    if (sessionId?.startsWith('guest-session') || sessionId?.startsWith('local-session')) {
-      const guestList = JSON.parse(localStorage.getItem(GUEST_STORAGE_KEY) || '[]')
-      const session = guestList.find(s => s.id === sessionId)
-      if (session) {
-        session.is_completed = true
-        localStorage.setItem(GUEST_STORAGE_KEY, JSON.stringify(guestList))
-      }
-      return true
-    }
+    if (!sessionId) return true
 
     const { error } = await supabase
       .from('game_sessions')
@@ -564,12 +475,7 @@ export const gameService = {
 
   // 7. Delete Session
   async deleteSession(sessionId) {
-    if (sessionId?.startsWith('guest-session') || sessionId?.startsWith('local-session')) {
-      const guestList = JSON.parse(localStorage.getItem(GUEST_STORAGE_KEY) || '[]')
-      const updated = guestList.filter(s => s.id !== sessionId)
-      localStorage.setItem(GUEST_STORAGE_KEY, JSON.stringify(updated))
-      return true
-    }
+    if (!sessionId) return true
 
     const { error } = await supabase
       .from('game_sessions')
@@ -585,21 +491,6 @@ export const gameService = {
   // 7. Claim Seat (Guest or Logged-In User)
   async claimSeat(sessionId, playerIndex, clientId) {
     if (!sessionId || playerIndex === undefined || playerIndex === null) return false
-
-    // 1. Handle local guest session
-    if (sessionId.startsWith('guest-session')) {
-      const guestList = JSON.parse(localStorage.getItem(GUEST_STORAGE_KEY) || '[]')
-      const session = guestList.find(s => s.id === sessionId)
-      if (session) {
-        if (!session.player_user_ids) {
-          session.player_user_ids = Array(session.player_names?.length || 4).fill(null)
-        }
-        session.player_user_ids[playerIndex] = clientId
-        localStorage.setItem(GUEST_STORAGE_KEY, JSON.stringify(guestList))
-        return session.player_user_ids
-      }
-      return false
-    }
 
     // 2. Handle Supabase Cloud session
     try {

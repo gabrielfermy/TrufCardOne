@@ -547,3 +547,40 @@
     gap: 16px;
   }
 }
+
+/* Pricing Modal Multi-Card Desktop & Single-Card Mobile Tabs */
+.pricing-modal-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 14px;
+  flex: 1;
+  min-height: 0;
+  margin-bottom: 10px;
+}
+
+.pricing-mobile-tabs {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .pricing-modal-grid {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+  }
+  .pricing-modal-card {
+    display: none !important;
+  }
+  .pricing-modal-card.active-mobile {
+    display: flex !important;
+    flex: 1;
+  }
+  .pricing-mobile-tabs {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+}
+
