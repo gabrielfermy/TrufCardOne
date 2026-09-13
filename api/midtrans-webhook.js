@@ -102,11 +102,25 @@ export default async function handler(req, res) {
             console.warn('[Midtrans Webhook] Email update warning:', err2.message)
           }
         }
+        // Always respond 200 OK so Midtrans marks the notification as successfully delivered
+        return res.status(200).json({ 
+          status: 'OK', 
+          message: 'Notification processed', 
+          updated, 
+          hasServiceRole: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+          supabaseUrl: supabaseUrl ? supabaseUrl.replace(/https?:\/\//, '').split('.')[0] : 'MISSING',
+          err1: err1?.message || null,
+          err2: err2?.message || null,
+          d1: d1 || null,
+          d2: d2 || null
+        })
+      } else {
+        return res.status(200).json({ status: 'OK', error: 'Missing supabase credentials in env' })
       }
     }
 
     // Always respond 200 OK so Midtrans marks the notification as successfully delivered
-    return res.status(200).json({ status: 'OK', message: 'Notification processed' })
+    return res.status(200).json({ status: 'OK', message: 'Notification processed (no target)' })
   } catch (err) {
     console.error('[Midtrans Webhook] Handler error:', err)
     return res.status(200).json({ status: 'ERROR_RECORDED', error: err.message })
