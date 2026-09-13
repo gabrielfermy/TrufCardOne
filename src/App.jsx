@@ -28,6 +28,7 @@ import UtilitiesView from './tools/utilities/UtilitiesView'
 import AdminDashboard from './components/admin/AdminDashboard'
 import PricingModal from './components/pricing/PricingModal'
 import ProfileModal from './components/profile/ProfileModal'
+import SupportTicketModal from './components/common/SupportTicketModal'
 import SimulatedAdModal from './components/common/SimulatedAdModal'
 import LiveUpdateNotification from './components/common/LiveUpdateNotification'
 import DevToolsDock from './components/common/DevToolsDock'
@@ -86,6 +87,7 @@ function MainApp() {
 
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
+  const [isSupportModalOpen, setIsSupportModalOpen] = useState(false)
   const [sessionExpiredNotice, setSessionExpiredNotice] = useState(false)
   const [isShareModalOpen, setIsShareModalOpen] = useState(false)
   const [isCheckInModalOpen, setIsCheckInModalOpen] = useState(false)
@@ -857,11 +859,19 @@ function MainApp() {
           setUser(updatedUser)
         }}
         onOpenPricing={() => setIsPricingModalOpen(true)}
+        onOpenSupportTicket={() => setIsSupportModalOpen(true)}
         onSignOut={async () => {
           await authService.signOut()
           setUser(null)
           loadUserSessions('guest-user')
         }}
+      />
+
+      {/* Support & Trouble Ticket Modal */}
+      <SupportTicketModal
+        isOpen={isSupportModalOpen}
+        onClose={() => setIsSupportModalOpen(false)}
+        user={user}
       />
 
       {/* 9:16 Social Story Card Modal */}

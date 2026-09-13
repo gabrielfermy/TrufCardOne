@@ -1,6 +1,7 @@
 import { supabase } from './supabaseClient'
 import { networkService } from './networkService'
 import { sanitizePlayerNames, sanitizeText, sanitizeRoomCode } from '../utils/securityUtils'
+import { auditService } from './auditService'
 
 const GUEST_STORAGE_KEY = 'gamenight_guest_sessions'
 
@@ -64,6 +65,13 @@ export const gameService = {
       sessionPayload.player3_name = playerNames[2] || 'Pemain 3'
       sessionPayload.player4_name = playerNames[3] || 'Pemain 4'
     }
+
+    auditService.logEvent({
+      action: 'room.create',
+      category: 'game',
+      targetId: roomCode,
+      details: { gameType, roomCode, title: safeTitle, players: safePlayerNames, isOfflineLocal }
+    })
 
     // If explicit offline local mode or offline, save directly to localStorage and skip cloud insert
     if (isOfflineLocal || !networkService.isOnline()) {

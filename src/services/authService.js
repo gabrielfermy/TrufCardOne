@@ -1,6 +1,7 @@
 import { supabase } from './supabaseClient'
 import { App } from '@capacitor/app'
 import { sessionTimeoutService } from './sessionTimeoutService'
+import { auditService } from './auditService'
 
 const GOOGLE_CLIENT_ID = '833136604965-vhbj0lutqsqc7vraquadp3bcjatis4cf.apps.googleusercontent.com'
 
@@ -21,6 +22,13 @@ export const authService = {
     if (error) throw error
     if (data?.session) {
       sessionTimeoutService.setLastActivity()
+      auditService.logEvent({
+        action: 'auth.signup',
+        category: 'auth',
+        targetId: data.user?.id,
+        details: { method: 'email', email, displayName },
+        user: data.user
+      })
     }
     return data
   },
@@ -33,6 +41,13 @@ export const authService = {
     })
     if (error) throw error
     sessionTimeoutService.setLastActivity()
+    auditService.logEvent({
+      action: 'auth.login',
+      category: 'auth',
+      targetId: data.user?.id,
+      details: { method: 'email_password', email },
+      user: data.user
+    })
     return data
   },
 
@@ -44,6 +59,13 @@ export const authService = {
     })
     if (error) throw error
     sessionTimeoutService.setLastActivity()
+    auditService.logEvent({
+      action: 'auth.google_sso',
+      category: 'auth',
+      targetId: data.user?.id,
+      details: { method: 'google_id_token', email: data.user?.email },
+      user: data.user
+    })
     return data
   },
 

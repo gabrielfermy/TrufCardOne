@@ -12,6 +12,7 @@ export default function ProfileModal({
   user,
   onUserUpdated,
   onOpenPricing,
+  onOpenSupportTicket,
   onSignOut
 }) {
   const { t } = useTranslation()
@@ -584,6 +585,21 @@ export default function ProfileModal({
                     Nama saat ini: <strong style={{ color: '#FFF' }}>{user.profile?.display_name || 'Player'}</strong>
                   </div>
                 )}
+              </div>
+
+              {/* Help & Support Button */}
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '14px' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-block btn-sm"
+                  style={{ borderRadius: '10px', padding: '10px', borderColor: 'rgba(139, 92, 246, 0.4)', color: '#C084FC' }}
+                  onClick={() => {
+                    onClose()
+                    if (onOpenSupportTicket) onOpenSupportTicket()
+                  }}
+                >
+                  🎫 Laporkan Kendala / Bantuan Superadmin
+                </button>
               </div>
 
               {/* Logout Button */}

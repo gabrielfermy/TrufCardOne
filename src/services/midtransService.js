@@ -1,6 +1,7 @@
 import { supabase } from './supabaseClient'
 import { soundService } from './soundService'
 import { hapticsService } from './hapticsService'
+import { auditService } from './auditService'
 
 /**
  * Midtrans Payment Gateway Integration Service
@@ -159,10 +160,25 @@ class MidtransService {
         throw new Error('Midtrans Snap JS tidak tersedia atau Token kosong.')
       }
 
+      auditService.logEvent({
+        action: 'payment.checkout_initiated',
+        category: 'billing',
+        targetId: transaction.orderId,
+        details: { planTier, billingCycle, price: plan.price, orderId: transaction.orderId },
+        user
+      })
+
       // 3. Launch Official Midtrans Snap Iframe Popup
       window.snap.pay(transaction.token, {
         onSuccess: async (result) => {
           console.log('[MidtransService] Payment Success:', result)
+          auditService.logEvent({
+            action: 'payment.settled_frontend',
+            category: 'billing',
+            targetId: transaction.orderId,
+            details: { orderId: transaction.orderId, result },
+            user
+          })
           if (user?.id && !user.id.startsWith('guest')) {
             await this.grantProAccess(user.id, plan.tier, plan.durationMonths)
           }
@@ -172,10 +188,24 @@ class MidtransService {
         },
         onPending: (result) => {
           console.log('[MidtransService] Payment Pending:', result)
+          auditService.logEvent({
+            action: 'payment.pending_frontend',
+            category: 'billing',
+            targetId: transaction.orderId,
+            details: { orderId: transaction.orderId, result },
+            user
+          })
           if (onPending) onPending(result)
         },
         onError: (result) => {
           console.error('[MidtransService] Payment Error:', result)
+          auditService.logEvent({
+            action: 'payment.error_frontend',
+            category: 'billing',
+            targetId: transaction.orderId,
+            details: { orderId: transaction.orderId, error: result },
+            user
+          })
           if (onError) onError(result)
         },
         onClose: () => {
