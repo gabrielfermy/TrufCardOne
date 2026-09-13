@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Dokumen Alur Transaksi & Katalog Produk - KancaSela (Midtrans KYC)</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+    @page {
+      size: A4;
+      margin: 15mm 15mm 15mm 15mm;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      color: #1E293B;
+      background: #FFFFFF;
+      line-height: 1.5;
+      font-size: 13px;
+      margin: 0;
+      padding: 0;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 10px;
+    }
+
+    .header-box {
+      border-bottom: 2px solid #8B5CF6;
+      padding-bottom: 16px;
+      margin-bottom: 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+    }
+
+    .brand-title {
+      font-size: 26px;
+      font-weight: 800;
+      color: #6D28D9;
+      margin: 0;
+      letter-spacing: -0.5px;
+    }
+
+    .doc-type {
+      font-size: 14px;
+      font-weight: 600;
+      color: #64748B;
+      margin-top: 4px;
+    }
+
+    .meta-box {
+      text-align: right;
+      font-size: 12px;
+      color: #475569;
+    }
+
+    .section-title {
+      font-size: 16px;
+      font-weight: 800;
+      color: #0F172A;
+      margin: 24px 0 12px 0;
+      padding-left: 10px;
+      border-left: 4px solid #8B5CF6;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .info-card {
+      background: #F8FAFC;
+      border: 1px solid #E2E8F0;
+      border-radius: 10px;
+      padding: 14px 18px;
+      margin-bottom: 16px;
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: 140px 1fr;
+      row-gap: 8px;
+      font-size: 13px;
+    }
+
+    .info-label {
+      font-weight: 600;
+      color: #64748B;
+    }
+
+    .info-value {
+      color: #0F172A;
+      font-weight: 500;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0;
+      font-size: 12.5px;
+    }
+
+    th {
+      background: #F1F5F9;
+      color: #334155;
+      font-weight: 700;
+      text-align: left;
+      padding: 10px 12px;
+      border-top: 1px solid #CBD5E1;
+      border-bottom: 2px solid #94A3B8;
+    }
+
+    td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #E2E8F0;
+      color: #1E293B;
+    }
+
+    tr:nth-child(even) {
+      background: #F8FAFC;
+    }
+
+    .price-tag {
+      font-weight: 800;
+      color: #059669;
+      white-space: nowrap;
+    }
+
+    .step-box {
+      border: 1px solid #E2E8F0;
+      border-radius: 10px;
+      padding: 14px;
+      margin-bottom: 14px;
+      background: #FFFFFF;
+      page-break-inside: avoid;
+    }
+
+    .step-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .step-num {
+      background: #6D28D9;
+      color: #FFFFFF;
+      font-weight: 800;
+      font-size: 12px;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .step-title {
+      font-weight: 700;
+      font-size: 14px;
+      color: #0F172A;
+      margin: 0;
+    }
+
+    .step-desc {
+      color: #475569;
+      font-size: 12.5px;
+      line-height: 1.5;
+      margin: 0 0 10px 34px;
+    }
+
+    .mockup-frame {
+      margin-left: 34px;
+      background: #0F172A;
+      color: #F8FAFC;
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-family: monospace;
+      font-size: 11.5px;
+      border: 1px solid #334155;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      background: #EDE9FE;
+      color: #6D28D9;
+    }
+
+    .footer-note {
+      border-top: 1px solid #E2E8F0;
+      padding-top: 14px;
+      margin-top: 24px;
+      text-align: center;
+      font-size: 11px;
+      color: #94A3B8;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <!-- Header -->
+  <div class="header-box">
+    <div>
+      <h1 class="brand-title">KANCASELA</h1>
+      <div class="doc-type">Dokumen Verifikasi Alur Transaksi & Katalog Produk</div>
+    </div>
+    <div class="meta-box">
+      <div><strong>Platform:</strong> https://www.kancasela.my.id/</div>
+      <div><strong>Tanggal:</strong> 13 September 2026</div>
+      <div><strong>Target Review:</strong> Midtrans KYC & Compliance</div>
+    </div>
+  </div>
+
+  <!-- Profil Bisnis -->
+  <div class="section-title">1. Profil Bisnis & Layanan Platform</div>
+  <div class="info-card">
+    <div class="info-grid">
+      <div class="info-label">Nama Platform:</div>
+      <div class="info-value"><strong>KancaSela (Konco Selo)</strong></div>
+
+      <div class="info-label">URL Website:</div>
+      <div class="info-value"><a href="https://www.kancasela.my.id/" style="color:#6D28D9; text-decoration:none;">https://www.kancasela.my.id/</a></div>
+
+      <div class="info-label">Kategori Produk:</div>
+      <div class="info-value">Digital SaaS / Tabletop & Card Game Companion Platform</div>
+
+      <div class="info-label">Model Bisnis:</div>
+      <div class="info-value">Freemium dengan Paket Langganan Premium (Kanca Pro & Kanca Warkop)</div>
+
+      <div class="info-label">Fungsi Midtrans:</div>
+      <div class="info-value">Memproses pembayaran langganan digital in-app/web untuk membuka fitur premium bebas iklan dan fitur turnamen.</div>
+    </div>
+  </div>
+
+  <!-- Kredensial Uji Coba -->
+  <div class="section-title">2. Kredensial Akun Tester untuk Tim Review Midtrans</div>
+  <div class="info-card" style="background:#EFF6FF; border-color:#BFDBFE;">
+    <p style="margin:0 0 10px 0; color:#1E40AF; font-size:12.5px;">
+      Tim Review Midtrans dapat menggunakan kredensial berikut untuk login di <strong>https://www.kancasela.my.id/</strong> dan menguji alur checkout:
+    </p>
+    <div class="info-grid">
+      <div class="info-label">Email Penguji:</div>
+      <div class="info-value"><code>reviewer.midtrans@kancasela.my.id</code> <em>(atau <code>gabriel@test.com</code>)</em></div>
+
+      <div class="info-label">Kata Sandi:</div>
+      <div class="info-value"><code>PasswordTester123!</code> <em>(atau <code>123456</code>)</em></div>
+
+      <div class="info-label">Status Akun:</div>
+      <div class="info-value">Free Tier (Siap untuk checkout paket Kanca Pro)</div>
+    </div>
+  </div>
+
+  <!-- Katalog Produk & Harga Resmi -->
+  <div class="section-title">3. Katalog Produk & Rincian Harga Resmi (IDR)</div>
+  <p style="color:#475569; margin:0 0 10px 0;">
+    Semua harga tercantum dalam mata uang <strong>Rupiah (IDR)</strong> dan ditampilkan secara transparan di dalam aplikasi pada modal <em>"💎 Kanca Tiers"</em>:
+  </p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Nama Produk / Layanan</th>
+        <th>Siklus Tagihan</th>
+        <th>Harga Resmi (IDR)</th>
+        <th>Fitur & Keuntungan</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Kanca Pro Bulanan</strong></td>
+        <td>1 Bulan</td>
+        <td class="price-tag">Rp 19.000</td>
+        <td>100% Bebas Iklan, Riwayat Cloud Tanpa Batas, Generator 9:16 VIP Story Card</td>
+      </tr>
+      <tr>
+        <td><strong>Kanca Pro Tahunan</strong></td>
+        <td>1 Tahun</td>
+        <td class="price-tag">Rp 129.000</td>
+        <td>Semua fitur Pro Bulanan, Hemat 45% (Rp 10.750/bln), Lencana Mahkota VIP</td>
+      </tr>
+      <tr>
+        <td><strong>Kanca Warkop (Venue)</strong></td>
+        <td>1 Bulan</td>
+        <td class="price-tag">Rp 149.000</td>
+        <td>Mode TV Display Kafe, Manajemen Turnamen & Bracket, Custom Branding</td>
+      </tr>
+      <tr>
+        <td><strong>Kanca Warkop Tahunan</strong></td>
+        <td>1 Tahun</td>
+        <td class="price-tag">Rp 1.199.000</td>
+        <td>Semua fitur Venue Bulanan dengan diskon tahunan + Prioritas Support</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Alur Transaksi End-to-End -->
+  <div class="section-title" style="page-break-before: always;">4. Alur Transaksi Pemesanan & Pembayaran (Step-by-Step)</div>
+
+  <!-- Step 1 -->
+  <div class="step-box">
+    <div class="step-header">
+      <div class="step-num">1</div>
+      <div class="step-title">Pengguna Membuka Web App & Melakukan Login</div>
+    </div>
+    <div class="step-desc">
+      Pengguna mengakses <strong>https://www.kancasela.my.id/</strong> melalui browser. Pengguna masuk dengan akun email/Google SSO agar data langganan tersinkronisasi ke profil.
+    </div>
+    <div class="mockup-frame">
+      [Header KancaSela] -> [Tombol: 👤 Masuk / Profil] -> [Form Login Email & Password / 🌐 Google 1-Tap]
+    </div>
+  </div>
+
+  <!-- Step 2 -->
+  <div class="step-box">
+    <div class="step-header">
+      <div class="step-num">2</div>
+      <div class="step-title">Mengakses Menu Paket Langganan (Kanca Tiers)</div>
+    </div>
+    <div class="step-desc">
+      Pengguna mengklik tombol <strong>"Lihat Pro &rarr;"</strong> pada banner iklan atau memilih menu <strong>"💎 Kanca Tiers"</strong> di profil.
+    </div>
+    <div class="mockup-frame">
+      [Modal Pricing Terbuka] -> Tampilan Toggle: [Bulanan] / [Tahunan (Hemat 45%)]<br>
+      Katalog: [Kanca Bebas (Rp 0)] | [Kanca Pro (Rp 19.000/bln)] | [Kanca Warkop (Rp 149.000/bln)]
+    </div>
+  </div>
+
+  <!-- Step 3 -->
+  <div class="step-box">
+    <div class="step-header">
+      <div class="step-num">3</div>
+      <div class="step-title">Memilih Paket & Menginisiasi Checkout</div>
+    </div>
+    <div class="step-desc">
+      Pengguna menekan tombol <strong>"🚀 Upgrade ke Kanca Pro"</strong>. Sistem mengirimkan request ke backend untuk membuat token transaksi Midtrans Snap.
+    </div>
+    <div class="mockup-frame">
+      POST /functions/v1/create-midtrans-payment<br>
+      Payload: { orderId: "KANCA-PRO-XXXX", grossAmount: 19000, userEmail: "reviewer@kancasela.my.id" }<br>
+      Response: { token: "SNAP-TOKEN-XXXX" }
+    </div>
+  </div>
+
+  <!-- Step 4 -->
+  <div class="step-box">
+    <div class="step-header">
+      <div class="step-num">4</div>
+      <div class="step-title">Popup Pembayaran Midtrans Snap Terbuka</div>
+    </div>
+    <div class="step-desc">
+      Popup Midtrans Snap secara resmi muncul di layar. Pengguna memilih metode pembayaran yang diinginkan (QRIS, GoPay, ShopeePay, Virtual Account BCA/Mandiri/BNI/BRI, atau Kartu Kredit).
+    </div>
+    <div class="mockup-frame">
+      [Pop-up Midtrans Snap UI]<br>
+      Total Pembayaran: Rp 19.000<br>
+      Opsi: 📱 QRIS (GoPay/OVO/Dana) | 🏦 Virtual Account | 💳 Kartu Kredit/Debit
+    </div>
+  </div>
+
+  <!-- Step 5 -->
+  <div class="step-box">
+    <div class="step-header">
+      <div class="step-num">5</div>
+      <div class="step-title">Notifikasi Webhook & Aktivasi Akun Instan (Fulfillment)</div>
+    </div>
+    <div class="step-desc">
+      Setelah pembayaran diselesaikan oleh pengguna, Midtrans mengirimkan notifikasi HTTP Webhook status <code>settlement</code>. Server KancaSela memvalidasi signature key dan mengaktifkan status Pro pada akun secara otomatis (< 3 detik). Iklan langsung hilang seketika.
+    </div>
+    <div class="mockup-frame">
+      Webhook Trigger: transaction_status = "settlement" -> Verify SHA512 Signature<br>
+      Database Update: profiles SET is_pro = true, subscription_tier = 'pro'<br>
+      Result UI: Pop-up "🎉 Selamat! Akun Kanca Pro Anda Telah Aktif."
+    </div>
+  </div>
+
+  <!-- Kebijakan Layanan & Refund -->
+  <div class="section-title">5. Kebijakan Layanan & Pengembalian Dana (Refund Policy)</div>
+  <div class="info-card">
+    <p style="margin:0 0 8px 0;"><strong>A. Pengiriman Layanan (Fulfillment Policy):</strong> Produk berupa langganan digital Software-as-a-Service (SaaS) tanpa pengiriman fisik. Akses fitur Kanca Pro aktif secara otomatis dan instan segera setelah status pembayaran berstatus Settlement.</p>
+    <p style="margin:0;"><strong>B. Pengembalian Dana (Refund Policy):</strong> Apabila terjadi pemotongan saldo ganda atau kendala teknis sistem, pengguna dapat mengajukan permohonan pengembalian dana melalui <code>support@kancasela.my.id</code> dengan melampirkan bukti transaksi. Pengembalian dana akan diproses dalam waktu 3x24 jam kerja.</p>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer-note">
+    Dokumen Resmi KancaSela • https://www.kancasela.my.id • Disusun untuk Tim Verifikasi & Compliance Midtrans
+  </div>
+</div>
+
+</body>
+</html>

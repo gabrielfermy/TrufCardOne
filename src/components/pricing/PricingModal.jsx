@@ -2,17 +2,47 @@ import React, { useState } from 'react'
 import { useTranslation } from '../../i18n/I18nContext'
 import { soundService } from '../../services/soundService'
 import { hapticsService } from '../../services/hapticsService'
+import { midtransService } from '../../services/midtransService'
 
-export default function PricingModal({ isOpen, onClose }) {
+export default function PricingModal({ isOpen, onClose, user, onOpenAuth, onPaymentSuccess }) {
   const { t } = useTranslation()
   const [billingCycle, setBillingCycle] = useState('yearly') // 'monthly' | 'yearly'
+  const [isCheckingOut, setIsCheckingOut] = useState(false)
 
   if (!isOpen) return null
 
-  const handleSelectPlan = (planName) => {
+  const handleSelectPlan = async (planTier) => {
     hapticsService.medium()
-    soundService.playVictory()
-    alert(t('pricing.plan_coming_soon', { name: planName }))
+    if (!user) {
+      if (onOpenAuth) onOpenAuth()
+      return
+    }
+
+    setIsCheckingOut(true)
+    try {
+      await midtransService.checkout({
+        planTier,
+        billingCycle,
+        user,
+        onSuccess: () => {
+          soundService.playVictory()
+          hapticsService.success()
+          if (onPaymentSuccess) onPaymentSuccess()
+          onClose()
+        },
+        onError: (err) => {
+          console.warn('Payment failed:', err)
+          alert('Pembayaran gagal atau dibatalkan.')
+        }
+      })
+    } catch (err) {
+      console.error('Checkout error:', err)
+      if (err.message === 'AUTH_REQUIRED' && onOpenAuth) {
+        onOpenAuth()
+      }
+    } finally {
+      setIsCheckingOut(false)
+    }
   }
 
   return (
@@ -208,9 +238,10 @@ export default function PricingModal({ isOpen, onClose }) {
                 border: 'none',
                 boxShadow: '0 8px 20px rgba(139, 92, 246, 0.4)'
               }}
-              onClick={() => handleSelectPlan('Kanca Pro')}
+              disabled={isCheckingOut}
+              onClick={() => handleSelectPlan('pro')}
             >
-              🚀 {t('pricing.upgrade_pro')}
+              {isCheckingOut ? 'Memproses Midtrans...' : `🚀 ${t('pricing.upgrade_pro')}`}
             </button>
           </div>
 
@@ -253,9 +284,10 @@ export default function PricingModal({ isOpen, onClose }) {
             <button 
               className="btn btn-secondary btn-block"
               style={{ borderColor: '#F59E0B', color: '#FBBF24' }}
-              onClick={() => handleSelectPlan('Kanca Warkop')}
+              disabled={isCheckingOut}
+              onClick={() => handleSelectPlan('venue')}
             >
-              ☕ {t('pricing.contact_sales')}
+              {isCheckingOut ? 'Memproses Midtrans...' : `☕ ${t('pricing.contact_sales')}`}
             </button>
           </div>
         </div>

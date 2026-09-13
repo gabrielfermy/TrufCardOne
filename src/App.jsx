@@ -27,6 +27,9 @@ import GenericScoreboard from './tools/scoreboard/GenericScoreboard'
 import UtilitiesView from './tools/utilities/UtilitiesView'
 import AdminDashboard from './components/admin/AdminDashboard'
 import PricingModal from './components/pricing/PricingModal'
+import SimulatedAdModal from './components/common/SimulatedAdModal'
+import MidtransSandboxModal from './components/common/MidtransSandboxModal'
+import DevToolsDock from './components/common/DevToolsDock'
 import { adService } from './services/adService'
 
 import './App.css'
@@ -863,10 +866,18 @@ function MainApp() {
         onRematch={handleRematch}
       />
 
-      {/* Pricing / Tiers Modal */}
+      {/* Pricing / Tiers Modal with Midtrans Checkout */}
       <PricingModal
         isOpen={isPricingModalOpen}
         onClose={() => setIsPricingModalOpen(false)}
+        user={user}
+        onOpenAuth={() => setIsAuthModalOpen(true)}
+        onPaymentSuccess={() => {
+          authService.getCurrentUser().then(currUser => {
+            setUser(currUser)
+            loadUserSessions(currUser?.id)
+          })
+        }}
       />
 
       {/* Check-in / Seat Selector / Spectator Entry Modal */}
@@ -876,6 +887,27 @@ function MainApp() {
         onSelectSeat={handleSelectSeat}
         onEnterAsSpectator={handleEnterAsSpectator}
       />
+
+      {/* Simulated Interstitial & Rewarded Ad Modal (Dev / Web) */}
+      <SimulatedAdModal />
+
+      {/* Midtrans Snap Sandbox Modal (Dev / Web) */}
+      <MidtransSandboxModal />
+
+      {/* Local Developer Test Dock (Only on Localhost / Dev) */}
+      {(import.meta.env.DEV || (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))) && (
+        <DevToolsDock
+          user={user}
+          onUserRefresh={() => {
+            authService.getCurrentUser().then(currUser => {
+              setUser(currUser)
+              loadUserSessions(currUser?.id)
+            })
+          }}
+          onOpenPricing={() => setIsPricingModalOpen(true)}
+          onOpenAuth={() => setIsAuthModalOpen(true)}
+        />
+      )}
     </div>
   )
 }

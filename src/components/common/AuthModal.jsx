@@ -254,6 +254,80 @@ export default function AuthModal({ isOpen, onClose, user, onAuthSuccess, sessio
               </div>
             </div>
 
+            {/* Quick Local Dev Login (Only in DEV / Localhost) */}
+            {(import.meta.env.DEV || (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))) && (
+              <div style={{
+                background: 'rgba(99, 102, 241, 0.1)',
+                border: '1px dashed rgba(99, 102, 241, 0.35)',
+                borderRadius: '12px',
+                padding: '10px 12px',
+                marginBottom: '16px',
+              }}>
+                <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#A5B4FC', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  ⚡ Quick Local Dev Login:
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-secondary"
+                    style={{ fontSize: '0.72rem', padding: '4px 6px', whiteSpace: 'nowrap', borderColor: '#F59E0B', color: '#FCD34D' }}
+                    onClick={async () => {
+                      setLoading(true)
+                      try {
+                        await authService.signIn('gabriel@test.com', '123456')
+                        if (onAuthSuccess) onAuthSuccess()
+                        onClose()
+                      } catch (err) {
+                        setErrorMsg(err.message)
+                      } finally {
+                        setLoading(false)
+                      }
+                    }}
+                  >
+                    🛡️ Admin
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-secondary"
+                    style={{ fontSize: '0.72rem', padding: '4px 6px', whiteSpace: 'nowrap', borderColor: '#8B5CF6', color: '#C084FC' }}
+                    onClick={async () => {
+                      setLoading(true)
+                      try {
+                        await authService.signIn('pro@kancasela.local', '123456')
+                        if (onAuthSuccess) onAuthSuccess()
+                        onClose()
+                      } catch (err) {
+                        setErrorMsg(err.message)
+                      } finally {
+                        setLoading(false)
+                      }
+                    }}
+                  >
+                    👑 Pro User
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-secondary"
+                    style={{ fontSize: '0.72rem', padding: '4px 6px', whiteSpace: 'nowrap', borderColor: '#10B981', color: '#34D399' }}
+                    onClick={async () => {
+                      setLoading(true)
+                      try {
+                        await authService.signIn('free@kancasela.local', '123456')
+                        if (onAuthSuccess) onAuthSuccess()
+                        onClose()
+                      } catch (err) {
+                        setErrorMsg(err.message)
+                      } finally {
+                        setLoading(false)
+                      }
+                    }}
+                  >
+                    🎮 Free User
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div style={{ textAlign: 'center', position: 'relative', margin: '18px 0' }}>
               <hr style={{ borderColor: 'var(--border-glass)' }} />
               <span style={{ position: 'absolute', top: '-10px', left: '50%', transform: 'translateX(-50%)', background: '#151828', padding: '0 10px', fontSize: '0.75rem', color: 'var(--text-dim)' }}>

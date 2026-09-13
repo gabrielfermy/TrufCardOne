@@ -1,115 +1,130 @@
 # Local Setup & Infrastructure Guide - KancaSela
 
-Dokumen ini berisi panduan teknis langkah demi langkah untuk menyiapkan lingkungan pengembangan lokal (*local development environment*), menjalankan Supabase lokal dengan Docker, melakukan migrasi database multi-tenant, dan menjalankan aplikasi web dan mobile Capacitor.
+Dokumen ini berisi panduan teknis langkah demi langkah untuk menyiapkan lingkungan pengembangan lokal (*100% local development environment*), menjalankan Supabase lokal dengan Docker, melakukan migrasi database multi-tenant, serta menguji seluruh integrasi pihak ketiga (Google AdSense, Google AdMob, Midtrans Payment Gateway Sandbox, Web Audio Synthesizer, Haptics, WakeLock, dan Canvas Story Generator).
 
 ---
 
 ## 1. Prasyarat Sistem
 Pastikan perangkat Anda memiliki:
 - **Node.js** (Versi 18+ atau 20+ LTS direkomendasikan)
-- **Docker Desktop** (Diperlukan untuk menjalankan Supabase lokal)
+- **Docker Desktop** (Diperlukan untuk menjalankan container Supabase lokal)
 - **Git CLI**
 - **Android Studio** (Opsional, jika ingin meng-compile APK / menjalankan di emulator Android)
 
 ---
 
-## 2. Struktur Repositori & Instalasi Dependensi
+## 2. Instalasi Proyek
 
-1. Clone repositori dan instal dependensi npm:
+1. Clone repositori dan instal seluruh dependensi:
    ```bash
    npm install
    ```
 
-2. Instal dependensi pendukung untuk Capacitor dan hardware audio/haptics:
-   ```bash
-   npm install @capacitor/core @capacitor/cli @capacitor/android @capacitor/ios @capacitor/haptics @capacitor/status-bar @capacitor/splash-screen @capacitor/app @capacitor-community/keep-awake
+2. File konfigurasi `.env.local` telah disiapkan:
+   ```env
+   # Supabase Local Docker Stack
+   VITE_SUPABASE_URL=http://127.0.0.1:54341
+   VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
+
+   # Google AdSense & AdMob Test Mode
+   VITE_ADS_TEST_MODE=true
+   VITE_ADSENSE_CLIENT_ID="ca-pub-5832618604638694"
+   VITE_ADSENSE_BANNER_SLOT_ID="1234567890"
+
+   # Midtrans Payment Gateway (Sandbox)
+   VITE_MIDTRANS_CLIENT_KEY="SB-Mid-client-sample-sandbox-key"
+   VITE_MIDTRANS_IS_PRODUCTION=false
    ```
 
 ---
 
-## 3. Menjalankan Supabase Lokal (Database, Auth, Realtime)
+## 3. Menjalankan Supabase Lokal (Database, Auth, Realtime, Studio, Mailpit)
 
-Supabase lokal menyediakan lingkungan PostgreSQL terisolasi lengkap dengan dashboard Studio dan server WebSocket Realtime:
+Proyek menggunakan Supabase CLI dengan Docker lokal pada port terisolasi:
 
-1. Inisialisasi Supabase (jika belum ada):
-   ```bash
-   npx supabase init
-   ```
-2. Jalankan container Supabase lokal (pastikan Docker Desktop aktif):
+1. **Jalankan Stack Supabase**:
    ```bash
    npx supabase start
    ```
-   Setelah proses selesai, terminal akan menampilkan kredensial lokal:
-   ```text
-   API URL: http://localhost:54321
-   GraphQL URL: http://localhost:54321/graphql/v1
-   DB URL: postgresql://postgres:postgres@localhost:54322/postgres
-   Studio URL: http://localhost:54323
-   anon key: eyJhbGci...
-   service_role key: eyJhbGci...
-   ```
-3. Terapkan file migrasi skema database multi-tenant terbaru:
+   *Dashboard & Services Lokal:*
+   - **API URL**: `http://127.0.0.1:54341`
+   - **Supabase Studio (Web UI Database)**: `http://127.0.0.1:54343`
+   - **PostgreSQL Direct**: `postgresql://postgres:postgres@127.0.0.1:54332/postgres`
+   - **Mailpit (Inbucket Email Tester)**: `http://127.0.0.1:54344`
+
+2. **Terapkan Migrasi & Seed Data**:
    ```bash
    npx supabase db reset
    ```
-4. Buka **Supabase Studio** di browser Anda: `http://localhost:54323` untuk menginspeksi tabel `profiles`, `game_sessions`, `game_rounds`, dan `player_scores`.
+   > ⚠️ **Catatan Keamanan**: Perintah `npx supabase db reset` hanya mereset container Docker di komputer Anda (`127.0.0.1:54332`) dan **tidak akan pernah menyentuh database cloud / remote produksi**.
 
 ---
 
-## 4. Konfigurasi Variabel Lingkungan (`.env.local`)
+## 4. Akun Uji Coba Lokal (*Pre-seeded Test Accounts*)
 
-Buat atau perbarui file `.env.local` di root folder proyek:
+Setelah `supabase db reset`, akun berikut langsung tersedia untuk login 1-klik di modal auth:
 
-```env
-VITE_SUPABASE_URL=http://localhost:54321
-VITE_SUPABASE_ANON_KEY=masukkan_anon_key_dari_supabase_start_di_atas
-```
-
-*(Untuk mode produksi di Vercel, arahkan kedua variabel di atas ke URL dan Anon Key proyek Supabase Cloud Anda).*
+| Email | Password | Role | Status Langganan |
+| :--- | :--- | :--- | :--- |
+| `gabriel@test.com` | `123456` | **Admin** | **Kanca Pro 👑** (Bebas Iklan + Admin Portal) |
+| `pro@kancasela.local` | `123456` | **User** | **Kanca Pro 👑** (Bebas Iklan + Fitur VIP) |
+| `free@kancasela.local` | `123456` | **User** | **Free Player 🎮** (Iklan Banner & Interstitial aktif) |
 
 ---
 
-## 5. Menjalankan Server Pengembangan Frontend (Web)
+## 5. Pengujian Integrasi Pihak Ketiga (*Third-Party Integrations Testing*)
 
-Jalankan server Vite lokal:
+Saat menjalankan aplikasi di browser lokal (`npm run dev`), Anda memiliki tombol terapung **`🛠️ Local DevTools`** di pojok kanan bawah layar untuk menguji seluruh integrasi secara instan:
+
+### 1. Midtrans Payment Gateway (Snap Sandbox)
+- **Cara Uji**:
+  1. Klik tombol **"Lihat Pro"** atau buka dari **DevTools > Test Midtrans Snap Checkout**.
+  2. Pilih paket **Kanca Pro (Bulanan/Tahunan)** atau **Kanca Warkop**.
+  3. Dialog pembayaran **Midtrans Snap Sandbox** akan muncul dengan simulasi metode pembayaran (QRIS, GoPay, BCA/Mandiri Virtual Account, Kartu Kredit).
+  4. Klik **"⚡ Bayar Sekarang (Simulasi Sukses)"**. Status akun Anda di database Supabase akan langsung di-upgrade menjadi `is_pro = true` dengan masa aktif 1 bulan / 1 tahun, dan iklan akan otomatis hilang seketika!
+- **Edge Functions**:
+  - Generator Token: `supabase/functions/create-midtrans-payment/index.ts`
+  - Webhook Handler: `supabase/functions/midtrans-webhook/index.ts` (Verifikasi SHA512 Signature Key).
+
+### 2. Google AdSense & Google AdMob (Simulasi Web & Native)
+- **AdSense Banner**: Di browser, saat akun dalam status Free, banner iklan simulasi responsif akan ditampilkan lengkap dengan disclaimer resmi. Saat beralih ke Kanca Pro, banner otomatis hilang.
+- **AdMob Interstitial**: Iklan layar penuh muncul otomatis setiap kali pertandingan selesai *(Game Over)* dengan timer 3 detik dan tombol lewati. Anda juga dapat memicunya langsung dari **DevTools > Interstitial Ad**.
+- **AdMob Rewarded Video**: Simulasi video 5 detik dengan progress bar untuk membuka reward eksklusif *(VIP Story Template)*.
+
+### 3. Web Audio Synthesizer (Zero Audio Asset Files)
+- Suara dihasilkan secara prosedural via Web Audio API tanpa file `.mp3` eksternal (100% offline & instan).
+- Dapat diuji via DevTools: `Click`, `Tick` (Jam Catur), `Beep Warning (<10s)`, `Victory Chime`, `Card Deal`, `Dice Roll`.
+
+### 4. Haptic Feedback & Screen Wake-Lock
+- **Haptic**: Web Vibration API fallback untuk browser desktop/mobile + `@capacitor/haptics` untuk native.
+- **WakeLock**: Mencegah layar HP mati saat pertandingan catur / kartu berlangsung.
+
+### 5. Canvas 9:16 Social Story Card
+- Merender gambar PNG 1080x1920 untuk status WhatsApp dan IG Stories menggunakan HTML5 Canvas 2D context tanpa dependensi backend.
+
+---
+
+## 6. Menjalankan Server Frontend Lokal
+
 ```bash
 npm run dev
 ```
-Buka browser di `http://localhost:5173`. Aplikasi langsung dapat diakses dengan responsivitas mobile dan desktop.
+Buka browser di `http://localhost:5173`.
 
 ---
 
-## 6. Menjalankan di Perangkat Mobile (Capacitor)
+## 7. Menjalankan di Perangkat Mobile Android (Capacitor)
 
 1. Build aset web produksi:
    ```bash
    npm run build
    ```
-2. Sinkronkan aset ke folder native:
+2. Sinkronkan aset ke folder native Android:
    ```bash
-   npx cap sync
+   npx cap sync android
    ```
-3. Buka proyek native di Android Studio:
+3. Buka Android Studio:
    ```bash
    npx cap open android
    ```
-4. Di Android Studio, tekan tombol **Run (▶)** untuk meluncurkan aplikasi di HP fisik atau Emulator Android.
-
----
-
-## 7. Pengujian & Linting Kode
-- **Uji Build Produksi**: `npm run build`
-- **Linter Cepat**: `npx oxlint`
-
----
-
-## 8. Otomatisasi CI/CD Database Migration (GitHub Actions)
-
-Proyek ini telah dilengkapi pipeline otomatisasi migrasi database menggunakan GitHub Actions di `.github/workflows/supabase-migration.yml`. Setiap kali ada file SQL baru di `supabase/migrations/` yang di-merge ke branch `master`, sistem akan otomatis menjalankan `supabase db push` ke Supabase Cloud (serupa dengan `php artisan migrate` di Laravel).
-
-### Konfigurasi GitHub Repository Secrets:
-Buka repositori GitHub Anda di **Settings > Secrets and variables > Actions**, lalu tambahkan 3 secrets:
-1. `SUPABASE_ACCESS_TOKEN`: Dibuat di [Supabase Account Tokens](https://supabase.com/dashboard/account/tokens).
-2. `SUPABASE_PROJECT_ID`: Reference ID proyek Anda (misal: `abcdefghijklmno`).
-3. `SUPABASE_DB_PASSWORD`: Password database PostgreSQL yang ditentukan saat pembuatan proyek Supabase.
-
+4. Tekan tombol **Run (▶)** di Android Studio untuk menjalankan di Emulator atau HP fisik.

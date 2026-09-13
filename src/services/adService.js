@@ -145,27 +145,35 @@ class AdService {
       return { shown: false, reason: 'frequency_capped' }
     }
 
-    if (!this.isNative || !this.adMobPlugin) {
-      // In web browser without native plugin, we don't block user
-      return { shown: false, reason: 'web_platform' }
+    if (this.isNative && this.adMobPlugin) {
+      const adId = (!this.isTestMode && import.meta.env.VITE_ADMOB_INTERSTITIAL_ID)
+        ? import.meta.env.VITE_ADMOB_INTERSTITIAL_ID
+        : GOOGLE_TEST_IDS.androidInterstitial
+
+      try {
+        await this.adMobPlugin.prepareInterstitial({
+          adId,
+          isTesting: this.isTestMode,
+        })
+        await this.adMobPlugin.showInterstitial()
+        this.lastInterstitialTime = Date.now()
+        return { shown: true }
+      } catch (err) {
+        console.warn('[AdService] Native showInterstitial failed:', err?.message || err)
+        return { shown: false, error: err }
+      }
     }
 
-    const adId = (!this.isTestMode && import.meta.env.VITE_ADMOB_INTERSTITIAL_ID)
-      ? import.meta.env.VITE_ADMOB_INTERSTITIAL_ID
-      : GOOGLE_TEST_IDS.androidInterstitial
-
-    try {
-      await this.adMobPlugin.prepareInterstitial({
-        adId,
-        isTesting: this.isTestMode,
-      })
-      await this.adMobPlugin.showInterstitial()
+    // Web / Localhost / Dev Simulation
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('kancasela:show-simulated-ad', {
+        detail: { type: 'interstitial' }
+      }))
       this.lastInterstitialTime = Date.now()
-      return { shown: true }
-    } catch (err) {
-      console.warn('[AdService] showInterstitial failed:', err?.message || err)
-      return { shown: false, error: err }
+      return { shown: true, simulated: true }
     }
+
+    return { shown: false, reason: 'unsupported_platform' }
   }
 
   /**
@@ -178,27 +186,39 @@ class AdService {
       return
     }
 
-    if (!this.isNative || !this.adMobPlugin) {
-      // Web fallback: reward directly or show friendly prompt
-      if (onRewarded) onRewarded()
+    if (this.isNative && this.adMobPlugin) {
+      const adId = (!this.isTestMode && import.meta.env.VITE_ADMOB_REWARDED_ID)
+        ? import.meta.env.VITE_ADMOB_REWARDED_ID
+        : GOOGLE_TEST_IDS.androidRewarded
+
+      try {
+        await this.adMobPlugin.prepareRewardVideoAd({
+          adId,
+          isTesting: this.isTestMode,
+        })
+        const rewardItem = await this.adMobPlugin.showRewardVideoAd()
+        if (onRewarded) onRewarded(rewardItem)
+        return
+      } catch (err) {
+        console.warn('[AdService] showRewardedAd failed:', err?.message || err)
+        if (onDismissed) onDismissed(err)
+        return
+      }
+    }
+
+    // Web / Localhost / Dev Simulation
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('kancasela:show-simulated-ad', {
+        detail: {
+          type: 'rewarded',
+          onRewarded,
+          onDismissed,
+        }
+      }))
       return
     }
 
-    const adId = (!this.isTestMode && import.meta.env.VITE_ADMOB_REWARDED_ID)
-      ? import.meta.env.VITE_ADMOB_REWARDED_ID
-      : GOOGLE_TEST_IDS.androidRewarded
-
-    try {
-      await this.adMobPlugin.prepareRewardVideoAd({
-        adId,
-        isTesting: this.isTestMode,
-      })
-      const rewardItem = await this.adMobPlugin.showRewardVideoAd()
-      if (onRewarded) onRewarded(rewardItem)
-    } catch (err) {
-      console.warn('[AdService] showRewardedAd failed:', err?.message || err)
-      if (onDismissed) onDismissed(err)
-    }
+    if (onRewarded) onRewarded()
   }
 }
 
