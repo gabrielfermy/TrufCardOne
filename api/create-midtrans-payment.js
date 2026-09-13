@@ -61,6 +61,15 @@ export default async function handler(req, res) {
       custom_field1: userId || '',
       custom_field2: planTier || 'pro',
       custom_field3: billingCycle || 'yearly',
+      // Override default dashboard notification webhook specifically for KancaSela transactions
+      override_notification_urls: [
+        'https://www.kancasela.my.id/api/midtrans-webhook'
+      ],
+      callbacks: {
+        finish: 'https://www.kancasela.my.id/?payment=success',
+        unfinish: 'https://www.kancasela.my.id/?payment=unfinish',
+        error: 'https://www.kancasela.my.id/?payment=error',
+      }
     }
 
     const midtransRes = await fetch(snapUrl, {
