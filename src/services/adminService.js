@@ -91,8 +91,37 @@ export const adminService = {
   },
 
   // ============================================================================
-  // 2. USER MANAGEMENT & ACCESS CONTROL
+  // 2. SUPERADMIN AUTHENTICATION & ACCESS CONTROL
   // ============================================================================
+  async signInAdmin(email, password) {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    })
+    if (error) throw error
+
+    // Query profile for admin role verification
+    const { data: profile, error: profErr } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', data.user.id)
+      .single()
+
+    if (profErr || profile?.role !== 'admin') {
+      await supabase.auth.signOut()
+      throw new Error('Akses Ditolak: Akun ini tidak memiliki hak akses Superadmin.')
+    }
+
+    auditService.logEvent({
+      action: 'auth.admin_subdomain_login',
+      category: 'admin_action',
+      targetId: data.user.id,
+      details: { email }
+    })
+
+    return { ...data.user, profile }
+  },
+
   async getUsersList(searchTerm = '', filterTier = 'all', filterRole = 'all') {
     try {
       let query = supabase

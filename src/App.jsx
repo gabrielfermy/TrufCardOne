@@ -26,6 +26,7 @@ import ChessClock from './tools/chess-clock/ChessClock'
 import GenericScoreboard from './tools/scoreboard/GenericScoreboard'
 import UtilitiesView from './tools/utilities/UtilitiesView'
 import AdminDashboard from './components/admin/AdminDashboard'
+import AdminPortalShell from './components/admin/AdminPortalShell'
 import PricingModal from './components/pricing/PricingModal'
 import ProfileModal from './components/profile/ProfileModal'
 import SupportTicketModal from './components/common/SupportTicketModal'
@@ -948,7 +949,34 @@ function MainApp() {
   )
 }
 
+function isSubdomainAdmin() {
+  if (typeof window === 'undefined') return false
+  const host = window.location.hostname.toLowerCase()
+  if (host.startsWith('admin.') || host === 'admin.kancasela.my.id') return true
+  const search = new URLSearchParams(window.location.search)
+  if (search.get('portal') === 'admin' || search.get('subdomain') === 'admin') return true
+  return false
+}
+
 export default function App() {
+  const [isAdminPortal, setIsAdminPortal] = useState(() => isSubdomainAdmin())
+
+  useEffect(() => {
+    const handleLocationChange = () => {
+      setIsAdminPortal(isSubdomainAdmin())
+    }
+    window.addEventListener('popstate', handleLocationChange)
+    return () => window.removeEventListener('popstate', handleLocationChange)
+  }, [])
+
+  if (isAdminPortal) {
+    return (
+      <I18nProvider>
+        <AdminPortalShell />
+      </I18nProvider>
+    )
+  }
+
   return (
     <I18nProvider>
       <MainApp />

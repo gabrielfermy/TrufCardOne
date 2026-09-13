@@ -78,11 +78,21 @@ export default function AppHeader({ user, onOpenAuth, onOpenProfile, onNavigate,
         {/* Admin Portal Shortcut if Admin */}
         {user?.profile?.role === 'admin' && (
           <button 
-            className={`btn btn-sm ${currentView === 'admin' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => onNavigate('admin')}
-            style={{ fontSize: '0.78rem', padding: '5px 10px' }}
+            className="btn btn-sm btn-secondary"
+            onClick={() => {
+              if (typeof window !== 'undefined') {
+                const host = window.location.hostname
+                if (host.includes('localhost') || host.includes('127.0.0.1')) {
+                  window.location.href = window.location.origin + '?subdomain=admin'
+                } else {
+                  window.location.href = 'https://admin.kancasela.my.id'
+                }
+              }
+            }}
+            style={{ fontSize: '0.78rem', padding: '5px 10px', borderColor: 'rgba(139, 92, 246, 0.5)', color: '#A78BFA' }}
+            title="Buka Portal Superadmin di admin.kancasela.my.id"
           >
-            🛡️ {t('nav.admin')}
+            🛡️ {t('nav.admin')} ↗
           </button>
         )}
 
