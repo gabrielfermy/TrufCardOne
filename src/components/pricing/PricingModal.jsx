@@ -9,13 +9,22 @@ export default function PricingModal({ isOpen, onClose, user, onOpenAuth, onPaym
   const [billingCycle, setBillingCycle] = useState('yearly') // 'monthly' | 'yearly'
   const [isCheckingOut, setIsCheckingOut] = useState(false)
 
-  if (!isOpen) return null
+  const isGuest = !user || user.is_guest || !user.email || user.id === 'guest' || (typeof user.id === 'string' && user.id.startsWith('guest'))
 
   const handleSelectPlan = async (planTier) => {
     hapticsService.medium()
-    setIsCheckingOut(true)
 
-    // Close pricing modal first so that Midtrans Snap / Sandbox popup displays without overlay conflict
+    // If user is guest, prompt them to login/register first
+    if (isGuest) {
+      soundService.playClick()
+      onClose()
+      if (onOpenAuth) {
+        onOpenAuth()
+      }
+      return
+    }
+
+    setIsCheckingOut(true)
     onClose()
 
     try {
@@ -38,7 +47,7 @@ export default function PricingModal({ isOpen, onClose, user, onOpenAuth, onPaym
       if (err.message === 'AUTH_REQUIRED' && onOpenAuth) {
         onOpenAuth()
       } else {
-        alert('Terjadi kendala saat memproses checkout. Silakan coba kembali.')
+        alert(err.message || 'Terjadi kendala saat memproses checkout. Silakan coba kembali.')
       }
     } finally {
       setIsCheckingOut(false)
@@ -68,42 +77,49 @@ export default function PricingModal({ isOpen, onClose, user, onOpenAuth, onPaym
           {t('pricing.subtitle')}
         </p>
 
-        {/* Guest 0-Login Banner */}
-        <div style={{
-          background: 'rgba(59, 130, 246, 0.1)',
-          border: '1px solid rgba(59, 130, 246, 0.3)',
-          borderRadius: '12px',
-          padding: '10px 16px',
-          marginBottom: '20px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '12px',
-          fontSize: '0.85rem'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span style={{ fontSize: '1.3rem' }}>👤</span>
-            <div>
-              <strong style={{ color: '#60A5FA' }}>{t('pricing.guest_name')}:</strong>{' '}
-              <span style={{ color: 'var(--text-muted)' }}>
-                {t('pricing.guest_desc')} — {t('pricing.guest_note')}
-              </span>
+        {/* Guest 0-Login Warning Banner */}
+        {isGuest && (
+          <div style={{
+            background: 'rgba(234, 179, 8, 0.1)',
+            border: '1px solid rgba(234, 179, 8, 0.35)',
+            borderRadius: '12px',
+            padding: '12px 16px',
+            marginBottom: '20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px',
+            fontSize: '0.85rem'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontSize: '1.4rem' }}>👤</span>
+              <div>
+                <strong style={{ color: '#FCD34D' }}>Mode Tamu (Guest):</strong>{' '}
+                <span style={{ color: 'var(--text-muted)' }}>
+                  Untuk berlangganan Kanca Pro, silakan <strong>Masuk atau Buat Akun</strong> terlebih dahulu agar status Pro tersimpan permanen di profil Anda.
+                </span>
+              </div>
             </div>
-          </div>
-          {!user && (
             <button
               type="button"
-              className="btn btn-secondary btn-sm"
-              style={{ fontSize: '0.75rem', padding: '4px 10px', whiteSpace: 'nowrap' }}
+              className="btn btn-primary btn-sm"
+              style={{
+                fontSize: '0.8rem',
+                padding: '6px 14px',
+                whiteSpace: 'nowrap',
+                background: 'linear-gradient(90deg, #F59E0B, #D97706)',
+                border: 'none',
+                fontWeight: 700
+              }}
               onClick={() => {
                 onClose()
                 if (onOpenAuth) onOpenAuth()
               }}
             >
-              Masuk Akun
+              Masuk / Buat Akun
             </button>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Billing Cycle Toggle */}
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '28px' }}>
@@ -250,14 +266,16 @@ export default function PricingModal({ isOpen, onClose, user, onOpenAuth, onPaym
             <button 
               className="btn btn-primary btn-block"
               style={{
-                background: 'linear-gradient(90deg, #8B5CF6, #7C3AED)',
+                background: isGuest ? 'linear-gradient(90deg, #F59E0B, #D97706)' : 'linear-gradient(90deg, #8B5CF6, #7C3AED)',
                 border: 'none',
-                boxShadow: '0 8px 20px rgba(139, 92, 246, 0.4)'
+                boxShadow: isGuest ? '0 8px 20px rgba(245, 158, 11, 0.4)' : '0 8px 20px rgba(139, 92, 246, 0.4)'
               }}
               disabled={isCheckingOut}
               onClick={() => handleSelectPlan('pro')}
             >
-              {isCheckingOut ? 'Memproses Midtrans...' : `🚀 ${t('pricing.upgrade_pro')}`}
+              {isGuest
+                ? '🔑 Masuk & Upgrade Pro'
+                : (isCheckingOut ? 'Memproses Midtrans...' : `🚀 ${t('pricing.upgrade_pro')}`)}
             </button>
           </div>
 
@@ -303,7 +321,9 @@ export default function PricingModal({ isOpen, onClose, user, onOpenAuth, onPaym
               disabled={isCheckingOut}
               onClick={() => handleSelectPlan('venue')}
             >
-              {isCheckingOut ? 'Memproses Midtrans...' : `☕ ${t('pricing.contact_sales')}`}
+              {isGuest
+                ? '🔑 Masuk & Berlangganan'
+                : (isCheckingOut ? 'Memproses Midtrans...' : `☕ ${t('pricing.contact_sales')}`)}
             </button>
           </div>
         </div>
