@@ -82,8 +82,9 @@ export default function AppHeader({ user, onOpenAuth, onOpenProfile, onNavigate,
             onClick={() => {
               if (typeof window !== 'undefined') {
                 const host = window.location.hostname
+                const port = window.location.port ? `:${window.location.port}` : ''
                 if (host.includes('localhost') || host.includes('127.0.0.1')) {
-                  window.location.href = window.location.origin + '?subdomain=admin'
+                  window.location.href = `${window.location.protocol}//admin.localhost${port}`
                 } else {
                   window.location.href = 'https://admin.kancasela.my.id'
                 }

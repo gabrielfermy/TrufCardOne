@@ -34,6 +34,7 @@ export default defineConfig({
     host: true, // Listen on all network addresses (0.0.0.0)
     port: 5173,
     strictPort: false,
+    allowedHosts: true, // Allow subdomains like admin.localhost
     watch: {
       usePolling: true, // Essential for real-time change detection on Windows drives
       interval: 100, // Poll every 100ms for instant hot reload
