@@ -74,13 +74,19 @@ export default async function handler(req, res) {
         console.log(`[Midtrans Webhook] Updating Pro for User: ${targetUserId || targetEmail}, tier: ${targetTier}`)
 
         let updated = false
+        let err1 = null
+        let d1 = null
+        let err2 = null
+        let d2 = null
 
         if (targetUserId) {
-          const { error: err1, data: d1 } = await supabase
+          const res1 = await supabase
             .from('profiles')
             .update(updates)
             .eq('id', targetUserId)
             .select()
+          err1 = res1.error
+          d1 = res1.data
           if (!err1 && d1?.length > 0) {
             updated = true
             console.log(`[Midtrans Webhook] Successfully activated Pro by UUID: ${targetUserId}`)
@@ -90,11 +96,13 @@ export default async function handler(req, res) {
         }
 
         if (!updated && targetEmail) {
-          const { error: err2, data: d2 } = await supabase
+          const res2 = await supabase
             .from('profiles')
             .update(updates)
             .eq('email', targetEmail)
             .select()
+          err2 = res2.error
+          d2 = res2.data
           if (!err2 && d2?.length > 0) {
             updated = true
             console.log(`[Midtrans Webhook] Successfully activated Pro by email: ${targetEmail}`)
