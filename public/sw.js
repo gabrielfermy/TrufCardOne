@@ -42,6 +42,12 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
+  // Always fetch version.json from network to ensure instant deployment detection
+  if (request.url.includes('/version.json')) {
+    e.respondWith(fetch(request));
+    return;
+  }
+
   // 1. Navigation / HTML Requests: Network-First (always fresh, offline fallback)
   if (request.mode === 'navigate' || request.destination === 'document' || request.headers.get('accept')?.includes('text/html')) {
     e.respondWith(

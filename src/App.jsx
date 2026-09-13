@@ -29,6 +29,7 @@ import AdminDashboard from './components/admin/AdminDashboard'
 import PricingModal from './components/pricing/PricingModal'
 import SimulatedAdModal from './components/common/SimulatedAdModal'
 import MidtransSandboxModal from './components/common/MidtransSandboxModal'
+import LiveUpdateNotification from './components/common/LiveUpdateNotification'
 import DevToolsDock from './components/common/DevToolsDock'
 import { adService } from './services/adService'
 
@@ -896,6 +897,9 @@ function MainApp() {
 
       {/* Midtrans Snap Sandbox Modal (Dev / Web) */}
       <MidtransSandboxModal />
+
+      {/* Production & Staging Live Auto-Update / HMR Sync Notification */}
+      <LiveUpdateNotification />
 
       {/* Local Developer Test Dock (Only on Localhost / Dev) */}
       {(import.meta.env.DEV || (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))) && (
