@@ -9,7 +9,7 @@ import { hapticsService } from './hapticsService'
 class MidtransService {
   constructor() {
     this.isLoaded = false
-    this.clientKey = import.meta.env.VITE_MIDTRANS_CLIENT_KEY || 'SB-Mid-client-test-sandbox'
+    this.clientKey = import.meta.env.VITE_MIDTRANS_CLIENT_KEY || 'Mid-client-ArvCtwS_SJtbTGDt'
     this.isProduction = import.meta.env.VITE_MIDTRANS_IS_PRODUCTION === 'true'
     this.snapScriptUrl = this.isProduction
       ? 'https://app.midtrans.com/snap/snap.js'
