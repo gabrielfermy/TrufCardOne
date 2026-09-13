@@ -2,9 +2,17 @@ import React from 'react'
 import { useTranslation } from '../../i18n/I18nContext'
 import { authService } from '../../services/authService'
 
-export default function AppHeader({ user, onOpenAuth, onNavigate, currentView, onOpenPricing }) {
+export default function AppHeader({ user, onOpenAuth, onOpenProfile, onNavigate, currentView, onOpenPricing }) {
   const { locale, toggleLocale, t } = useTranslation()
   const isPro = authService.isUserPro(user)
+
+  const handleProfileClick = () => {
+    if (user && onOpenProfile) {
+      onOpenProfile()
+    } else if (onOpenAuth) {
+      onOpenAuth()
+    }
+  }
 
   return (
     <header className="app-header">
@@ -17,11 +25,11 @@ export default function AppHeader({ user, onOpenAuth, onNavigate, currentView, o
         {/* Pricing / Pro Badge Button */}
         {isPro ? (
           <div
-            onClick={onOpenPricing}
+            onClick={handleProfileClick}
             style={{
-              background: 'linear-gradient(90deg, rgba(245, 158, 11, 0.25), rgba(217, 119, 6, 0.25))',
-              border: '1px solid rgba(245, 158, 11, 0.6)',
-              color: '#FCD34D',
+              background: 'linear-gradient(90deg, rgba(16, 185, 129, 0.25), rgba(5, 150, 105, 0.25))',
+              border: '1px solid rgba(16, 185, 129, 0.6)',
+              color: '#34D399',
               fontWeight: 800,
               fontSize: '0.76rem',
               padding: '4px 10px',
@@ -30,8 +38,9 @@ export default function AppHeader({ user, onOpenAuth, onNavigate, currentView, o
               alignItems: 'center',
               gap: '5px',
               cursor: 'pointer',
-              boxShadow: '0 0 12px rgba(245, 158, 11, 0.2)'
+              boxShadow: '0 0 12px rgba(16, 185, 129, 0.2)'
             }}
+            title="Kanca Pro Aktif - Klik untuk lihat status & transaksi"
           >
             <span>👑</span>
             <span>PRO</span>
@@ -79,7 +88,7 @@ export default function AppHeader({ user, onOpenAuth, onNavigate, currentView, o
 
         {/* User Profile or Guest Login Button */}
         {user ? (
-          <div className="user-badge" onClick={onOpenAuth} style={{ cursor: 'pointer' }}>
+          <div className="user-badge" onClick={handleProfileClick} style={{ cursor: 'pointer' }}>
             <div className="avatar-circle">
               {user.profile?.display_name?.charAt(0)?.toUpperCase() || 'U'}
             </div>

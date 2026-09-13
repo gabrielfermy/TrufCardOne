@@ -27,6 +27,7 @@ import GenericScoreboard from './tools/scoreboard/GenericScoreboard'
 import UtilitiesView from './tools/utilities/UtilitiesView'
 import AdminDashboard from './components/admin/AdminDashboard'
 import PricingModal from './components/pricing/PricingModal'
+import ProfileModal from './components/profile/ProfileModal'
 import SimulatedAdModal from './components/common/SimulatedAdModal'
 import LiveUpdateNotification from './components/common/LiveUpdateNotification'
 import DevToolsDock from './components/common/DevToolsDock'
@@ -84,6 +85,7 @@ function MainApp() {
   }, [isPro])
 
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
   const [sessionExpiredNotice, setSessionExpiredNotice] = useState(false)
   const [isShareModalOpen, setIsShareModalOpen] = useState(false)
   const [isCheckInModalOpen, setIsCheckInModalOpen] = useState(false)
@@ -660,6 +662,7 @@ function MainApp() {
         currentView={currentView}
         onNavigate={handleNavigate}
         onOpenAuth={() => setIsAuthModalOpen(true)}
+        onOpenProfile={() => setIsProfileModalOpen(true)}
         onOpenPricing={() => setIsPricingModalOpen(true)}
       />
 
@@ -827,7 +830,7 @@ function MainApp() {
         isAdmin={user?.profile?.role === 'admin'}
       />
 
-      {/* Auth Modal */}
+      {/* Auth Modal (Login / Register) */}
       <AuthModal
         isOpen={isAuthModalOpen}
         onClose={() => {
@@ -842,6 +845,22 @@ function MainApp() {
             setUser(currUser)
             loadUserSessions(currUser?.id)
           })
+        }}
+      />
+
+      {/* User Profile & Billing / Payment History Modal */}
+      <ProfileModal
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
+        user={user}
+        onUserUpdated={(updatedUser) => {
+          setUser(updatedUser)
+        }}
+        onOpenPricing={() => setIsPricingModalOpen(true)}
+        onSignOut={async () => {
+          await authService.signOut()
+          setUser(null)
+          loadUserSessions('guest-user')
         }}
       />
 

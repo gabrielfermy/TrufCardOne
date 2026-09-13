@@ -92,7 +92,41 @@ export default async function handler(req, res) {
       })
     }
 
-    return res.status(200).json(midtransData)
+    // 3. Record Initial Pending Transaction in Supabase
+    if (userId && !userId.startsWith('guest')) {
+      const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || ''
+      const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || ''
+      if (supabaseUrl && supabaseKey) {
+        try {
+          const { createClient } = await import('@supabase/supabase-js')
+          const supabase = createClient(supabaseUrl, supabaseKey)
+          const expiryTime = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 hours default snap expiry
+
+          await supabase
+            .from('payment_transactions')
+            .upsert({
+              user_id: userId,
+              order_id: targetOrderId,
+              snap_token: midtransData.token,
+              plan_tier: planTier || 'pro',
+              billing_cycle: billingCycle || 'yearly',
+              gross_amount: targetAmount,
+              status: 'pending',
+              transaction_time: new Date().toISOString(),
+              expiry_time: expiryTime,
+              updated_at: new Date().toISOString()
+            }, { onConflict: 'order_id' })
+        } catch (dbErr) {
+          console.warn('[Vercel API create-midtrans-payment] Failed to save pending transaction record:', dbErr.message)
+        }
+      }
+    }
+
+    return res.status(200).json({
+      ...midtransData,
+      order_id: targetOrderId,
+      gross_amount: targetAmount
+    })
   } catch (err) {
     console.error('[Vercel API create-midtrans-payment] Catch error:', err)
     return res.status(500).json({ error: err.message })

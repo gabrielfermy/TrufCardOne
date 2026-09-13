@@ -48,22 +48,39 @@ export default async function handler(req, res) {
     const isSuccess = (transaction_status === 'capture' && fraud_status === 'accept') || transaction_status === 'settlement'
 
     const targetEmail = notification.customer_details?.email || ''
-    const targetUserId = userId && !userId.startsWith('guest') ? userId : null
+    let targetUserId = userId && !userId.startsWith('guest') ? userId : null
 
-    if (isSuccess && (targetUserId || targetEmail)) {
-      const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || ''
-      const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || ''
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || ''
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || ''
 
-      if (supabaseUrl && supabaseKey) {
-        const supabase = createClient(supabaseUrl, supabaseKey)
+    if (supabaseUrl && supabaseKey) {
+      const supabase = createClient(supabaseUrl, supabaseKey)
 
-        const isYearly = billingCycle === 'yearly' || Number(gross_amount) >= 100000
-        const durationMonths = isYearly ? 12 : 1
-        const expiresAt = new Date()
-        expiresAt.setMonth(expiresAt.getMonth() + durationMonths)
+      // If no targetUserId, attempt lookup by targetEmail
+      if (!targetUserId && targetEmail) {
+        try {
+          const { data: foundProfile } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('email', targetEmail)
+            .maybeSingle()
+          if (foundProfile?.id) {
+            targetUserId = foundProfile.id
+          }
+        } catch (e) {
+          console.warn('[Midtrans Webhook] User lookup error:', e)
+        }
+      }
 
-        const targetTier = planTier || (order_id?.includes('VENUE') ? 'venue' : 'pro')
+      // 1. If transaction is successful, activate Pro / Venue in profiles table
+      const isYearly = billingCycle === 'yearly' || Number(gross_amount) >= 100000
+      const durationMonths = isYearly ? 12 : 1
+      const expiresAt = new Date()
+      expiresAt.setMonth(expiresAt.getMonth() + durationMonths)
+      const targetTier = planTier || (order_id?.includes('VENUE') ? 'venue' : 'pro')
 
+      let profileUpdated = false
+      if (isSuccess && (targetUserId || targetEmail)) {
         const updates = {
           is_pro: true,
           subscription_tier: targetTier,
@@ -71,64 +88,78 @@ export default async function handler(req, res) {
           updated_at: new Date().toISOString(),
         }
 
-        console.log(`[Midtrans Webhook] Updating Pro for User: ${targetUserId || targetEmail}, tier: ${targetTier}`)
-
-        let updated = false
-        let err1 = null
-        let d1 = null
-        let err2 = null
-        let d2 = null
-
         if (targetUserId) {
-          const res1 = await supabase
+          const { data: d1, error: e1 } = await supabase
             .from('profiles')
             .update(updates)
             .eq('id', targetUserId)
             .select()
-          err1 = res1.error
-          d1 = res1.data
-          if (!err1 && d1?.length > 0) {
-            updated = true
-            console.log(`[Midtrans Webhook] Successfully activated Pro by UUID: ${targetUserId}`)
-          } else if (err1) {
-            console.warn('[Midtrans Webhook] UUID update warning (likely RLS if no service_role key):', err1.message)
-          }
+          if (!e1 && d1?.length > 0) profileUpdated = true
         }
 
-        if (!updated && targetEmail) {
-          const res2 = await supabase
+        if (!profileUpdated && targetEmail) {
+          const { data: d2, error: e2 } = await supabase
             .from('profiles')
             .update(updates)
             .eq('email', targetEmail)
             .select()
-          err2 = res2.error
-          d2 = res2.data
-          if (!err2 && d2?.length > 0) {
-            updated = true
-            console.log(`[Midtrans Webhook] Successfully activated Pro by email: ${targetEmail}`)
-          } else if (err2) {
-            console.warn('[Midtrans Webhook] Email update warning:', err2.message)
-          }
+          if (!e2 && d2?.length > 0) profileUpdated = true
         }
-        // Always respond 200 OK so Midtrans marks the notification as successfully delivered
-        return res.status(200).json({ 
-          status: 'OK', 
-          message: 'Notification processed', 
-          updated, 
-          hasServiceRole: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
-          supabaseUrl: supabaseUrl ? supabaseUrl.replace(/https?:\/\//, '').split('.')[0] : 'MISSING',
-          err1: err1?.message || null,
-          err2: err2?.message || null,
-          d1: d1 || null,
-          d2: d2 || null
-        })
-      } else {
-        return res.status(200).json({ status: 'OK', error: 'Missing supabase credentials in env' })
       }
-    }
 
-    // Always respond 200 OK so Midtrans marks the notification as successfully delivered
-    return res.status(200).json({ status: 'OK', message: 'Notification processed (no target)' })
+      // 2. Extract Bank & VA Number information
+      let bank = null
+      let vaNumber = null
+      if (notification.va_numbers && notification.va_numbers.length > 0) {
+        bank = notification.va_numbers[0].bank || null
+        vaNumber = notification.va_numbers[0].va_number || null
+      } else if (notification.permata_va_number) {
+        bank = 'permata'
+        vaNumber = notification.permata_va_number
+      } else if (notification.biller_code && notification.bill_key) {
+        bank = 'mandiri'
+        vaNumber = `${notification.biller_code} / ${notification.bill_key}`
+      }
+
+      // 3. Upsert record into public.payment_transactions
+      if (targetUserId && order_id) {
+        try {
+          const txStatus = transaction_status || 'pending'
+          await supabase
+            .from('payment_transactions')
+            .upsert({
+              user_id: targetUserId,
+              order_id: order_id,
+              transaction_id: notification.transaction_id || null,
+              plan_tier: targetTier,
+              billing_cycle: isYearly ? 'yearly' : 'monthly',
+              gross_amount: Number(gross_amount) || (targetTier === 'venue' ? (isYearly ? 1199000 : 149000) : (isYearly ? 129000 : 19000)),
+              status: txStatus,
+              payment_type: notification.payment_type || null,
+              bank: bank,
+              va_number: vaNumber,
+              pdf_url: notification.pdf_url || null,
+              transaction_time: notification.transaction_time || new Date().toISOString(),
+              settlement_time: notification.settlement_time || (isSuccess ? new Date().toISOString() : null),
+              expiry_time: notification.expiry_time || null,
+              raw_response: notification,
+              updated_at: new Date().toISOString()
+            }, { onConflict: 'order_id' })
+          console.log(`[Midtrans Webhook] payment_transactions synced for Order: ${order_id}, status: ${txStatus}`)
+        } catch (txErr) {
+          console.warn('[Midtrans Webhook] Failed to sync payment_transactions:', txErr.message)
+        }
+      }
+
+      return res.status(200).json({ 
+        status: 'OK', 
+        message: 'Notification processed', 
+        profileUpdated,
+        order_id
+      })
+    } else {
+      return res.status(200).json({ status: 'OK', error: 'Missing supabase credentials in env' })
+    }
   } catch (err) {
     console.error('[Midtrans Webhook] Handler error:', err)
     return res.status(200).json({ status: 'ERROR_RECORDED', error: err.message })
