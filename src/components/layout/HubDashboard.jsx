@@ -577,6 +577,44 @@ export default function HubDashboard({
               )}
         </div>
       )}
+
+      {/* Official Footer & Compliance */}
+      <footer
+        style={{
+          marginTop: '40px',
+          padding: '24px 16px',
+          borderTop: '1px solid var(--border-glass, rgba(255, 255, 255, 0.08))',
+          textAlign: 'center',
+          fontSize: '0.78rem',
+          color: 'var(--text-dim, #71717A)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '10px',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-main, #FFF)', fontWeight: 700 }}>
+          <span>🎮 KancaSela (Konco Selo)</span>
+          <span>•</span>
+          <span style={{ color: '#A78BFA' }}>Tabletop Companion</span>
+        </div>
+
+        <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', justifyContent: 'center' }}>
+          <span style={{ cursor: 'pointer', color: '#818CF8' }} onClick={onOpenPricing}>
+            💎 Paket Kanca Pro
+          </span>
+          <span>•</span>
+          <span>🔒 Pembayaran Didukung Midtrans</span>
+          <span>•</span>
+          <a href="mailto:support@kancasela.my.id" style={{ color: 'inherit', textDecoration: 'none' }}>
+            ✉️ Bantuan: support@kancasela.my.id
+          </a>
+        </div>
+
+        <div style={{ fontSize: '0.72rem', color: 'var(--text-dim, #52525B)' }}>
+          © 2026 KancaSela. Hak Cipta Dilindungi Undang-Undang.
+        </div>
+      </footer>
     </div>
   )
 }

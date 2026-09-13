@@ -291,6 +291,31 @@ export default function PricingModal({ isOpen, onClose, user, onOpenAuth, onPaym
             </button>
           </div>
         </div>
+
+        {/* Midtrans Trust & Compliance Security Footer */}
+        <div
+          style={{
+            borderTop: '1px solid var(--border-glass, rgba(255, 255, 255, 0.1))',
+            paddingTop: '16px',
+            marginTop: '8px',
+            fontSize: '0.75rem',
+            color: 'var(--text-dim, #94A3B8)',
+            textAlign: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <span>🔒 <strong>Pembayaran Resmi & Aman Didukung oleh Midtrans</strong></span>
+            <span>•</span>
+            <span>Metode: QRIS, GoPay, ShopeePay, VA BCA / Mandiri / BNI / BRI, Kartu Kredit</span>
+          </div>
+          <div style={{ lineHeight: 1.4, maxWidth: '640px', margin: '0 auto', fontSize: '0.72rem' }}>
+            <strong>Pengiriman Layanan:</strong> Akses fitur Kanca Pro aktif secara otomatis dan instan segera setelah pembayaran terkonfirmasi. <br />
+            <strong>Kebijakan Pengembalian Dana:</strong> Jika terjadi kendala transaksi atau pemotongan ganda, hubungi <code>support@kancasela.my.id</code> untuk proses pengembalian dana 100% dalam 3x24 jam kerja.
+          </div>
+        </div>
       </div>
     </div>
   )
