@@ -6,8 +6,13 @@ import { createClient } from '@supabase/supabase-js'
  * Handles Midtrans Webhook Payment Notifications & Activates Pro / Venue Tier
  */
 export default async function handler(req, res) {
+  // Respond 200 OK to Midtrans ping checks and OPTIONS
+  if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') {
+    return res.status(200).json({ status: 'OK', service: 'KancaSela Midtrans Webhook Receiver' })
+  }
+
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' })
+    return res.status(200).json({ status: 'OK' })
   }
 
   try {
