@@ -1,5 +1,6 @@
 import { supabase } from './supabaseClient'
 import { networkService } from './networkService'
+import { sanitizePlayerNames, sanitizeText, sanitizeRoomCode } from '../utils/securityUtils'
 
 const GUEST_STORAGE_KEY = 'gamenight_guest_sessions'
 
@@ -15,7 +16,7 @@ function generateRoomCode(gameType = 'TRUF') {
 
 function normalizeRoomCode(input) {
   if (!input) return ''
-  let cleaned = input.trim().toUpperCase().replace(/\s+/g, '')
+  let cleaned = sanitizeRoomCode(input)
   if (/^[A-Z]{3}[A-Z0-9]{4}$/.test(cleaned)) {
     cleaned = `${cleaned.substring(0, 3)}-${cleaned.substring(3)}`
   }
@@ -28,8 +29,10 @@ export const gameService = {
     const roomCode = generateRoomCode(gameType)
     const isRealUser = userId && userId !== 'guest-user'
     const hostClientId = creatorClientId || (isRealUser ? userId : 'host')
+    const safePlayerNames = sanitizePlayerNames(playerNames)
+    const safeTitle = sanitizeText(title || `${gameType.toUpperCase()} Match - ${new Date().toLocaleDateString()}`)
 
-    const initialUserIds = Array(playerNames.length).fill(null)
+    const initialUserIds = Array(safePlayerNames.length).fill(null)
     if (initialUserIds.length > 0) {
       initialUserIds[0] = hostClientId
     }
@@ -40,8 +43,8 @@ export const gameService = {
       user_id: isRealUser ? userId : null,
       game_type: gameType,
       room_code: roomCode,
-      title: title || `${gameType.toUpperCase()} Match - ${new Date().toLocaleDateString()}`,
-      player_names: playerNames,
+      title: safeTitle,
+      player_names: safePlayerNames,
       player_user_ids: initialUserIds,
       first_dealer: resolvedFirstDealer,
       settings: {
