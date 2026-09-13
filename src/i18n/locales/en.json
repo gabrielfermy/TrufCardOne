@@ -339,6 +339,13 @@
     "venue_f3": "Custom Cafe Branding on player story cards",
     "venue_f4": "Multi-table & community league management",
     "venue_f5": "Priority VIP Support & Event Consultation",
+    "active_plan_pro": "Active Plan (Kanca Pro)",
+    "active_plan_venue": "Active Plan (Kanca Venue)",
+    "base_plan": "Base Free Plan",
+    "upgrade_to_venue": "Upgrade to Venue (B2B)",
+    "included_in_venue": "Included in Venue Tier",
+    "active_badge": "YOUR ACTIVE PLAN",
+    "active_until": "Active until",
     "plan_coming_soon": "Thank you for your interest! The \"{{name}}\" plan will be available in the next release update."
   },
   "room_mode": {

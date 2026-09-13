@@ -339,6 +339,13 @@
     "venue_f3": "Branding Kafe Sendiri di story card pemain",
     "venue_f4": "Kelola multi-meja & liga komunitas",
     "venue_f5": "Dukungan Prioritas & Konsultasi Event",
+    "active_plan_pro": "Paket Aktif (Kanca Pro)",
+    "active_plan_venue": "Paket Aktif (Kanca Warkop)",
+    "base_plan": "Paket Bebas (Dasar)",
+    "upgrade_to_venue": "Upgrade ke Warkop (B2B)",
+    "included_in_venue": "Termasuk di Paket Warkop",
+    "active_badge": "PAKET AKTIF ANDA",
+    "active_until": "Aktif sampai",
     "plan_coming_soon": "Terima kasih atas antusiasme Anda! Paket \"{{name}}\" akan segera hadir di pembaruan rilis berikutnya."
   },
   "room_mode": {

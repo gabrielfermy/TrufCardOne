@@ -3,6 +3,7 @@ import { useTranslation } from '../../i18n/I18nContext'
 import { soundService } from '../../services/soundService'
 import { hapticsService } from '../../services/hapticsService'
 import { midtransService } from '../../services/midtransService'
+import { authService } from '../../services/authService'
 
 export default function PricingModal({ isOpen, onClose, user, onOpenAuth, onPaymentSuccess }) {
   const { t } = useTranslation()
@@ -25,6 +26,11 @@ export default function PricingModal({ isOpen, onClose, user, onOpenAuth, onPaym
   if (!isOpen) return null
 
   const isGuest = !user || user.is_guest || !user.email || user.id === 'guest' || (typeof user.id === 'string' && user.id.startsWith('guest'))
+  const isPro = authService.isUserPro(user)
+  const isVenue = user?.profile?.subscription_tier === 'venue'
+  const isFree = !isGuest && !isPro && !isVenue
+  const proExpiresAt = user?.profile?.pro_expires_at
+  const formattedExpiry = proExpiresAt ? new Date(proExpiresAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : null
 
   const handleSelectPlan = async (planTier) => {
     hapticsService.medium()
@@ -235,43 +241,50 @@ export default function PricingModal({ isOpen, onClose, user, onOpenAuth, onPaym
             <button 
               className="btn btn-secondary btn-block"
               disabled
-              style={{ opacity: 0.8 }}
+              style={{ opacity: isFree ? 1 : 0.6, borderColor: isFree ? 'var(--accent-primary, #6366F1)' : undefined }}
             >
-              {t('pricing.current_plan')}
+              {isFree ? `✓ ${t('pricing.current_plan')}` : (isGuest ? t('pricing.free_name') : t('pricing.base_plan'))}
             </button>
           </div>
 
           {/* 2. KANCA PRO (HIGHLIGHTED) */}
           <div style={{
-            background: 'linear-gradient(145deg, rgba(139, 92, 246, 0.15), rgba(15, 23, 42, 0.8))',
-            border: '2px solid #8B5CF6',
+            background: (isPro && !isVenue)
+              ? 'linear-gradient(145deg, rgba(16, 185, 129, 0.15), rgba(15, 23, 42, 0.85))'
+              : 'linear-gradient(145deg, rgba(139, 92, 246, 0.15), rgba(15, 23, 42, 0.8))',
+            border: (isPro && !isVenue) ? '2px solid #10B981' : '2px solid #8B5CF6',
             borderRadius: '20px',
             padding: '24px',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'space-between',
             position: 'relative',
-            boxShadow: '0 12px 35px -5px rgba(139, 92, 246, 0.3)'
+            boxShadow: (isPro && !isVenue) 
+              ? '0 12px 35px -5px rgba(16, 185, 129, 0.3)' 
+              : '0 12px 35px -5px rgba(139, 92, 246, 0.3)'
           }}>
             <div style={{
               position: 'absolute',
               top: '-12px',
               left: '50%',
               transform: 'translateX(-50%)',
-              background: 'linear-gradient(90deg, #8B5CF6, #EC4899)',
+              background: (isPro && !isVenue)
+                ? 'linear-gradient(90deg, #10B981, #059669)'
+                : 'linear-gradient(90deg, #8B5CF6, #EC4899)',
               color: '#FFF',
               fontSize: '0.72rem',
               fontWeight: 900,
               letterSpacing: '1px',
               padding: '3px 12px',
               borderRadius: '999px',
-              textTransform: 'uppercase'
+              textTransform: 'uppercase',
+              boxShadow: (isPro && !isVenue) ? '0 4px 12px rgba(16, 185, 129, 0.4)' : undefined
             }}>
-              ⭐ PALING POPULER
+              {(isPro && !isVenue) ? `👑 ${t('pricing.active_badge')}` : `⭐ ${t('pricing.popular_badge')}`}
             </div>
 
             <div>
-              <div style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: '6px', color: '#C084FC' }}>
+              <div style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: '6px', color: (isPro && !isVenue) ? '#34D399' : '#C084FC' }}>
                 👑 {t('pricing.pro_name')}
               </div>
               <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '16px' }}>
@@ -283,9 +296,29 @@ export default function PricingModal({ isOpen, onClose, user, onOpenAuth, onPaym
                   {billingCycle === 'yearly' ? ` ${t('pricing.per_year')}` : ` ${t('pricing.per_month')}`}
                 </span>
               </div>
-              <div style={{ fontSize: '0.75rem', color: '#10B981', marginBottom: '18px', fontWeight: 700 }}>
+              <div style={{ fontSize: '0.75rem', color: '#10B981', marginBottom: '14px', fontWeight: 700 }}>
                 {billingCycle === 'yearly' ? t('pricing.pro_sub_yearly') : t('pricing.pro_sub_monthly')}
               </div>
+
+              {(isPro && !isVenue && formattedExpiry) && (
+                <div style={{
+                  background: 'rgba(16, 185, 129, 0.15)',
+                  border: '1px solid rgba(16, 185, 129, 0.35)',
+                  borderRadius: '10px',
+                  padding: '6px 12px',
+                  fontSize: '0.8rem',
+                  color: '#34D399',
+                  fontWeight: 700,
+                  marginBottom: '14px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  justifyContent: 'center'
+                }}>
+                  <span>👑</span>
+                  <span>{t('pricing.active_until')}: <strong>{formattedExpiry}</strong></span>
+                </div>
+              )}
 
               <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 20px 0', fontSize: '0.88rem', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <li style={{ color: '#FCD34D' }}>🚫 <strong>{t('pricing.pro_f0')}</strong></li>
@@ -298,32 +331,79 @@ export default function PricingModal({ isOpen, onClose, user, onOpenAuth, onPaym
               </ul>
             </div>
 
-            <button 
-              className="btn btn-primary btn-block"
-              style={{
-                background: isGuest ? 'linear-gradient(90deg, #F59E0B, #D97706)' : 'linear-gradient(90deg, #8B5CF6, #7C3AED)',
-                border: 'none',
-                boxShadow: isGuest ? '0 8px 20px rgba(245, 158, 11, 0.4)' : '0 8px 20px rgba(139, 92, 246, 0.4)'
-              }}
-              disabled={isCheckingOut}
-              onClick={() => handleSelectPlan('pro')}
-            >
-              {isGuest
-                ? '🔑 Masuk & Upgrade Pro'
-                : (isCheckingOut ? 'Memproses Midtrans...' : `🚀 ${t('pricing.upgrade_pro')}`)}
-            </button>
+            {isPro && !isVenue ? (
+              <button 
+                className="btn btn-block"
+                style={{
+                  background: 'rgba(16, 185, 129, 0.2)',
+                  border: '2px solid #10B981',
+                  color: '#34D399',
+                  fontWeight: 800,
+                  cursor: 'default',
+                  padding: '10px'
+                }}
+                disabled
+              >
+                👑 {t('pricing.active_plan_pro')}
+              </button>
+            ) : isVenue ? (
+              <button 
+                className="btn btn-secondary btn-block"
+                disabled
+                style={{ opacity: 0.7 }}
+              >
+                ✅ {t('pricing.included_in_venue')}
+              </button>
+            ) : (
+              <button 
+                className="btn btn-primary btn-block"
+                style={{
+                  background: isGuest ? 'linear-gradient(90deg, #F59E0B, #D97706)' : 'linear-gradient(90deg, #8B5CF6, #7C3AED)',
+                  border: 'none',
+                  boxShadow: isGuest ? '0 8px 20px rgba(245, 158, 11, 0.4)' : '0 8px 20px rgba(139, 92, 246, 0.4)'
+                }}
+                disabled={isCheckingOut}
+                onClick={() => handleSelectPlan('pro')}
+              >
+                {isGuest
+                  ? '🔑 Masuk & Upgrade Pro'
+                  : (isCheckingOut ? 'Memproses Midtrans...' : `🚀 ${t('pricing.upgrade_pro')}`)}
+              </button>
+            )}
           </div>
 
           {/* 3. KANCA WARKOP (B2B VENUE) */}
           <div style={{
-            background: 'var(--bg-glass-strong)',
-            border: '1px solid var(--border-glass)',
+            background: isVenue 
+              ? 'linear-gradient(145deg, rgba(245, 158, 11, 0.15), rgba(15, 23, 42, 0.85))'
+              : 'var(--bg-glass-strong)',
+            border: isVenue ? '2px solid #F59E0B' : '1px solid var(--border-glass)',
             borderRadius: '20px',
             padding: '24px',
             display: 'flex',
             flexDirection: 'column',
-            justifyContent: 'space-between'
+            justifyContent: 'space-between',
+            position: 'relative'
           }}>
+            {isVenue && (
+              <div style={{
+                position: 'absolute',
+                top: '-12px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                background: 'linear-gradient(90deg, #F59E0B, #D97706)',
+                color: '#000',
+                fontSize: '0.72rem',
+                fontWeight: 900,
+                letterSpacing: '1px',
+                padding: '3px 12px',
+                borderRadius: '999px',
+                textTransform: 'uppercase'
+              }}>
+                ☕ {t('pricing.active_badge')}
+              </div>
+            )}
+
             <div>
               <div style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: '6px', color: '#F59E0B' }}>
                 ☕ {t('pricing.venue_name')}
@@ -350,16 +430,35 @@ export default function PricingModal({ isOpen, onClose, user, onOpenAuth, onPaym
               </ul>
             </div>
 
-            <button 
-              className="btn btn-secondary btn-block"
-              style={{ borderColor: '#F59E0B', color: '#FBBF24' }}
-              disabled={isCheckingOut}
-              onClick={() => handleSelectPlan('venue')}
-            >
-              {isGuest
-                ? '🔑 Masuk & Berlangganan'
-                : (isCheckingOut ? 'Memproses Midtrans...' : `☕ ${t('pricing.contact_sales')}`)}
-            </button>
+            {isVenue ? (
+              <button 
+                className="btn btn-block"
+                style={{
+                  background: 'rgba(245, 158, 11, 0.2)',
+                  border: '2px solid #F59E0B',
+                  color: '#FBBF24',
+                  fontWeight: 800,
+                  cursor: 'default',
+                  padding: '10px'
+                }}
+                disabled
+              >
+                ☕ {t('pricing.active_plan_venue')}
+              </button>
+            ) : (
+              <button 
+                className="btn btn-secondary btn-block"
+                style={{ borderColor: '#F59E0B', color: '#FBBF24' }}
+                disabled={isCheckingOut}
+                onClick={() => handleSelectPlan('venue')}
+              >
+                {isGuest
+                  ? '🔑 Masuk & Berlangganan'
+                  : isPro
+                    ? `☕ ${t('pricing.upgrade_to_venue')}`
+                    : (isCheckingOut ? 'Memproses Midtrans...' : `☕ ${t('pricing.contact_sales')}`)}
+              </button>
+            )}
           </div>
         </div>
 
