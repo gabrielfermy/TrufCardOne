@@ -83,40 +83,57 @@ class MidtransService {
   }
 
   /**
-   * Request Snap Token from Supabase Edge Function or Local Sandbox Generator
+   * Request Snap Token from Vercel API or Supabase Edge Function
    */
   async createTransactionToken({ planTier, billingCycle, user }) {
     const plan = this.getPlanDetails(planTier, billingCycle)
     const orderId = `KANCA-${plan.tier.toUpperCase()}-${Date.now().toString(36).toUpperCase()}`
 
+    const requestPayload = {
+      orderId,
+      planTier: plan.tier,
+      billingCycle: plan.cycle,
+      grossAmount: plan.price,
+      userId: user?.id,
+      userEmail: user?.email,
+      userName: user?.profile?.display_name || user?.email?.split('@')[0] || 'Player',
+    }
+
+    // 1. Try Vercel Serverless API (/api/create-midtrans-payment)
     try {
-      // 1. Try calling Supabase Serverless Edge Function
-      const { data, error } = await supabase.functions.invoke('create-midtrans-payment', {
-        body: {
-          orderId,
-          planTier: plan.tier,
-          billingCycle: plan.cycle,
-          grossAmount: plan.price,
-          userId: user?.id,
-          userEmail: user?.email,
-          userName: user?.profile?.display_name || user?.email?.split('@')[0] || 'Player',
+      const res = await fetch('/api/create-midtrans-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestPayload),
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        if (data?.token) {
+          return { token: data.token, orderId, plan }
         }
+      } else {
+        const errData = await res.json().catch(() => ({}))
+        console.warn('[MidtransService] /api/create-midtrans-payment returned non-200:', errData)
+      }
+    } catch (apiErr) {
+      console.warn('[MidtransService] /api/create-midtrans-payment fetch failed, trying Edge Function fallback:', apiErr)
+    }
+
+    // 2. Fallback: Try Supabase Edge Function
+    try {
+      const { data, error } = await supabase.functions.invoke('create-midtrans-payment', {
+        body: requestPayload,
       })
 
       if (!error && data?.token) {
-        return { token: data.token, orderId }
+        return { token: data.token, orderId, plan }
       }
     } catch (edgeFnErr) {
-      console.debug('[MidtransService] Edge function invoke fallback to client-sandbox mode:', edgeFnErr)
+      console.error('[MidtransService] Edge function invoke error:', edgeFnErr)
     }
 
-    // 2. Local Sandbox Fallback Token Generator for Development Testing
-    return {
-      token: `SANDBOX-SNAP-TOKEN-${orderId}`,
-      orderId,
-      isLocalSandbox: true,
-      plan,
-    }
+    throw new Error('Gagal mendapatkan token transaksi Midtrans Snap. Pastikan Server Key terkonfigurasi dengan benar.')
   }
 
   /**
@@ -132,15 +149,17 @@ class MidtransService {
     const plan = this.getPlanDetails(planTier, billingCycle)
 
     try {
+      // 1. Load Snap JS
       await this.loadSnapScript()
-    } catch (e) {
-      console.warn('[MidtransService] Snap JS failed to load, using sandbox prompt fallback')
-    }
 
-    const transaction = await this.createTransactionToken({ planTier, billingCycle, user: effectiveUser })
+      // 2. Obtain Snap Token
+      const transaction = await this.createTransactionToken({ planTier, billingCycle, user: effectiveUser })
 
-    // If Snap JS is available in Sandbox/Prod with a valid token
-    if (window.snap && !transaction.isLocalSandbox) {
+      if (!window.snap || !transaction?.token) {
+        throw new Error('Midtrans Snap JS tidak tersedia atau Token kosong.')
+      }
+
+      // 3. Launch Official Midtrans Snap Iframe Popup
       window.snap.pay(transaction.token, {
         onSuccess: async (result) => {
           console.log('[MidtransService] Payment Success:', result)
@@ -164,28 +183,11 @@ class MidtransService {
           if (onClose) onClose()
         }
       })
-      return
+    } catch (err) {
+      console.error('[MidtransService] Checkout error:', err)
+      if (onError) onError(err)
+      alert(`[Midtrans Snap Error] ${err.message || 'Gagal memproses pembayaran.'}`)
     }
-
-    // Local Development & Reviewer Sandbox Simulation Trigger
-    window.dispatchEvent(new CustomEvent('kancasela:show-midtrans-sandbox-dialog', {
-      detail: {
-        plan,
-        transaction,
-        user: effectiveUser,
-        onConfirm: async () => {
-          if (user?.id && !user.id.startsWith('guest')) {
-            await this.grantProAccess(user.id, plan.tier, plan.durationMonths)
-          }
-          try { soundService.playVictory() } catch (e) {}
-          try { hapticsService.success() } catch (e) {}
-          if (onSuccess) onSuccess({ status: 'settlement', order_id: transaction.orderId })
-        },
-        onCancel: () => {
-          if (onClose) onClose()
-        }
-      }
-    }))
   }
 
   /**

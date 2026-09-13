@@ -28,7 +28,6 @@ import UtilitiesView from './tools/utilities/UtilitiesView'
 import AdminDashboard from './components/admin/AdminDashboard'
 import PricingModal from './components/pricing/PricingModal'
 import SimulatedAdModal from './components/common/SimulatedAdModal'
-import MidtransSandboxModal from './components/common/MidtransSandboxModal'
 import LiveUpdateNotification from './components/common/LiveUpdateNotification'
 import DevToolsDock from './components/common/DevToolsDock'
 import { adService } from './services/adService'
@@ -894,9 +893,6 @@ function MainApp() {
 
       {/* Simulated Interstitial & Rewarded Ad Modal (Dev / Web) */}
       <SimulatedAdModal />
-
-      {/* Midtrans Snap Sandbox Modal (Dev / Web) */}
-      <MidtransSandboxModal />
 
       {/* Production & Staging Live Auto-Update / HMR Sync Notification */}
       <LiveUpdateNotification />
