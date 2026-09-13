@@ -47,32 +47,60 @@ export default async function handler(req, res) {
     // 2. Check if transaction was successful
     const isSuccess = (transaction_status === 'capture' && fraud_status === 'accept') || transaction_status === 'settlement'
 
-    if (isSuccess && userId && userId !== 'guest-reviewer-user' && !userId.startsWith('guest')) {
+    const targetEmail = notification.customer_details?.email || ''
+    const targetUserId = userId && !userId.startsWith('guest') ? userId : null
+
+    if (isSuccess && (targetUserId || targetEmail)) {
       const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || ''
       const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || ''
 
       if (supabaseUrl && supabaseKey) {
         const supabase = createClient(supabaseUrl, supabaseKey)
 
-        const isYearly = billingCycle === 'yearly'
+        const isYearly = billingCycle === 'yearly' || Number(gross_amount) >= 100000
         const durationMonths = isYearly ? 12 : 1
         const expiresAt = new Date()
         expiresAt.setMonth(expiresAt.getMonth() + durationMonths)
 
-        const { error: updateErr } = await supabase
-          .from('profiles')
-          .update({
-            is_pro: true,
-            subscription_tier: planTier || 'pro',
-            pro_expires_at: expiresAt.toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', userId)
+        const targetTier = planTier || (order_id?.includes('VENUE') ? 'venue' : 'pro')
 
-        if (updateErr) {
-          console.error('[Midtrans Webhook] Error updating profile in Supabase:', updateErr)
-        } else {
-          console.log(`[Midtrans Webhook] Successfully activated Pro status for user: ${userId}`)
+        const updates = {
+          is_pro: true,
+          subscription_tier: targetTier,
+          pro_expires_at: expiresAt.toISOString(),
+          updated_at: new Date().toISOString(),
+        }
+
+        console.log(`[Midtrans Webhook] Updating Pro for User: ${targetUserId || targetEmail}, tier: ${targetTier}`)
+
+        let updated = false
+
+        if (targetUserId) {
+          const { error: err1, data: d1 } = await supabase
+            .from('profiles')
+            .update(updates)
+            .eq('id', targetUserId)
+            .select()
+          if (!err1 && d1?.length > 0) {
+            updated = true
+            console.log(`[Midtrans Webhook] Successfully activated Pro by UUID: ${targetUserId}`)
+          } else if (err1) {
+            console.warn('[Midtrans Webhook] UUID update warning (likely RLS if no service_role key):', err1.message)
+          }
+        }
+
+        if (!updated && targetEmail) {
+          const { error: err2, data: d2 } = await supabase
+            .from('profiles')
+            .update(updates)
+            .eq('email', targetEmail)
+            .select()
+          if (!err2 && d2?.length > 0) {
+            updated = true
+            console.log(`[Midtrans Webhook] Successfully activated Pro by email: ${targetEmail}`)
+          } else if (err2) {
+            console.warn('[Midtrans Webhook] Email update warning:', err2.message)
+          }
         }
       }
     }
