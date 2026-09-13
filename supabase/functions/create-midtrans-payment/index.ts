@@ -16,7 +16,7 @@ serve(async (req) => {
   try {
     const { orderId, planTier, billingCycle, grossAmount, userId, userEmail, userName } = await req.json()
 
-    const serverKey = Deno.env.get('MIDTRANS_SERVER_KEY') || 'SB-Mid-server-test-sandbox'
+    const serverKey = Deno.env.get('MIDTRANS_SERVER_KEY') || ''
     const isProduction = Deno.env.get('MIDTRANS_IS_PRODUCTION') === 'true'
     const snapUrl = isProduction
       ? 'https://app.midtrans.com/snap/v1/transactions'

@@ -20,7 +20,7 @@ serve(async (req) => {
       custom_field3: billingCycle,
     } = notification
 
-    const serverKey = Deno.env.get('MIDTRANS_SERVER_KEY') || 'SB-Mid-server-test-sandbox'
+    const serverKey = Deno.env.get('MIDTRANS_SERVER_KEY') || ''
     
     // Verify Midtrans SHA512 Signature Key
     const hashData = `${order_id}${status_code}${gross_amount}${serverKey}`
