@@ -38,8 +38,7 @@ export default function PricingModal({ isOpen, onClose, user, onOpenAuth, onPaym
           if (onPaymentSuccess) onPaymentSuccess(result)
         },
         onError: (err) => {
-          console.warn('Payment failed:', err)
-          alert('Pembayaran gagal atau dibatalkan.')
+          console.warn('[PricingModal] Payment error:', err)
         }
       })
     } catch (err) {
