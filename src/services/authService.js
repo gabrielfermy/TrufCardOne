@@ -171,13 +171,19 @@ export const authService = {
       .eq('id', user.id)
       .maybeSingle()
 
+    // Extract Google Avatar URL from multiple possible metadata paths
+    const googleAvatar = user.user_metadata?.avatar_url || 
+                         user.user_metadata?.picture || 
+                         user.identities?.find(i => i.provider === 'google')?.identity_data?.avatar_url || 
+                         user.identities?.find(i => i.provider === 'google')?.identity_data?.picture || null
+
     if (!profile) {
       const displayName = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'Player'
       const newProfile = {
         id: user.id,
         display_name: displayName,
         email: user.email,
-        avatar_url: user.user_metadata?.avatar_url || null,
+        avatar_url: googleAvatar,
         role: 'user',
         is_pro: false,
         subscription_tier: 'free',
@@ -193,6 +199,14 @@ export const authService = {
         console.warn('Profile upsert warning:', err)
         profile = newProfile
       }
+    } else if (googleAvatar && (!profile.avatar_url || profile.avatar_url !== googleAvatar)) {
+      // Auto-sync Google avatar if missing or updated
+      profile.avatar_url = googleAvatar
+      supabase
+        .from('profiles')
+        .update({ avatar_url: googleAvatar, updated_at: new Date().toISOString() })
+        .eq('id', user.id)
+        .then()
     }
 
     return {

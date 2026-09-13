@@ -338,6 +338,7 @@ export default function ProfileModal({
                     <img 
                       src={user.profile.avatar_url} 
                       alt="Avatar" 
+                      referrerPolicy="no-referrer"
                       style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} 
                     />
                   ) : (

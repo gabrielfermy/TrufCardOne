@@ -164,10 +164,21 @@ export default function AuthModal({ isOpen, onClose, user, onAuthSuccess, sessio
                 margin: '0 auto 12px auto',
                 border: authService.isUserPro(user) ? '2px solid #F59E0B' : '1px solid var(--border-glass)',
                 boxShadow: authService.isUserPro(user) ? '0 0 20px rgba(245, 158, 11, 0.35)' : 'none',
-                position: 'relative'
+                position: 'relative',
+                overflow: 'hidden',
+                padding: 0
               }}
             >
-              {user.profile?.display_name?.charAt(0)?.toUpperCase() || 'U'}
+              {user.profile?.avatar_url ? (
+                <img 
+                  src={user.profile.avatar_url} 
+                  alt="Avatar" 
+                  referrerPolicy="no-referrer"
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} 
+                />
+              ) : (
+                user.profile?.display_name?.charAt(0)?.toUpperCase() || 'U'
+              )}
               {authService.isUserPro(user) && (
                 <span style={{ position: 'absolute', top: '-6px', right: '-6px', fontSize: '1.1rem' }}>👑</span>
               )}

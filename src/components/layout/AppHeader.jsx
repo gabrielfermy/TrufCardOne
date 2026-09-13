@@ -100,8 +100,17 @@ export default function AppHeader({ user, onOpenAuth, onOpenProfile, onNavigate,
         {/* User Profile or Guest Login Button */}
         {user ? (
           <div className="user-badge" onClick={handleProfileClick} style={{ cursor: 'pointer' }}>
-            <div className="avatar-circle">
-              {user.profile?.display_name?.charAt(0)?.toUpperCase() || 'U'}
+            <div className="avatar-circle" style={{ overflow: 'hidden', padding: 0 }}>
+              {user.profile?.avatar_url ? (
+                <img 
+                  src={user.profile.avatar_url} 
+                  alt="Avatar" 
+                  referrerPolicy="no-referrer"
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} 
+                />
+              ) : (
+                user.profile?.display_name?.charAt(0)?.toUpperCase() || 'U'
+              )}
             </div>
             <span>{user.profile?.display_name || user.email?.split('@')[0]}</span>
           </div>

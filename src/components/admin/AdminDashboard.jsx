@@ -543,7 +543,12 @@ export default function AdminDashboard({ onBack }) {
                       }}
                     >
                       {u.avatar_url ? (
-                        <img src={u.avatar_url} alt="Avatar" style={{ width: '100%', height: '100%', borderRadius: '50%' }} />
+                        <img 
+                          src={u.avatar_url} 
+                          alt="Avatar" 
+                          referrerPolicy="no-referrer"
+                          style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} 
+                        />
                       ) : (
                         u.display_name?.charAt(0)?.toUpperCase() || 'U'
                       )}
@@ -868,8 +873,17 @@ export default function AdminDashboard({ onBack }) {
                     {/* Middle Row: Customer Profile & Plan Info */}
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px', fontSize: '0.84rem' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <div className="avatar-circle" style={{ width: '36px', height: '36px', fontSize: '0.95rem' }}>
-                          {tx.profiles?.display_name?.charAt(0)?.toUpperCase() || 'U'}
+                        <div className="avatar-circle" style={{ width: '36px', height: '36px', fontSize: '0.95rem', overflow: 'hidden', padding: 0 }}>
+                          {tx.profiles?.avatar_url ? (
+                            <img 
+                              src={tx.profiles.avatar_url} 
+                              alt="Avatar" 
+                              referrerPolicy="no-referrer"
+                              style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} 
+                            />
+                          ) : (
+                            tx.profiles?.display_name?.charAt(0)?.toUpperCase() || 'U'
+                          )}
                         </div>
                         <div>
                           <div style={{ fontWeight: 800, color: '#FFF' }}>
