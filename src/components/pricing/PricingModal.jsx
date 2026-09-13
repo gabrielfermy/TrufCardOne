@@ -13,22 +13,20 @@ export default function PricingModal({ isOpen, onClose, user, onOpenAuth, onPaym
 
   const handleSelectPlan = async (planTier) => {
     hapticsService.medium()
-    if (!user) {
-      if (onOpenAuth) onOpenAuth()
-      return
-    }
-
     setIsCheckingOut(true)
+
+    // Close pricing modal first so that Midtrans Snap / Sandbox popup displays without overlay conflict
+    onClose()
+
     try {
       await midtransService.checkout({
         planTier,
         billingCycle,
         user,
-        onSuccess: () => {
+        onSuccess: (result) => {
           soundService.playVictory()
           hapticsService.success()
-          if (onPaymentSuccess) onPaymentSuccess()
-          onClose()
+          if (onPaymentSuccess) onPaymentSuccess(result)
         },
         onError: (err) => {
           console.warn('Payment failed:', err)
@@ -39,6 +37,8 @@ export default function PricingModal({ isOpen, onClose, user, onOpenAuth, onPaym
       console.error('Checkout error:', err)
       if (err.message === 'AUTH_REQUIRED' && onOpenAuth) {
         onOpenAuth()
+      } else {
+        alert('Terjadi kendala saat memproses checkout. Silakan coba kembali.')
       }
     } finally {
       setIsCheckingOut(false)
@@ -77,16 +77,32 @@ export default function PricingModal({ isOpen, onClose, user, onOpenAuth, onPaym
           marginBottom: '20px',
           display: 'flex',
           alignItems: 'center',
+          justifyContent: 'space-between',
           gap: '12px',
           fontSize: '0.85rem'
         }}>
-          <span style={{ fontSize: '1.3rem' }}>👤</span>
-          <div>
-            <strong style={{ color: '#60A5FA' }}>{t('pricing.guest_name')}:</strong>{' '}
-            <span style={{ color: 'var(--text-muted)' }}>
-              {t('pricing.guest_desc')} — {t('pricing.guest_note')}
-            </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '1.3rem' }}>👤</span>
+            <div>
+              <strong style={{ color: '#60A5FA' }}>{t('pricing.guest_name')}:</strong>{' '}
+              <span style={{ color: 'var(--text-muted)' }}>
+                {t('pricing.guest_desc')} — {t('pricing.guest_note')}
+              </span>
+            </div>
           </div>
+          {!user && (
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              style={{ fontSize: '0.75rem', padding: '4px 10px', whiteSpace: 'nowrap' }}
+              onClick={() => {
+                onClose()
+                if (onOpenAuth) onOpenAuth()
+              }}
+            >
+              Masuk Akun
+            </button>
+          )}
         </div>
 
         {/* Billing Cycle Toggle */}

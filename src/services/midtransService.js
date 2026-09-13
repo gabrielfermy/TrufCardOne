@@ -123,8 +123,10 @@ class MidtransService {
    * Execute Payment Checkout via Midtrans Snap
    */
   async checkout({ planTier, billingCycle, user, onSuccess, onPending, onError, onClose }) {
-    if (!user) {
-      throw new Error('AUTH_REQUIRED')
+    const effectiveUser = user || {
+      id: 'guest-reviewer-user',
+      email: 'guest@kancasela.my.id',
+      profile: { display_name: 'Pengguna Tamu (Reviewer)' }
     }
 
     const plan = this.getPlanDetails(planTier, billingCycle)
@@ -135,14 +137,16 @@ class MidtransService {
       console.warn('[MidtransService] Snap JS failed to load, using sandbox prompt fallback')
     }
 
-    const transaction = await this.createTransactionToken({ planTier, billingCycle, user })
+    const transaction = await this.createTransactionToken({ planTier, billingCycle, user: effectiveUser })
 
     // If Snap JS is available in Sandbox/Prod with a valid token
     if (window.snap && !transaction.isLocalSandbox) {
       window.snap.pay(transaction.token, {
         onSuccess: async (result) => {
           console.log('[MidtransService] Payment Success:', result)
-          await this.grantProAccess(user.id, plan.tier, plan.durationMonths)
+          if (user?.id && !user.id.startsWith('guest')) {
+            await this.grantProAccess(user.id, plan.tier, plan.durationMonths)
+          }
           try { soundService.playVictory() } catch (e) {}
           try { hapticsService.success() } catch (e) {}
           if (onSuccess) onSuccess(result)
@@ -163,14 +167,16 @@ class MidtransService {
       return
     }
 
-    // Local Development Sandbox Simulation Trigger
+    // Local Development & Reviewer Sandbox Simulation Trigger
     window.dispatchEvent(new CustomEvent('kancasela:show-midtrans-sandbox-dialog', {
       detail: {
         plan,
         transaction,
-        user,
+        user: effectiveUser,
         onConfirm: async () => {
-          await this.grantProAccess(user.id, plan.tier, plan.durationMonths)
+          if (user?.id && !user.id.startsWith('guest')) {
+            await this.grantProAccess(user.id, plan.tier, plan.durationMonths)
+          }
           try { soundService.playVictory() } catch (e) {}
           try { hapticsService.success() } catch (e) {}
           if (onSuccess) onSuccess({ status: 'settlement', order_id: transaction.orderId })

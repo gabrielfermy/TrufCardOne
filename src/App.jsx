@@ -871,7 +871,10 @@ function MainApp() {
         isOpen={isPricingModalOpen}
         onClose={() => setIsPricingModalOpen(false)}
         user={user}
-        onOpenAuth={() => setIsAuthModalOpen(true)}
+        onOpenAuth={() => {
+          setIsPricingModalOpen(false)
+          setIsAuthModalOpen(true)
+        }}
         onPaymentSuccess={() => {
           authService.getCurrentUser().then(currUser => {
             setUser(currUser)
