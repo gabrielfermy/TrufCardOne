@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import CardGameRulesModal from './CardGameRulesModal'
 
 export default function GameLobby({ 
   gameType = 'truf', 
@@ -13,6 +14,7 @@ export default function GameLobby({
   onBack 
 }) {
   const [activeTab, setActiveTab] = useState('active') // 'active' | 'completed'
+  const [isRulesOpen, setIsRulesOpen] = useState(false)
 
   // Filter sessions for this specific game type
   const gameSessions = sessions.filter(s => s.game_type === gameType)
@@ -29,7 +31,7 @@ export default function GameLobby({
     <div style={{ maxWidth: '680px', margin: '0 auto', textAlign: 'left' }}>
       {/* Header Banner */}
       <div className="glass-panel" style={{ padding: '20px 24px', marginBottom: '20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
           <button 
             type="button" 
             className="btn btn-secondary btn-sm"
@@ -38,17 +40,35 @@ export default function GameLobby({
           >
             <span>←</span> Beranda
           </button>
-          <span style={{ 
-            fontSize: '0.8rem', 
-            fontWeight: 800, 
-            color: meta.color, 
-            background: 'rgba(255,255,255,0.05)', 
-            padding: '4px 10px', 
-            borderRadius: '8px', 
-            border: `1px solid ${meta.color}40` 
-          }}>
-            Lobby Permainan
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => setIsRulesOpen(true)}
+              style={{
+                color: meta.color,
+                borderColor: `${meta.color}50`,
+                fontSize: '0.78rem',
+                padding: '4px 10px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+            >
+              <span>📖</span> Aturan & Cara Hitung
+            </button>
+            <span style={{ 
+              fontSize: '0.8rem', 
+              fontWeight: 800, 
+              color: meta.color, 
+              background: 'rgba(255,255,255,0.05)', 
+              padding: '4px 10px', 
+              borderRadius: '8px', 
+              border: `1px solid ${meta.color}40` 
+            }}>
+              Lobby Permainan
+            </span>
+          </div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '14px' }}>
@@ -338,6 +358,13 @@ export default function GameLobby({
           )}
         </div>
       )}
+
+      {/* Card Game Rules Modal */}
+      <CardGameRulesModal
+        isOpen={isRulesOpen}
+        onClose={() => setIsRulesOpen(false)}
+        initialGame={gameType}
+      />
     </div>
   )
 }

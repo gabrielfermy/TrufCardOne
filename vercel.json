@@ -1,6 +1,6 @@
 {
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],
   "headers": [
     {
@@ -28,7 +28,7 @@
         },
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com https://pagead2.googlesyndication.com https://tpc.googlesyndication.com https://app.midtrans.com https://app.sandbox.midtrans.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://app.midtrans.com https://app.sandbox.midtrans.com https://api.midtrans.com https://api.sandbox.midtrans.com https://accounts.google.com https://pagead2.googlesyndication.com ws://localhost:* http://localhost:* http://127.0.0.1:*; frame-src 'self' https://accounts.google.com https://googleads.g.doubleclick.net https://tpc.googlesyndication.com https://app.midtrans.com https://app.sandbox.midtrans.com; object-src 'none'; base-uri 'self';"
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com https://pagead2.googlesyndication.com https://tpc.googlesyndication.com https://app.midtrans.com https://app.sandbox.midtrans.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://app.midtrans.com https://app.sandbox.midtrans.com https://api.midtrans.com https://api.sandbox.midtrans.com https://accounts.google.com https://pagead2.googlesyndication.com ws://localhost:* http://localhost:* http://127.0.0.1:* https://*.kancasela.test wss://*.kancasela.test https://*.koncoselo.my.id wss://*.koncoselo.my.id https://*.kancasela.my.id wss://*.kancasela.my.id; frame-src 'self' https://accounts.google.com https://googleads.g.doubleclick.net https://tpc.googlesyndication.com https://app.midtrans.com https://app.sandbox.midtrans.com; object-src 'none'; base-uri 'self';"
         }
       ]
     },

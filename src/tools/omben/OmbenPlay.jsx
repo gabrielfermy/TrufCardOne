@@ -5,6 +5,7 @@ import { hapticsService } from '../../services/hapticsService'
 import { deviceService } from '../../services/deviceService'
 import { useTranslation } from '../../i18n/I18nContext'
 import RoomInviteModal from '../../components/common/RoomInviteModal'
+import CardGameRulesModal from '../../components/common/CardGameRulesModal'
 
 export default function OmbenPlay({ 
   session, 
@@ -49,6 +50,7 @@ export default function OmbenPlay({
   const [ranks, setRanks] = useState(() => playerNames.map((_, i) => i + 1))
   const [cardsLeft, setCardsLeft] = useState(() => Array(playerNames.length).fill(0))
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false)
+  const [isRulesModalOpen, setIsRulesModalOpen] = useState(false)
 
   // Cumulative Omben Losses & Wins
   const ombenLosses = Array(playerNames.length).fill(0)
@@ -182,6 +184,27 @@ export default function OmbenPlay({
             >
               <span>🔗</span>
               <span>{session?.room_code || 'Undang'}</span>
+            </button>
+
+            {/* Game Rules Reference */}
+            <button 
+              type="button"
+              className="btn btn-sm btn-secondary"
+              onClick={() => setIsRulesModalOpen(true)}
+              style={{
+                fontSize: '0.72rem',
+                padding: '2px 8px',
+                borderRadius: '6px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                color: '#FBBF24',
+                borderColor: 'rgba(245, 158, 11, 0.4)'
+              }}
+              title="Aturan Permainan & Cara Main Omben"
+            >
+              <span>📖</span>
+              <span>Aturan</span>
             </button>
           </div>
           <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#F97316' }}>
@@ -330,6 +353,13 @@ export default function OmbenPlay({
         session={session}
         user={user}
         onClaimSeat={onClaimSeat}
+      />
+
+      {/* Card Game Rules Modal */}
+      <CardGameRulesModal
+        isOpen={isRulesModalOpen}
+        onClose={() => setIsRulesModalOpen(false)}
+        initialGame="omben"
       />
     </div>
   )

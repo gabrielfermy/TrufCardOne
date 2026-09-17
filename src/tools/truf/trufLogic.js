@@ -12,10 +12,10 @@ export const SUITS = [
 /**
  * Calculates round score change for all 4 players
  */
-export function calculateTrufRoundScores(bids, wons, settings, totalBid, forcedMode = null) {
+export function calculateTrufRoundScores(bids, wons, settings = {}, totalBid, forcedMode = null) {
   const isMainAtas = forcedMode ? forcedMode === 'atas' : totalBid > 13
-  const mult = settings.multiplier || 1
-  const bonus0 = settings.bid0Bonus || 0
+  const mult = settings?.multiplier || 1
+  const bonus0 = settings?.bid0Bonus || 0
 
   return bids.map((bid, index) => {
     const won = wons[index]
@@ -33,13 +33,13 @@ export function calculateTrufRoundScores(bids, wons, settings, totalBid, forcedM
       // Failed to meet the target
       if (bid === 0) {
         // Special penalty for failed Bid 0
-        scoreChange = won * (settings.atasLackMult || -2) * mult
+        scoreChange = won * (settings?.atasLackMult || -2) * mult
       } else {
         if (won < bid) {
-          const lackMult = isMainAtas ? (settings.atasLackMult || -2) : (settings.bawahLackMult || -1)
+          const lackMult = isMainAtas ? (settings?.atasLackMult || -2) : (settings?.bawahLackMult || -1)
           scoreChange = diff * lackMult * mult
         } else {
-          const excessMult = isMainAtas ? (settings.atasExcessMult || -1) : (settings.bawahExcessMult || -2)
+          const excessMult = isMainAtas ? (settings?.atasExcessMult || -1) : (settings?.bawahExcessMult || -2)
           scoreChange = diff * excessMult * mult
         }
       }
@@ -52,6 +52,9 @@ export function calculateTrufRoundScores(bids, wons, settings, totalBid, forcedM
  * Evaluates tiebreaker among highest bidders
  */
 export function determineTrufSuitWinner(bids) {
+  if (!bids || bids.length === 0) {
+    return { maxBid: 0, highestBidderIndices: [], isTie: false }
+  }
   const maxBid = Math.max(...bids)
   const maxBidIndices = bids.map((b, idx) => b === maxBid ? idx : -1).filter(idx => idx !== -1)
 
@@ -77,20 +80,24 @@ export function determineNextDealer(roundsList, firstDealer = 0) {
   // Calculate cumulative scores
   const cumulativeScores = [0, 0, 0, 0]
   const lastRound = roundsList[roundsList.length - 1]
-  const hasCumulative = lastRound?.player_scores?.some(ps => ps.score_cumulative !== undefined && ps.score_cumulative !== null)
+  const lastScores = lastRound?.player_scores || lastRound?.playerScores || []
+  const hasCumulative = lastScores.some(ps => (ps.score_cumulative !== undefined && ps.score_cumulative !== null) || (ps.scoreCumulative !== undefined && ps.scoreCumulative !== null))
 
   if (hasCumulative) {
-    lastRound.player_scores.forEach(ps => {
-      if (ps.player_index !== undefined) {
-        cumulativeScores[ps.player_index] = ps.score_cumulative ?? 0
+    lastScores.forEach(ps => {
+      const pIdx = ps.player_index ?? ps.playerIndex
+      if (pIdx !== undefined && pIdx >= 0 && pIdx <= 3) {
+        cumulativeScores[pIdx] = ps.score_cumulative ?? ps.scoreCumulative ?? 0
       }
     })
   } else {
     roundsList.forEach(r => {
       const pScores = r.player_scores || r.playerScores || []
       pScores.forEach(ps => {
-        const pIdx = ps.player_index ?? 0
-        cumulativeScores[pIdx] += (ps.score_change ?? 0)
+        const pIdx = ps.player_index ?? ps.playerIndex ?? 0
+        if (pIdx >= 0 && pIdx <= 3) {
+          cumulativeScores[pIdx] += (ps.score_change ?? ps.scoreChange ?? 0)
+        }
       })
     })
   }
@@ -104,7 +111,7 @@ export function determineNextDealer(roundsList, firstDealer = 0) {
 
   // Tie-breaker: If previous round dealer is among tied lowest scorers, keep them
   const prevRound = roundsList[roundsList.length - 1]
-  const prevDealer = prevRound.round_data?.dealerIndex ?? prevRound.round_data?.dealer_index ?? prevRound.dealer_index ?? prevRound.dealerIndex ?? firstDealer
+  const prevDealer = prevRound.round_data?.dealerIndex ?? prevRound.round_data?.dealer_index ?? prevRound.roundData?.dealerIndex ?? prevRound.roundData?.dealer_index ?? prevRound.dealer_index ?? prevRound.dealerIndex ?? firstDealer
   if (lowestScorers.includes(prevDealer)) {
     return prevDealer
   }
@@ -128,7 +135,7 @@ export function getDealerConsecutiveStreak(roundsList, targetDealer, firstDealer
   let count = 0
   for (let i = roundsList.length - 1; i >= 0; i--) {
     const r = roundsList[i]
-    const d = r.round_data?.dealerIndex ?? r.round_data?.dealer_index ?? r.dealer_index ?? r.dealerIndex ?? (i === 0 ? firstDealer : null)
+    const d = r.round_data?.dealerIndex ?? r.round_data?.dealer_index ?? r.roundData?.dealerIndex ?? r.roundData?.dealer_index ?? r.dealer_index ?? r.dealerIndex ?? (i === 0 ? firstDealer : null)
     if (d === targetDealer) {
       count++
     } else {

@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { useTranslation } from '../../i18n/I18nContext'
 import AdBanner from '../ads/AdBanner'
 import { authService } from '../../services/authService'
+import CardGameRulesModal from '../common/CardGameRulesModal'
 
 export default function HubDashboard({ 
   user,
@@ -22,6 +23,8 @@ export default function HubDashboard({
   const [roomInput, setRoomInput] = useState('')
   const [joining, setJoining] = useState(false)
   const [diaryTab, setDiaryTab] = useState('active') // 'active' | 'completed'
+  const [isRulesOpen, setIsRulesOpen] = useState(false)
+  const [rulesInitialGame, setRulesInitialGame] = useState('truf')
 
   const activeSessions = recentSessions.filter(s => !s.is_completed)
   const completedSessions = recentSessions.filter(s => s.is_completed)
@@ -146,7 +149,30 @@ export default function HubDashboard({
       )}
 
       {/* 1. Card Games Section */}
-      <div className="section-label">{t('hub.card_games')}</div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '16px', marginBottom: '8px' }}>
+        <div className="section-label" style={{ margin: 0 }}>{t('hub.card_games')}</div>
+        <button
+          type="button"
+          className="btn btn-sm btn-secondary"
+          onClick={() => {
+            setRulesInitialGame('truf')
+            setIsRulesOpen(true)
+          }}
+          style={{
+            fontSize: '0.76rem',
+            padding: '4px 10px',
+            borderRadius: '8px',
+            color: '#C084FC',
+            borderColor: 'rgba(139, 92, 246, 0.4)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px'
+          }}
+        >
+          <span>📖</span>
+          <span>{t('rules_modal.quick_btn')}</span>
+        </button>
+      </div>
       <div className="game-grid">
         {cardGames.map(game => (
           <div 
@@ -615,6 +641,13 @@ export default function HubDashboard({
           © 2026 KancaSela. Hak Cipta Dilindungi Undang-Undang.
         </div>
       </footer>
+
+      {/* Card Game Rules Modal */}
+      <CardGameRulesModal 
+        isOpen={isRulesOpen} 
+        onClose={() => setIsRulesOpen(false)} 
+        initialGame={rulesInitialGame} 
+      />
     </div>
   )
 }

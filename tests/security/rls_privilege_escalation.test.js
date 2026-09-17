@@ -8,6 +8,26 @@ const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI
 test('Security RLS: Privilege Escalation & Access Control Suite', async (t) => {
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
+  // Quick health check to test if Supabase container is active
+  let isDbReachable = false
+  try {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 1500)
+    const resp = await fetch(`${SUPABASE_URL}/rest/v1/`, { 
+      headers: { apikey: SUPABASE_ANON_KEY },
+      signal: controller.signal 
+    })
+    clearTimeout(timeoutId)
+    isDbReachable = resp.ok || resp.status === 404 || resp.status === 200
+  } catch {
+    isDbReachable = false
+  }
+
+  if (!isDbReachable) {
+    t.skip('Local Supabase container is not reachable. Skipping live RLS integration test.')
+    return
+  }
+
   await t.test('verifies public read access to game profiles without exposing private credentials', async () => {
     const { data, error } = await supabase
       .from('profiles')
@@ -50,3 +70,4 @@ test('Security RLS: Privilege Escalation & Access Control Suite', async (t) => {
     assert.ok(isBlocked, 'Unauthorized session deletion must be prevented')
   })
 })
+

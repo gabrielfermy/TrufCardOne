@@ -98,9 +98,19 @@ export default function AdminPortalShell() {
   const getMainSiteUrl = () => {
     if (typeof window === 'undefined') return 'https://kancasela.my.id'
     const hostname = window.location.hostname
-    if (hostname.includes('localhost') || hostname.includes('127.0.0.1')) {
-      const port = window.location.port ? `:${window.location.port}` : ''
-      return `${window.location.protocol}//${hostname.replace(/^admin\./, '')}${port}`
+    const port = window.location.port ? `:${window.location.port}` : ''
+    const protocol = window.location.protocol
+    if (hostname.includes('admin.kancasela.test')) {
+      return `${protocol}//kancasela.test${port}`
+    }
+    if (hostname.includes('admin.koncoselo.my.id')) {
+      return `${protocol}//koncoselo.my.id${port}`
+    }
+    if (hostname.includes('admin.localhost')) {
+      return `${protocol}//localhost${port}`
+    }
+    if (hostname.startsWith('admin.')) {
+      return `${protocol}//${hostname.replace(/^admin\./, '')}${port}`
     }
     return 'https://www.kancasela.my.id'
   }
@@ -119,7 +129,9 @@ export default function AdminPortalShell() {
       }}>
         <div style={{ fontSize: '2.5rem', marginBottom: '14px', animation: 'pulse 1.5s infinite' }}>🛡️</div>
         <div style={{ fontSize: '1rem', fontWeight: 700, color: '#A78BFA' }}>Memvalidasi Sesi Superadmin...</div>
-        <div style={{ fontSize: '0.8rem', color: '#64748B', marginTop: '4px' }}>admin.kancasela.my.id</div>
+        <div style={{ fontSize: '0.8rem', color: '#64748B', marginTop: '4px' }}>
+          {typeof window !== 'undefined' ? window.location.hostname : 'admin.kancasela.my.id'}
+        </div>
       </div>
     )
   }

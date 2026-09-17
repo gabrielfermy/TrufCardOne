@@ -11,8 +11,17 @@ export default function SessionRecapModal({ isOpen, onClose, session, onShareSto
   const finalScores = playerNames.map((_, idx) => {
     if (rounds.length === 0) return 0
     const lastRound = rounds[rounds.length - 1]
-    const ps = lastRound.player_scores?.find(p => p.player_index === idx)
-    return ps?.score_cumulative ?? 0
+    const lastScores = lastRound.player_scores || lastRound.playerScores || []
+    const ps = lastScores.find(p => (p.player_index ?? p.playerIndex) === idx)
+    if (ps && (ps.score_cumulative !== undefined || ps.scoreCumulative !== undefined)) {
+      return ps.score_cumulative ?? ps.scoreCumulative ?? 0
+    }
+    // Fallback: calculate sum of score_change across rounds
+    return rounds.reduce((sum, r) => {
+      const pScores = r.player_scores || r.playerScores || []
+      const p = pScores.find(item => (item.player_index ?? item.playerIndex) === idx)
+      return sum + (p?.score_change ?? p?.scoreChange ?? 0)
+    }, 0)
   })
 
   // Determine winner (highest score for truf, lowest penalty for remi, lowest omben for omben)
@@ -89,7 +98,7 @@ export default function SessionRecapModal({ isOpen, onClose, session, onShareSto
                   <th style={{ padding: '10px 8px' }}>Skor Akhir</th>
                   {rounds.map((r, i) => (
                     <th key={i} style={{ padding: '10px 6px', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                      R{r.round_number}
+                      R{r.round_number ?? r.roundNumber}
                     </th>
                   ))}
                 </tr>
@@ -107,10 +116,11 @@ export default function SessionRecapModal({ isOpen, onClose, session, onShareSto
                         {score > 0 ? `+${score}` : score}
                       </td>
                       {rounds.map((r, rIdx) => {
-                        const ps = r.player_scores?.find(p => p.player_index === idx)
-                        const change = ps?.score_change ?? 0
-                        const bid = ps?.stats?.bid
-                        const won = ps?.stats?.won
+                        const pScores = r.player_scores || r.playerScores || []
+                        const ps = pScores.find(p => (p.player_index ?? p.playerIndex) === idx)
+                        const change = ps?.score_change ?? ps?.scoreChange ?? 0
+                        const bid = ps?.stats?.bid ?? ps?.bid
+                        const won = ps?.stats?.won ?? ps?.won
                         const isPass = bid !== undefined && bid === won
 
                         return (

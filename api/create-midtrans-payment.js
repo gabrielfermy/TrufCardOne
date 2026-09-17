@@ -41,6 +41,10 @@ export default async function handler(req, res) {
     const targetOrderId = orderId || `KANCA-${(planTier || 'PRO').toUpperCase()}-${Date.now()}`
     const targetAmount = Number(grossAmount) || (planTier === 'venue' ? (billingCycle === 'yearly' ? 1199000 : 149000) : (billingCycle === 'yearly' ? 129000 : 19000))
 
+    const host = req.headers['x-forwarded-host'] || req.headers.host
+    const protocol = req.headers['x-forwarded-proto'] || (host?.includes('localhost') ? 'http' : 'https')
+    const appOrigin = process.env.APP_URL || (host ? `${protocol}://${host}` : 'https://www.kancasela.my.id')
+
     const payload = {
       transaction_details: {
         order_id: targetOrderId,
@@ -63,12 +67,12 @@ export default async function handler(req, res) {
       custom_field3: billingCycle || 'yearly',
       // Override default dashboard notification webhook specifically for KancaSela transactions
       override_notification_urls: [
-        'https://www.kancasela.my.id/api/midtrans-webhook'
+        `${appOrigin}/api/midtrans-webhook`
       ],
       callbacks: {
-        finish: 'https://www.kancasela.my.id/?payment=success',
-        unfinish: 'https://www.kancasela.my.id/?payment=unfinish',
-        error: 'https://www.kancasela.my.id/?payment=error',
+        finish: `${appOrigin}/?payment=success`,
+        unfinish: `${appOrigin}/?payment=unfinish`,
+        error: `${appOrigin}/?payment=error`,
       }
     }
 

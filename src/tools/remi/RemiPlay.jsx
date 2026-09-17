@@ -6,6 +6,7 @@ import { gameService } from '../../services/gameService'
 import { deviceService } from '../../services/deviceService'
 import { useTranslation } from '../../i18n/I18nContext'
 import RoomInviteModal from '../../components/common/RoomInviteModal'
+import CardGameRulesModal from '../../components/common/CardGameRulesModal'
 
 export default function RemiPlay({ 
   session, 
@@ -63,6 +64,7 @@ export default function RemiPlay({
   const [penalties, setPenalties] = useState(() => Array(playerNames.length).fill(0))
   const [activeKeypadPlayer, setActiveKeypadPlayer] = useState(null)
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false)
+  const [isRulesModalOpen, setIsRulesModalOpen] = useState(false)
 
   // Compute latest cumulative scores
   const cumulativeScores = Array(playerNames.length).fill(0)
@@ -287,6 +289,27 @@ export default function RemiPlay({
             >
               <span>🔗</span>
               <span>{session?.room_code || 'Undang'}</span>
+            </button>
+
+            {/* Game Rules Reference */}
+            <button 
+              type="button"
+              className="btn btn-sm btn-secondary"
+              onClick={() => setIsRulesModalOpen(true)}
+              style={{
+                fontSize: '0.72rem',
+                padding: '2px 8px',
+                borderRadius: '6px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                color: '#F472B6',
+                borderColor: 'rgba(236, 72, 153, 0.4)'
+              }}
+              title="Aturan Permainan & Denda Remi"
+            >
+              <span>📖</span>
+              <span>Aturan</span>
             </button>
           </div>
           <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#F59E0B' }}>
@@ -539,6 +562,13 @@ export default function RemiPlay({
         session={session}
         user={user}
         onClaimSeat={onClaimSeat}
+      />
+
+      {/* Card Game Rules Modal */}
+      <CardGameRulesModal
+        isOpen={isRulesModalOpen}
+        onClose={() => setIsRulesModalOpen(false)}
+        initialGame="remi"
       />
     </div>
   )

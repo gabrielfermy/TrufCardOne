@@ -110,43 +110,56 @@ console.log('  ✅ SAST DOM sink scan complete.\n')
 
 
 // -----------------------------------------------------------------------------
-// 3. HTTP Security Headers Verification (vercel.json)
+// 3. HTTP Security Headers Verification (Cloudflare public/_headers & vercel.json)
 // -----------------------------------------------------------------------------
-console.log('🔍 [3/4] Verifying HTTP Security Headers in vercel.json...')
+console.log('🔍 [3/4] Verifying HTTP Security Headers in public/_headers and vercel.json...')
 
+const requiredHeaders = [
+  'X-Frame-Options',
+  'X-Content-Type-Options',
+  'Referrer-Policy',
+  'Content-Security-Policy',
+  'Strict-Transport-Security'
+]
+
+let headersFound = new Set()
+
+// Check Cloudflare _headers
+const cfHeadersPath = path.join(PROJECT_ROOT, 'public', '_headers')
+if (fs.existsSync(cfHeadersPath)) {
+  const cfContent = fs.readFileSync(cfHeadersPath, 'utf-8')
+  for (const h of requiredHeaders) {
+    if (cfContent.includes(h)) headersFound.add(h)
+  }
+}
+
+// Check Vercel headers
 const vercelPath = path.join(PROJECT_ROOT, 'vercel.json')
 if (fs.existsSync(vercelPath)) {
-  const vercelConfig = JSON.parse(fs.readFileSync(vercelPath, 'utf-8'))
-  const headers = vercelConfig?.headers?.[0]?.headers || []
-  const headerKeys = headers.map(h => h.key)
-
-  const requiredHeaders = [
-    'X-Frame-Options',
-    'X-Content-Type-Options',
-    'Referrer-Policy',
-    'Content-Security-Policy',
-    'Strict-Transport-Security'
-  ]
-
-  let missingHeaders = 0
-  for (const reqHeader of requiredHeaders) {
-    if (headerKeys.includes(reqHeader)) {
-      console.log(`  ✅ Header present: ${reqHeader}`)
-    } else {
-      console.error(`  ❌ Missing header: ${reqHeader}`)
-      missingHeaders++
-      totalIssues++
+  try {
+    const vercelConfig = JSON.parse(fs.readFileSync(vercelPath, 'utf-8'))
+    const headers = vercelConfig?.headers?.[0]?.headers || []
+    for (const h of headers) {
+      if (h?.key) headersFound.add(h.key)
     }
-  }
+  } catch {}
+}
 
-  if (missingHeaders === 0) {
-    console.log('  ✅ All enterprise HTTP security headers configured properly.\n')
+let missingHeaders = 0
+for (const reqHeader of requiredHeaders) {
+  if (headersFound.has(reqHeader)) {
+    console.log(`  ✅ Header present: ${reqHeader}`)
   } else {
-    console.warn(`  ⚠️  ${missingHeaders} header(s) missing.\n`)
+    console.error(`  ❌ Missing header: ${reqHeader}`)
+    missingHeaders++
+    totalIssues++
   }
+}
+
+if (missingHeaders === 0) {
+  console.log('  ✅ All enterprise HTTP security headers configured properly for Cloudflare & Vercel.\n')
 } else {
-  console.warn('  ⚠️  vercel.json not found.\n')
-  totalIssues++
+  console.warn(`  ⚠️  ${missingHeaders} header(s) missing.\n`)
 }
 
 

@@ -104,12 +104,31 @@ Saat menjalankan aplikasi di browser lokal (`npm run dev`), Anda memiliki tombol
 
 ---
 
-## 6. Menjalankan Server Frontend Lokal
+## 6. Topologi Domain & Menjalankan Frontend
 
+Aplikasi mendukung 3 tier lingkungan terstruktur:
+* **Local Development**:
+  - Main App: `https://kancasela.test` (atau `http://localhost:5173`)
+  - Admin Portal: `https://admin.kancasela.test` (atau `http://admin.localhost:5173`)
+* **Staging / Preview**:
+  - Main App: `https://koncoselo.my.id`
+  - Admin Portal: `https://admin.koncoselo.my.id`
+* **Production**:
+  - Main App: `https://kancasela.my.id` (dan `https://www.kancasela.my.id`)
+  - Admin Portal: `https://admin.kancasela.my.id`
+
+### Setup Domain Lokal (`*.kancasela.test`):
+Tambahkan baris berikut pada file hosts (`C:\Windows\System32\drivers\etc\hosts` di Windows atau `/etc/hosts` di Linux/macOS):
+```hosts
+127.0.0.1 kancasela.test
+127.0.0.1 admin.kancasela.test
+```
+
+### Jalankan Vite Dev Server:
 ```bash
 npm run dev
 ```
-Buka browser di `http://localhost:5173`.
+Buka browser di `https://kancasela.test` (dengan local proxy/mkcert) atau langsung di `http://localhost:5173` / `http://admin.localhost:5173`.
 
 ---
 

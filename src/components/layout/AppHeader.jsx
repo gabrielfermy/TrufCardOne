@@ -2,7 +2,7 @@ import React from 'react'
 import { useTranslation } from '../../i18n/I18nContext'
 import { authService } from '../../services/authService'
 
-export default function AppHeader({ user, onOpenAuth, onOpenProfile, onNavigate, currentView, onOpenPricing }) {
+export default function AppHeader({ user, onOpenAuth, onOpenProfile, onNavigate, currentView, onOpenPricing, onOpenRules }) {
   const { locale, toggleLocale, t } = useTranslation()
   const isPro = authService.isUserPro(user)
 
@@ -66,6 +66,26 @@ export default function AppHeader({ user, onOpenAuth, onOpenProfile, onNavigate,
           </button>
         )}
 
+        {/* Game Rules Reference Button */}
+        <button
+          className="btn btn-sm btn-secondary"
+          onClick={onOpenRules}
+          style={{
+            fontSize: '0.78rem',
+            padding: '5px 10px',
+            borderRadius: '8px',
+            color: '#E0E7FF',
+            borderColor: 'rgba(255, 255, 255, 0.15)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px'
+          }}
+          title={t('rules_modal.title')}
+        >
+          <span>📖</span>
+          <span>{t('rules_modal.quick_btn')}</span>
+        </button>
+
         {/* Language Switcher */}
         <button 
           className="btn-lang" 
@@ -83,15 +103,22 @@ export default function AppHeader({ user, onOpenAuth, onOpenProfile, onNavigate,
               if (typeof window !== 'undefined') {
                 const host = window.location.hostname
                 const port = window.location.port ? `:${window.location.port}` : ''
-                if (host.includes('localhost') || host.includes('127.0.0.1')) {
-                  window.location.href = `${window.location.protocol}//admin.localhost${port}`
+                const protocol = window.location.protocol
+                if (host.includes('kancasela.test')) {
+                  window.location.href = `${protocol}//admin.kancasela.test${port}`
+                } else if (host.includes('koncoselo.my.id')) {
+                  window.location.href = `${protocol}//admin.koncoselo.my.id${port}`
+                } else if (host.includes('localhost') || host.includes('127.0.0.1')) {
+                  window.location.href = `${protocol}//admin.localhost${port}`
+                } else if (host.startsWith('admin.')) {
+                  window.location.href = `${protocol}//${host}${port}`
                 } else {
-                  window.location.href = 'https://admin.kancasela.my.id'
+                  window.location.href = `${protocol}//admin.${host.replace(/^www\./, '')}${port}`
                 }
               }
             }}
             style={{ fontSize: '0.78rem', padding: '5px 10px', borderColor: 'rgba(139, 92, 246, 0.5)', color: '#A78BFA' }}
-            title="Buka Portal Superadmin di admin.kancasela.my.id"
+            title="Buka Portal Superadmin"
           >
             🛡️ {t('nav.admin')} ↗
           </button>

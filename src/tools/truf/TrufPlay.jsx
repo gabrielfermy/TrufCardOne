@@ -7,6 +7,7 @@ import { deviceService } from '../../services/deviceService'
 import { useTranslation } from '../../i18n/I18nContext'
 import RoomInviteModal from '../../components/common/RoomInviteModal'
 import ActivityLogDrawer from '../../components/common/ActivityLogDrawer'
+import CardGameRulesModal from '../../components/common/CardGameRulesModal'
 
 export default function TrufPlay({ 
   session, 
@@ -63,7 +64,9 @@ export default function TrufPlay({
 
   // Activity Logging state
   const [activityLogs, setActivityLogs] = useState([])
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false)
   const [isLogDrawerOpen, setIsLogDrawerOpen] = useState(false)
+  const [isRulesModalOpen, setIsRulesModalOpen] = useState(false)
 
   const addLog = (text, actionType = 'bid') => {
     const actorName = isHost 
@@ -126,7 +129,6 @@ export default function TrufPlay({
   const [forcedPlayMode, setForcedPlayMode] = useState(null)
   const [showBid13Modal, setShowBid13Modal] = useState(false)
   const [showConfirmFinishModal, setShowConfirmFinishModal] = useState(false)
-  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
 
   const totalBid = bids.reduce((a, b) => a + b, 0)
@@ -355,16 +357,25 @@ export default function TrufPlay({
     const lastCumulative = [0, 0, 0, 0]
     if (localRounds.length > 0) {
       const lastRound = localRounds[localRounds.length - 1]
-      lastRound.player_scores?.forEach(ps => {
-        lastCumulative[ps.player_index] = ps.score_cumulative
+      const lastScores = lastRound.player_scores || lastRound.playerScores || []
+      lastScores.forEach(ps => {
+        const pIdx = ps.player_index ?? ps.playerIndex
+        if (pIdx !== undefined && pIdx >= 0 && pIdx <= 3) {
+          lastCumulative[pIdx] = ps.score_cumulative ?? ps.scoreCumulative ?? latestScores[pIdx] ?? 0
+        }
       })
     }
 
     const scoreRecords = calculatedScores.map((change, idx) => ({
       player_index: idx,
+      playerIndex: idx,
       stats: { bid: bids[idx], won: wons[idx] },
+      bid: bids[idx],
+      won: wons[idx],
       score_change: change,
-      score_cumulative: lastCumulative[idx] + change
+      scoreChange: change,
+      score_cumulative: (lastCumulative[idx] ?? latestScores[idx] ?? 0) + change,
+      scoreCumulative: (lastCumulative[idx] ?? latestScores[idx] ?? 0) + change
     }))
 
     const roundData = {
@@ -546,6 +557,27 @@ export default function TrufPlay({
             >
               <span>📜</span>
               <span>Log ({activityLogs.length})</span>
+            </button>
+
+            {/* Game Rules Reference */}
+            <button 
+              type="button"
+              className="btn btn-sm btn-secondary"
+              onClick={() => setIsRulesModalOpen(true)}
+              style={{
+                fontSize: '0.72rem',
+                padding: '2px 8px',
+                borderRadius: '6px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                color: '#C084FC',
+                borderColor: 'rgba(139, 92, 246, 0.4)'
+              }}
+              title="Aturan Permainan & Rumus Skor"
+            >
+              <span>📖</span>
+              <span>Aturan</span>
             </button>
           </div>
           <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--primary)' }}>
@@ -1043,15 +1075,17 @@ export default function TrufPlay({
                       const rNum = r.round_number
                       const setNum = Math.ceil(rNum / 4)
                       const isEndOfSetInReverse = (rNum % 4 === 1) && localRounds.some(rd => rd.round_number === setNum * 4)
-                      const ps = r.player_scores?.find(p => p.player_index === idx)
-                      const change = ps?.score_change ?? 0
-                      const bid = ps?.stats?.bid ?? 0
-                      const won = ps?.stats?.won ?? 0
+                      const pScores = r.player_scores || r.playerScores || []
+                      const ps = pScores.find(p => (p.player_index ?? p.playerIndex) === idx)
+                      const change = ps?.score_change ?? ps?.scoreChange ?? 0
+                      const bid = ps?.stats?.bid ?? ps?.bid ?? 0
+                      const won = ps?.stats?.won ?? ps?.won ?? 0
                       const isPass = bid === won
 
                       // Cumulative score of the 4th round for the set total
-                      const setEndRound = isEndOfSetInReverse ? localRounds.find(rd => rd.round_number === setNum * 4) : null
-                      const setCumScore = setEndRound?.player_scores?.find(p => p.player_index === idx)?.score_cumulative ?? 0
+                      const setEndRound = isEndOfSetInReverse ? localRounds.find(rd => (rd.round_number ?? rd.roundNumber) === setNum * 4) : null
+                      const setEndScores = setEndRound?.player_scores || setEndRound?.playerScores || []
+                      const setCumScore = setEndScores.find(p => (p.player_index ?? p.playerIndex) === idx)?.score_cumulative ?? setEndScores.find(p => (p.player_index ?? p.playerIndex) === idx)?.scoreCumulative ?? 0
 
                       return (
                         <React.Fragment key={r.id || rIdx}>
@@ -1189,11 +1223,12 @@ export default function TrufPlay({
                   {/* 4 Players details grid */}
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px' }}>
                     {playerNames.map((name, pIdx) => {
-                      const ps = round.player_scores?.find(p => p.player_index === pIdx)
-                      const bid = ps?.stats?.bid ?? 0
-                      const won = ps?.stats?.won ?? 0
-                      const change = ps?.score_change ?? 0
-                      const cumScore = ps?.score_cumulative ?? 0
+                      const roundScores = round.player_scores || round.playerScores || []
+                      const ps = roundScores.find(p => (p.player_index ?? p.playerIndex) === pIdx)
+                      const bid = ps?.stats?.bid ?? ps?.bid ?? 0
+                      const won = ps?.stats?.won ?? ps?.won ?? 0
+                      const change = ps?.score_change ?? ps?.scoreChange ?? 0
+                      const cumScore = ps?.score_cumulative ?? ps?.scoreCumulative ?? 0
                       const isPass = bid === won
                       const diff = won - bid
 
@@ -1417,6 +1452,13 @@ export default function TrufPlay({
         isOpen={isLogDrawerOpen}
         onClose={() => setIsLogDrawerOpen(false)}
         logs={activityLogs}
+      />
+
+      {/* Game Rules & Mathematical Scoring Reference Modal */}
+      <CardGameRulesModal
+        isOpen={isRulesModalOpen}
+        onClose={() => setIsRulesModalOpen(false)}
+        initialGame="truf"
       />
     </div>
   )

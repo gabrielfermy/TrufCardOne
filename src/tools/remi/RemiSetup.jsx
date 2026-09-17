@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { useTranslation } from '../../i18n/I18nContext'
+import CardGameRulesModal from '../../components/common/CardGameRulesModal'
 
 export default function RemiSetup({ onStartGame, onBack }) {
   const { t } = useTranslation()
@@ -8,6 +9,7 @@ export default function RemiSetup({ onStartGame, onBack }) {
   const [targetPenalty, setTargetPenalty] = useState(500)
   const [tutupMurniDouble] = useState(true)
   const [roomMode, setRoomMode] = useState('multiplayer') // 'multiplayer' | 'offline'
+  const [isRulesOpen, setIsRulesOpen] = useState(false)
 
   const handleCountChange = (count) => {
     setPlayerCount(count)
@@ -42,9 +44,19 @@ export default function RemiSetup({ onStartGame, onBack }) {
 
   return (
     <div className="glass-panel" style={{ padding: '24px', maxWidth: '540px', margin: '0 auto' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-        <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>🎴 {t('remi.setup_title')}</h2>
-        {onBack && <button className="btn btn-sm btn-secondary" onClick={onBack}>← {t('app.back')}</button>}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', flexWrap: 'wrap', gap: '8px' }}>
+        <h2 style={{ fontSize: '1.5rem', fontWeight: 800, margin: 0 }}>🎴 {t('remi.setup_title')}</h2>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button 
+            type="button" 
+            className="btn btn-sm btn-secondary" 
+            onClick={() => setIsRulesOpen(true)}
+            style={{ color: '#F472B6', borderColor: 'rgba(236, 72, 153, 0.4)' }}
+          >
+            📖 {t('rules_modal.quick_btn')}
+          </button>
+          {onBack && <button className="btn btn-sm btn-secondary" onClick={onBack}>← {t('app.back')}</button>}
+        </div>
       </div>
 
       <form onSubmit={handleStart}>
@@ -145,6 +157,12 @@ export default function RemiSetup({ onStartGame, onBack }) {
           🚀 {t('truf.start_game')}
         </button>
       </form>
+
+      <CardGameRulesModal 
+        isOpen={isRulesOpen} 
+        onClose={() => setIsRulesOpen(false)} 
+        initialGame="remi" 
+      />
     </div>
   )
 }

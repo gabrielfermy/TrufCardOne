@@ -33,6 +33,7 @@ import SupportTicketModal from './components/common/SupportTicketModal'
 import SimulatedAdModal from './components/common/SimulatedAdModal'
 import LiveUpdateNotification from './components/common/LiveUpdateNotification'
 import DevToolsDock from './components/common/DevToolsDock'
+import CardGameRulesModal from './components/common/CardGameRulesModal'
 import { adService } from './services/adService'
 
 import './App.css'
@@ -98,6 +99,8 @@ function MainApp() {
   const [selectedRecapSession, setSelectedRecapSession] = useState(null)
   const [shareData, setShareData] = useState(null)
   const [isOnline, setIsOnline] = useState(() => networkService.isOnline())
+  const [isGlobalRulesOpen, setIsGlobalRulesOpen] = useState(false)
+  const [globalRulesGame, setGlobalRulesGame] = useState('truf')
   const [syncNotice, setSyncNotice] = useState(null)
 
   // Navigation View State (Synced with Browser URL)
@@ -667,6 +670,11 @@ function MainApp() {
         onOpenAuth={() => setIsAuthModalOpen(true)}
         onOpenProfile={() => setIsProfileModalOpen(true)}
         onOpenPricing={() => setIsPricingModalOpen(true)}
+        onOpenRules={() => {
+          const matchedGame = ['truf', 'remi', 'omben', 'chess'].includes(currentView) ? currentView : 'truf'
+          setGlobalRulesGame(matchedGame)
+          setIsGlobalRulesOpen(true)
+        }}
       />
 
       {/* Main View Router */}
@@ -945,6 +953,13 @@ function MainApp() {
           onOpenAuth={() => setIsAuthModalOpen(true)}
         />
       )}
+
+      {/* Global Card Game Rules & Scoring Reference Modal */}
+      <CardGameRulesModal
+        isOpen={isGlobalRulesOpen}
+        onClose={() => setIsGlobalRulesOpen(false)}
+        initialGame={globalRulesGame}
+      />
     </div>
   )
 }
