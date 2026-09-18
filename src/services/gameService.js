@@ -81,14 +81,13 @@ export const gameService = {
 
     const resolvedFirstDealer = firstDealer ?? settings?.first_dealer ?? settings?.firstDealer ?? 0
 
-    const sessionPayload = {
+    const dbPayload = {
       user_id: isRealUser ? userId : null,
       game_type: gameType,
       room_code: roomCode,
       title: safeTitle,
       player_names: safePlayerNames,
       player_user_ids: initialUserIds,
-      first_dealer: resolvedFirstDealer,
       settings: {
         ...settings,
         first_dealer: resolvedFirstDealer,
@@ -96,16 +95,15 @@ export const gameService = {
         isOfflineLocal: Boolean(isOfflineLocal)
       },
       is_completed: false,
-      created_at: new Date().toISOString(),
-      game_rounds: []
+      created_at: new Date().toISOString()
     }
 
     // Supply legacy player columns for maximum backward-compatibility with older DB instances
-    if (playerNames && playerNames.length >= 4) {
-      sessionPayload.player1_name = playerNames[0] || 'Pemain 1'
-      sessionPayload.player2_name = playerNames[1] || 'Pemain 2'
-      sessionPayload.player3_name = playerNames[2] || 'Pemain 3'
-      sessionPayload.player4_name = playerNames[3] || 'Pemain 4'
+    if (safePlayerNames && safePlayerNames.length >= 4) {
+      dbPayload.player1_name = safePlayerNames[0] || 'Pemain 1'
+      dbPayload.player2_name = safePlayerNames[1] || 'Pemain 2'
+      dbPayload.player3_name = safePlayerNames[2] || 'Pemain 3'
+      dbPayload.player4_name = safePlayerNames[3] || 'Pemain 4'
     }
 
     auditService.logEvent({
@@ -118,7 +116,13 @@ export const gameService = {
     // If explicit offline local mode or offline, save immediately to local storage
     if (isOfflineLocal || !networkService.isOnline()) {
       const localId = `local-session-${Date.now()}`
-      const localSession = { ...sessionPayload, id: localId }
+      const localSession = {
+        ...dbPayload,
+        id: localId,
+        first_dealer: resolvedFirstDealer,
+        game_rounds: [],
+        rounds: []
+      }
       saveLocalSession(localSession)
       console.log('📱 Session created locally in LocalStorage:', localId)
       return localSession
@@ -127,7 +131,7 @@ export const gameService = {
     try {
       const { data, error } = await supabase
         .from('game_sessions')
-        .insert([sessionPayload])
+        .insert([dbPayload])
         .select()
         .single()
 
@@ -156,10 +160,10 @@ export const gameService = {
         })
 
         // Fallback retry with user_id = null if guest or user profile wasn't ready
-        if (sessionPayload.user_id) {
+        if (dbPayload.user_id) {
           const { data: retryData, error: retryError } = await supabase
             .from('game_sessions')
-            .insert([{ ...sessionPayload, user_id: null }])
+            .insert([{ ...dbPayload, user_id: null }])
             .select()
             .single()
 
@@ -186,7 +190,14 @@ export const gameService = {
 
     // Local fallback if temporary network error occurs during match setup
     const tempId = `local-session-${Date.now()}`
-    const localFallback = { ...sessionPayload, id: tempId, rounds: [], scores: {} }
+    const localFallback = {
+      ...dbPayload,
+      id: tempId,
+      first_dealer: resolvedFirstDealer,
+      game_rounds: [],
+      rounds: [],
+      scores: {}
+    }
     saveLocalSession(localFallback)
     return localFallback
   },

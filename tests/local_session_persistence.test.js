@@ -114,4 +114,23 @@ describe('Local Session Persistence & Recovery Suite', () => {
     assert.equal(fetched.id, 'local-offline-789')
     assert.equal(fetched.room_code, 'TRU-OFFL')
   })
+
+  it('creates local session with complete metadata and settings without error', async () => {
+    const { gameService } = await import('../src/services/gameService.js')
+
+    const session = await gameService.createSession({
+      userId: 'test-user-id',
+      gameType: 'truf',
+      playerNames: ['P1', 'P2', 'P3', 'P4'],
+      firstDealer: 2,
+      settings: { multiplier: 1 },
+      isOfflineLocal: true
+    })
+
+    assert.ok(session)
+    assert.ok(session.id.startsWith('local-session-'))
+    assert.equal(session.first_dealer, 2)
+    assert.equal(session.settings.first_dealer, 2)
+    assert.equal(session.player_names.length, 4)
+  })
 })
