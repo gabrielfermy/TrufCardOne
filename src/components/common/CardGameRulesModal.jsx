@@ -68,29 +68,31 @@ export default function CardGameRulesModal({ isOpen, onClose, initialGame = 'tru
       >
         {/* Modal Header */}
         <div style={{
-          padding: '18px 24px',
+          padding: '16px 20px',
           borderBottom: '1px solid var(--border-glass)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
+          gap: '12px',
           background: 'var(--bg-glass)'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span style={{ fontSize: '1.5rem' }}>📖</span>
-            <div>
-              <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-main)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: 1 }}>
+            <span style={{ fontSize: '1.6rem', lineHeight: 1, flexShrink: 0 }}>📖</span>
+            <div style={{ minWidth: 0 }}>
+              <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.2px' }}>
                 {t('rules_modal.title')}
               </h3>
-              <p style={{ margin: 0, fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+              <p style={{ margin: '2px 0 0 0', fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.3 }}>
                 {t('rules_modal.subtitle')}
               </p>
             </div>
           </div>
           <button 
-            type="button"
+            type="button" 
             className="btn btn-secondary btn-sm"
             onClick={handleClose}
-            style={{ width: '32px', height: '32px', padding: 0, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem' }}
+            aria-label="Tutup"
+            style={{ width: '32px', height: '32px', padding: 0, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem', flexShrink: 0 }}
           >
             ✕
           </button>
@@ -99,17 +101,48 @@ export default function CardGameRulesModal({ isOpen, onClose, initialGame = 'tru
         {/* Tab Navigation */}
         <div style={{
           display: 'flex',
-          gap: '6px',
-          padding: '12px 20px',
+          alignItems: 'center',
+          gap: '8px',
+          padding: '10px 20px',
           borderBottom: '1px solid var(--border-glass)',
           overflowX: 'auto',
-          background: 'var(--bg-glass)'
+          background: 'var(--bg-glass)',
+          WebkitOverflowScrolling: 'touch',
+          scrollbarWidth: 'none'
         }}>
           {[
-            { key: 'truf', label: t('rules_modal.tab_truf'), color: '#8B5CF6' },
-            { key: 'remi', label: t('rules_modal.tab_remi'), color: '#EC4899' },
-            { key: 'omben', label: t('rules_modal.tab_omben'), color: '#F59E0B' },
-            { key: 'chess', label: t('rules_modal.tab_chess'), color: '#3B82F6' }
+            { 
+              key: 'truf', 
+              icon: '🃏', 
+              label: t('rules_modal.tab_truf').replace(/^🃏\s*/, '') || 'Truf (Trup)', 
+              activeBg: 'var(--badge-purple-bg)', 
+              activeBorder: 'var(--badge-purple-border)', 
+              activeText: 'var(--badge-purple-text)' 
+            },
+            { 
+              key: 'remi', 
+              icon: '🎴', 
+              label: t('rules_modal.tab_remi').replace(/^🎴\s*/, '') || 'Remi (7-Card)', 
+              activeBg: 'rgba(236, 72, 153, 0.16)', 
+              activeBorder: 'rgba(236, 72, 153, 0.45)', 
+              activeText: '#F472B6' 
+            },
+            { 
+              key: 'omben', 
+              icon: '🍺', 
+              label: t('rules_modal.tab_omben').replace(/^🍺\s*/, '') || 'Omben (Cangkulan)', 
+              activeBg: 'var(--badge-gold-bg)', 
+              activeBorder: 'var(--badge-gold-border)', 
+              activeText: 'var(--badge-gold-text)' 
+            },
+            { 
+              key: 'chess', 
+              icon: '♟️', 
+              label: t('rules_modal.tab_chess').replace(/^♟️\s*/, '') || 'Jam Catur', 
+              activeBg: 'var(--badge-blue-bg)', 
+              activeBorder: 'var(--badge-blue-border)', 
+              activeText: 'var(--badge-blue-text)' 
+            }
           ].map(tab => {
             const isActive = activeTab === tab.key
             return (
@@ -118,19 +151,28 @@ export default function CardGameRulesModal({ isOpen, onClose, initialGame = 'tru
                 type="button"
                 onClick={() => handleTabChange(tab.key)}
                 style={{
-                  padding: '8px 14px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  height: '36px',
+                  padding: '0 14px',
                   borderRadius: '10px',
-                  border: isActive ? `1.5px solid ${tab.color}` : '1px solid transparent',
-                  background: isActive ? `rgba(${tab.key === 'truf' ? '139, 92, 246' : tab.key === 'remi' ? '236, 72, 153' : tab.key === 'omben' ? '245, 158, 11' : '59, 130, 246'}, 0.18)` : 'transparent',
-                  color: isActive ? 'var(--text-main)' : 'var(--text-dim)',
+                  border: isActive ? `1.5px solid ${tab.activeBorder}` : '1.5px solid var(--border-glass)',
+                  background: isActive ? tab.activeBg : 'rgba(255, 255, 255, 0.03)',
+                  color: isActive ? tab.activeText : 'var(--text-dim)',
                   fontWeight: isActive ? 800 : 600,
                   fontSize: '0.82rem',
                   cursor: 'pointer',
                   whiteSpace: 'nowrap',
+                  flexShrink: 0,
+                  boxSizing: 'border-box',
+                  verticalAlign: 'middle',
                   transition: 'all 0.15s ease'
                 }}
               >
-                {tab.label}
+                <span style={{ fontSize: '1rem', lineHeight: 1, display: 'inline-flex', alignItems: 'center' }}>{tab.icon}</span>
+                <span style={{ lineHeight: 1, display: 'inline-flex', alignItems: 'center' }}>{tab.label}</span>
               </button>
             )
           })}
