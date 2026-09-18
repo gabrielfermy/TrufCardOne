@@ -395,6 +395,20 @@ function MainApp() {
     updateBrowserUrl(currentView, gameMode, activeSession, utilitiesTab)
   }, [currentView, gameMode, activeSession?.id, activeSession?.room_code, utilitiesTab])
 
+  // Derive list of games with an active, uncompleted match in progress
+  const activeGameTypes = React.useMemo(() => {
+    const types = new Set()
+    if (activeSession && !activeSession.is_completed && activeSession.game_type) {
+      types.add(activeSession.game_type)
+    }
+    recentSessions.forEach(s => {
+      if (!s.is_completed && s.game_type) {
+        types.add(s.game_type)
+      }
+    })
+    return Array.from(types)
+  }, [activeSession, recentSessions])
+
   // Navigation Handler
   const handleNavigate = (viewId, extraTab = 'dice') => {
     if (viewId === 'admin' && user?.profile?.role !== 'admin') {
@@ -405,7 +419,18 @@ function MainApp() {
       setUtilitiesTab(extraTab)
     }
     if (viewId === 'truf' || viewId === 'remi' || viewId === 'omben') {
-      setGameMode('lobby')
+      // Check if current active session matches this game and is uncompleted
+      if (activeSession && activeSession.game_type === viewId && !activeSession.is_completed) {
+        setGameMode('play')
+      } else {
+        // Look in recent/local sessions for an active uncompleted session for this game
+        const activeMatch = recentSessions.find(s => s.game_type === viewId && !s.is_completed)
+        if (activeMatch) {
+          handleOpenSession(activeMatch)
+        } else {
+          setGameMode('lobby')
+        }
+      }
     }
     setCurrentView(viewId)
   }
@@ -677,6 +702,53 @@ function MainApp() {
         }}
       />
 
+      {/* Floating Active Game Quick-Resume Banner */}
+      {activeSession && !activeSession.is_completed && (currentView !== activeSession.game_type || gameMode !== 'play') && (
+        <div 
+          onClick={() => {
+            setCurrentView(activeSession.game_type)
+            setGameMode('play')
+          }}
+          style={{
+            background: 'linear-gradient(90deg, #7C3AED, #4F46E5)',
+            color: '#FFF',
+            padding: '10px 16px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            position: 'sticky',
+            top: syncNotice || !isOnline ? '36px' : '0px',
+            zIndex: 9998,
+            boxShadow: '0 4px 14px rgba(124, 58, 237, 0.45)',
+            cursor: 'pointer',
+            borderBottom: '1px solid rgba(255,255,255,0.2)'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem' }}>
+            <span style={{ fontSize: '1.2rem' }}>⚡</span>
+            <span>
+              Game <strong>{activeSession.game_type?.toUpperCase()}</strong> Sedang Berjalan 
+              <span style={{ opacity: 0.85, marginLeft: '6px' }}>({sessionRounds.length > 0 ? `Ronde ${sessionRounds.length + 1}` : 'Belum Mulai Ronde'})</span>
+            </span>
+          </div>
+          <button 
+            type="button" 
+            className="btn btn-sm btn-primary"
+            style={{ 
+              padding: '4px 12px', 
+              fontSize: '0.78rem', 
+              fontWeight: 800,
+              background: '#FFF',
+              color: '#7C3AED',
+              border: 'none',
+              borderRadius: '6px'
+            }}
+          >
+            ▶️ Lanjutkan Main
+          </button>
+        </div>
+      )}
+
       {/* Main View Router */}
       <main className="main-content">
         {currentView === 'hub' && (
@@ -834,8 +906,8 @@ function MainApp() {
       {/* Bottom Navigation for Mobile */}
       <BottomNav
         activeView={currentView}
+        activeGameTypes={activeGameTypes}
         onNavigate={(viewId) => {
-          setActiveSession(null) // Reset active in-memory session when navigating tabs
           handleNavigate(viewId)
         }}
         isAdmin={user?.profile?.role === 'admin'}

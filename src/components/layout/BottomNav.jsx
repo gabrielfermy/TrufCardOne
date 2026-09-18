@@ -1,7 +1,7 @@
 import React from 'react'
 import { useTranslation } from '../../i18n/I18nContext'
 
-export default function BottomNav({ activeView, onNavigate, isAdmin }) {
+export default function BottomNav({ activeView, onNavigate, isAdmin, activeGameTypes = [] }) {
   const { t } = useTranslation()
 
   const tabs = [
@@ -20,16 +20,38 @@ export default function BottomNav({ activeView, onNavigate, isAdmin }) {
 
   return (
     <nav className="bottom-nav">
-      {tabs.map(tab => (
-        <button
-          key={tab.id}
-          className={`nav-tab ${activeView === tab.id ? 'active' : ''}`}
-          onClick={() => onNavigate(tab.id)}
-        >
-          <span className="nav-icon">{tab.icon}</span>
-          <span>{tab.label}</span>
-        </button>
-      ))}
+      {tabs.map(tab => {
+        const hasActiveGame = activeGameTypes.includes(tab.id)
+        return (
+          <button
+            key={tab.id}
+            className={`nav-tab ${activeView === tab.id ? 'active' : ''}`}
+            onClick={() => onNavigate(tab.id)}
+            style={{ position: 'relative' }}
+          >
+            <span className="nav-icon" style={{ position: 'relative' }}>
+              {tab.icon}
+              {hasActiveGame && (
+                <span 
+                  style={{
+                    position: 'absolute',
+                    top: '-2px',
+                    right: '-4px',
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    backgroundColor: '#10B981',
+                    boxShadow: '0 0 6px #10B981',
+                    border: '1.5px solid #0F172A'
+                  }} 
+                  title="Ada game yang sedang berjalan"
+                />
+              )}
+            </span>
+            <span>{tab.label}</span>
+          </button>
+        )
+      })}
     </nav>
   )
 }

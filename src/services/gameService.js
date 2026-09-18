@@ -1,7 +1,45 @@
-import { supabase } from './supabaseClient'
-import { networkService } from './networkService'
-import { sanitizePlayerNames, sanitizeText, sanitizeRoomCode } from '../utils/securityUtils'
-import { auditService } from './auditService'
+import { supabase } from './supabaseClient.js'
+import { networkService } from './networkService.js'
+import { sanitizePlayerNames, sanitizeText, sanitizeRoomCode } from '../utils/securityUtils.js'
+import { auditService } from './auditService.js'
+
+const LOCAL_SESSIONS_KEY = 'gns_local_sessions'
+
+function getLocalSessions() {
+  if (typeof localStorage === 'undefined') return []
+  try {
+    const raw = localStorage.getItem(LOCAL_SESSIONS_KEY)
+    return raw ? JSON.parse(raw) : []
+  } catch {
+    return []
+  }
+}
+
+function saveLocalSession(session) {
+  if (typeof localStorage === 'undefined' || !session?.id) return
+  try {
+    const sessions = getLocalSessions()
+    const idx = sessions.findIndex(s => s.id === session.id)
+    if (idx >= 0) {
+      sessions[idx] = { ...sessions[idx], ...session }
+    } else {
+      sessions.unshift(session)
+    }
+    localStorage.setItem(LOCAL_SESSIONS_KEY, JSON.stringify(sessions.slice(0, 30)))
+  } catch (err) {
+    console.warn('saveLocalSession error:', err)
+  }
+}
+
+function deleteLocalSession(sessionId) {
+  if (typeof localStorage === 'undefined' || !sessionId) return
+  try {
+    const sessions = getLocalSessions().filter(s => s.id !== sessionId)
+    localStorage.setItem(LOCAL_SESSIONS_KEY, JSON.stringify(sessions))
+  } catch (err) {
+    console.warn('deleteLocalSession error:', err)
+  }
+}
 
 function generateRoomCode(gameType = 'TRUF') {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
@@ -23,6 +61,11 @@ function normalizeRoomCode(input) {
 }
 
 export const gameService = {
+  // Export local storage helpers
+  getLocalSessions,
+  saveLocalSession,
+  deleteLocalSession,
+
   // 1. Create a Game Session (Cloud First or Local Offline)
   async createSession({ userId, creatorClientId, gameType = 'truf', playerNames, firstDealer = 0, settings, title, isOfflineLocal = false }) {
     const roomCode = generateRoomCode(gameType)
@@ -53,7 +96,8 @@ export const gameService = {
         isOfflineLocal: Boolean(isOfflineLocal)
       },
       is_completed: false,
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
+      game_rounds: []
     }
 
     // Supply legacy player columns for maximum backward-compatibility with older DB instances
@@ -71,6 +115,15 @@ export const gameService = {
       details: { gameType, roomCode, title: safeTitle, players: safePlayerNames, isOfflineLocal }
     })
 
+    // If explicit offline local mode or offline, save immediately to local storage
+    if (isOfflineLocal || !networkService.isOnline()) {
+      const localId = `local-session-${Date.now()}`
+      const localSession = { ...sessionPayload, id: localId }
+      saveLocalSession(localSession)
+      console.log('📱 Session created locally in LocalStorage:', localId)
+      return localSession
+    }
+
     try {
       const { data, error } = await supabase
         .from('game_sessions')
@@ -80,15 +133,18 @@ export const gameService = {
 
       if (!error && data) {
         console.log('✅ Session created successfully in Supabase Cloud:', data.id, data.room_code)
-        return {
+        const result = {
           ...data,
           first_dealer: resolvedFirstDealer,
           settings: {
             ...data.settings,
             first_dealer: resolvedFirstDealer,
             firstDealer: resolvedFirstDealer
-          }
+          },
+          game_rounds: []
         }
+        saveLocalSession(result)
+        return result
       }
 
       if (error) {
@@ -109,15 +165,18 @@ export const gameService = {
 
           if (!retryError && retryData) {
             console.log('✅ Session created with user_id=null fallback:', retryData.id)
-            return {
+            const result = {
               ...retryData,
               first_dealer: resolvedFirstDealer,
               settings: {
                 ...retryData.settings,
                 first_dealer: resolvedFirstDealer,
                 firstDealer: resolvedFirstDealer
-              }
+              },
+              game_rounds: []
             }
+            saveLocalSession(result)
+            return result
           }
         }
       }
@@ -125,16 +184,19 @@ export const gameService = {
       console.error('❌ Cloud session save exception:', err)
     }
 
-    // In-memory fallback if temporary network error occurs during match setup
-    const tempId = `temp-session-${Date.now()}`
-    return { ...sessionPayload, id: tempId, rounds: [], scores: {} }
+    // Local fallback if temporary network error occurs during match setup
+    const tempId = `local-session-${Date.now()}`
+    const localFallback = { ...sessionPayload, id: tempId, rounds: [], scores: {} }
+    saveLocalSession(localFallback)
+    return localFallback
   },
 
-  // 2. Fetch User Match Diary (Hosted + Participated)
+  // 2. Fetch User Match Diary (Hosted + Participated + Local Guest)
   async getUserSessions(userId, isPro = false) {
-    // Guests do not have persistent match diary in Cloud or LocalStorage
-    if (!userId || userId === 'guest-user' || (typeof userId === 'string' && userId.startsWith('guest'))) {
-      return []
+    const isGuest = !userId || userId === 'guest-user' || (typeof userId === 'string' && userId.startsWith('guest'))
+
+    if (isGuest) {
+      return getLocalSessions()
     }
 
     try {
@@ -157,30 +219,46 @@ export const gameService = {
         .or(`user_id.eq.${userId},player_user_ids.cs.["${userId}"]`)
         .order('created_at', { ascending: false })
 
-      // Free tier saves up to 10 recent sessions; Pro/Venue has unlimited lifetime history
+      // Free tier saves up to 15 recent sessions; Pro/Venue has unlimited lifetime history
       if (!isPro) {
-        query = query.limit(10)
+        query = query.limit(15)
       }
 
       const { data, error } = await query
       if (error) throw error
 
-      return (data || []).map(s => ({
+      const cloudSessions = (data || []).map(s => ({
         ...s,
         player_names: (Array.isArray(s.player_names) && s.player_names.length > 0)
           ? s.player_names
           : [s.player1_name, s.player2_name, s.player3_name, s.player4_name].filter(Boolean),
         first_dealer: s.first_dealer ?? s.settings?.first_dealer ?? s.settings?.firstDealer ?? 0
       }))
+
+      // Merge local uncompleted sessions
+      const local = getLocalSessions()
+      const merged = [...cloudSessions]
+      local.forEach(ls => {
+        if (!merged.some(cs => cs.id === ls.id)) {
+          merged.push(ls)
+        }
+      })
+      return merged
     } catch (err) {
-      console.warn('Error loading cloud sessions', err)
-      return []
+      console.warn('Error loading cloud sessions, falling back to local storage', err)
+      return getLocalSessions()
     }
   },
 
   // 3. Fetch Single Session by ID or Room Code
   async getSession(sessionId, roomCode) {
     if (!sessionId && !roomCode) return null
+
+    // Check local storage first for local/guest sessions
+    if (sessionId && (sessionId.startsWith('guest-') || sessionId.startsWith('temp-') || sessionId.startsWith('local-'))) {
+      const local = getLocalSessions().find(s => s.id === sessionId)
+      if (local) return local
+    }
 
     try {
       // 1. Fetch Session Header first (case-insensitive & robust)
@@ -208,12 +286,12 @@ export const gameService = {
         }
       }
 
-      if (sessionErr) {
-        console.error('❌ getSession error from Supabase:', sessionErr)
-      }
-
       if (!session) {
-        return null
+        const localMatch = getLocalSessions().find(s =>
+          (sessionId && s.id === sessionId) ||
+          (roomCode && (s.room_code === roomCode || s.room_code?.endsWith(roomCode)))
+        )
+        return localMatch || null
       }
 
       // Ensure player_names is valid array (handling legacy columns if any)
@@ -265,11 +343,16 @@ export const gameService = {
         session.game_rounds = []
       }
 
+      saveLocalSession(session)
       console.log('✅ Session loaded successfully:', session.room_code || session.id)
       return session
     } catch (err) {
       console.error('❌ Exception in getSession:', err)
-      return null
+      const localMatch = getLocalSessions().find(s =>
+        (sessionId && s.id === sessionId) ||
+        (roomCode && (s.room_code === roomCode || s.room_code?.endsWith(roomCode)))
+      )
+      return localMatch || null
     }
   },
 
@@ -358,63 +441,75 @@ export const gameService = {
     return { ...round, player_scores: scoreRecords }
   },
 
-  // 4b. Save a Game Round (Cloud First with Resilient Late Sync Queue)
+  // 4b. Save a Game Round (Cloud First with Local Persistence and Late Sync)
   async saveRound({ sessionId, roundNumber, roundData, playerScores }) {
     if (!sessionId) return null
 
-    // Check online status
+    const roundId = `round-${Date.now()}-${roundNumber}`
+    const localRound = {
+      id: roundId,
+      session_id: sessionId,
+      round_number: roundNumber,
+      round_data: roundData,
+      created_at: new Date().toISOString(),
+      player_scores: playerScores.map((ps, idx) => ({
+        id: `ps-${roundId}-${idx}`,
+        player_index: idx,
+        stats: ps.stats || {},
+        bid: ps.stats?.bid ?? (ps.bid ?? 0),
+        won: ps.stats?.won ?? (ps.won ?? 0),
+        score_change: ps.score_change,
+        score_cumulative: ps.score_cumulative
+      }))
+    }
+
+    // Always update local storage immediately for 100% loss prevention
+    const sessions = getLocalSessions()
+    const targetSession = sessions.find(s => s.id === sessionId)
+    if (targetSession) {
+      const existingRounds = targetSession.game_rounds || targetSession.rounds || []
+      const roundIdx = existingRounds.findIndex(r => r.round_number === roundNumber)
+      if (roundIdx >= 0) {
+        existingRounds[roundIdx] = localRound
+      } else {
+        existingRounds.push(localRound)
+      }
+      targetSession.game_rounds = existingRounds
+      targetSession.rounds = existingRounds
+      saveLocalSession(targetSession)
+    }
+
+    // Check if session is offline local or temporary local
+    if (sessionId.startsWith('local-') || sessionId.startsWith('guest-') || targetSession?.settings?.isOfflineLocal) {
+      return localRound
+    }
+
+    // If offline, enqueue for late sync
     if (!networkService.isOnline()) {
       console.warn('⚠️ Offline: Enqueuing round to late sync queue for session', sessionId)
-      const roundId = `queued-round-${Date.now()}`
-      const offlineRound = {
-        id: roundId,
-        session_id: sessionId,
-        round_number: roundNumber,
-        round_data: roundData,
-        created_at: new Date().toISOString(),
-        is_pending_sync: true,
-        player_scores: playerScores.map((ps, idx) => ({
-          id: `ps-${roundId}-${idx}`,
-          player_index: idx,
-          stats: ps.stats || {},
-          score_change: ps.score_change,
-          score_cumulative: ps.score_cumulative
-        }))
-      }
       networkService.enqueue({
         type: 'SAVE_ROUND',
         sessionId,
         payload: { sessionId, roundNumber, roundData, playerScores }
       })
-      return offlineRound
+      return { ...localRound, is_pending_sync: true }
     }
 
     try {
-      return await this._saveRoundToCloud({ sessionId, roundNumber, roundData, playerScores })
+      const cloudRound = await this._saveRoundToCloud({ sessionId, roundNumber, roundData, playerScores })
+      if (targetSession) {
+        targetSession.game_rounds = (targetSession.game_rounds || []).map(r => r.round_number === roundNumber ? cloudRound : r)
+        saveLocalSession(targetSession)
+      }
+      return cloudRound
     } catch (err) {
       console.warn('⚠️ Cloud saveRound error, enqueuing for late sync:', err)
-      const roundId = `queued-round-${Date.now()}`
-      const offlineRound = {
-        id: roundId,
-        session_id: sessionId,
-        round_number: roundNumber,
-        round_data: roundData,
-        created_at: new Date().toISOString(),
-        is_pending_sync: true,
-        player_scores: playerScores.map((ps, idx) => ({
-          id: `ps-${roundId}-${idx}`,
-          player_index: idx,
-          stats: ps.stats || {},
-          score_change: ps.score_change,
-          score_cumulative: ps.score_cumulative
-        }))
-      }
       networkService.enqueue({
         type: 'SAVE_ROUND',
         sessionId,
         payload: { sessionId, roundNumber, roundData, playerScores }
       })
-      return offlineRound
+      return { ...localRound, is_pending_sync: true }
     }
   },
 
@@ -449,14 +544,28 @@ export const gameService = {
 
   // 5. Undo / Delete Round
   async deleteRound(roundId, sessionId) {
-    if (!roundId) return true
+    if (sessionId) {
+      const sessions = getLocalSessions()
+      const target = sessions.find(s => s.id === sessionId)
+      if (target) {
+        target.game_rounds = (target.game_rounds || target.rounds || []).filter(r => r.id !== roundId)
+        target.rounds = target.game_rounds
+        saveLocalSession(target)
+      }
+    }
 
-    const { error } = await supabase
-      .from('game_rounds')
-      .delete()
-      .eq('id', roundId)
+    if (!roundId || String(roundId).startsWith('round-') || String(roundId).startsWith('local-')) return true
 
-    if (error) throw error
+    try {
+      const { error } = await supabase
+        .from('game_rounds')
+        .delete()
+        .eq('id', roundId)
+
+      if (error) console.warn('Supabase deleteRound note:', error.message)
+    } catch (err) {
+      console.warn('deleteRound cloud sync exception:', err)
+    }
     return true
   },
 
@@ -464,12 +573,26 @@ export const gameService = {
   async completeSession(sessionId) {
     if (!sessionId) return true
 
-    const { error } = await supabase
-      .from('game_sessions')
-      .update({ is_completed: true, updated_at: new Date().toISOString() })
-      .eq('id', sessionId)
+    const sessions = getLocalSessions()
+    const target = sessions.find(s => s.id === sessionId)
+    if (target) {
+      target.is_completed = true
+      target.updated_at = new Date().toISOString()
+      saveLocalSession(target)
+    }
 
-    if (error) throw error
+    if (String(sessionId).startsWith('local-') || String(sessionId).startsWith('guest-')) return true
+
+    try {
+      const { error } = await supabase
+        .from('game_sessions')
+        .update({ is_completed: true, updated_at: new Date().toISOString() })
+        .eq('id', sessionId)
+
+      if (error) console.warn('Supabase completeSession note:', error.message)
+    } catch (err) {
+      console.warn('completeSession cloud sync exception:', err)
+    }
     return true
   },
 
@@ -477,13 +600,21 @@ export const gameService = {
   async deleteSession(sessionId) {
     if (!sessionId) return true
 
-    const { error } = await supabase
-      .from('game_sessions')
-      .delete()
-      .eq('id', sessionId)
+    deleteLocalSession(sessionId)
 
-    if (error) {
-      console.warn('Cloud delete session warning:', error)
+    if (String(sessionId).startsWith('local-') || String(sessionId).startsWith('guest-')) return true
+
+    try {
+      const { error } = await supabase
+        .from('game_sessions')
+        .delete()
+        .eq('id', sessionId)
+
+      if (error) {
+        console.warn('Cloud delete session warning:', error)
+      }
+    } catch (err) {
+      console.warn('deleteSession cloud sync exception:', err)
     }
     return true
   },
