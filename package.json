@@ -6,6 +6,10 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:staging": "vite build --mode staging",
+    "build:prod": "vite build --mode production",
+    "deploy:staging": "npm run build:staging && npx wrangler pages deploy dist --project-name=koncoselo --branch=staging --commit-dirty=true",
+    "deploy:prod": "npm run build:prod && npx wrangler pages deploy dist --project-name=kancasela --branch=master --commit-dirty=true",
     "lint": "oxlint",
     "test": "node --test",
     "test:security": "node --test tests/security/*.test.js",

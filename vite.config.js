@@ -1,8 +1,33 @@
+import http from 'node:http'
 import react from '@vitejs/plugin-react'
 import basicSsl from '@vitejs/plugin-basic-ssl'
 import { defineConfig } from 'vite'
 
 const buildTime = new Date().toISOString()
+
+function httpToHttpsRedirectPlugin() {
+  return {
+    name: 'http-to-https-redirect',
+    configureServer(server) {
+      try {
+        const redirectServer = http.createServer((req, res) => {
+          const host = req.headers.host ? req.headers.host.split(':')[0] : 'kancasela.test'
+          res.writeHead(301, { Location: `https://${host}${req.url}` })
+          res.end()
+        })
+        redirectServer.on('error', (err) => {
+          // If port 80 is occupied by another service or lacks permission, continue gracefully
+          server.config.logger.warn(`HTTP Port 80 redirect disabled: ${err.message}`)
+        })
+        redirectServer.listen(80, '0.0.0.0', () => {
+          server.config.logger.info('  ➜  HTTP Redirect: http://kancasela.test:80 -> https://kancasela.test')
+        })
+      } catch (err) {
+        // graceful fallback
+      }
+    },
+  }
+}
 
 function versionPlugin() {
   return {
@@ -27,7 +52,7 @@ function versionPlugin() {
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), basicSsl(), versionPlugin()],
+  plugins: [react(), basicSsl(), httpToHttpsRedirectPlugin(), versionPlugin()],
   define: {
     __APP_BUILD_TIME__: JSON.stringify(buildTime),
   },
