@@ -66,15 +66,15 @@ export default function OmbenSetup({ onStartGame, onBack }) {
             style={{
               padding: '12px',
               borderRadius: '12px',
-              border: `2px solid ${roomMode === 'multiplayer' ? '#8B5CF6' : 'var(--border-glass)'}`,
-              background: roomMode === 'multiplayer' ? 'rgba(139, 92, 246, 0.15)' : 'var(--bg-glass)',
+              border: `2px solid ${roomMode === 'multiplayer' ? 'var(--primary)' : 'var(--border-glass)'}`,
+              background: roomMode === 'multiplayer' ? 'var(--badge-purple-bg)' : 'var(--bg-glass)',
               cursor: 'pointer',
               display: 'flex',
               flexDirection: 'column',
               gap: '4px'
             }}
           >
-            <div style={{ fontWeight: 800, fontSize: '0.85rem', color: roomMode === 'multiplayer' ? '#C084FC' : '#FFF' }}>
+            <div style={{ fontWeight: 800, fontSize: '0.85rem', color: roomMode === 'multiplayer' ? 'var(--badge-purple-text)' : 'var(--text-main)' }}>
               🌐 {t('room_mode.multiplayer')}
             </div>
             <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: 1.3 }}>
@@ -87,15 +87,15 @@ export default function OmbenSetup({ onStartGame, onBack }) {
             style={{
               padding: '12px',
               borderRadius: '12px',
-              border: `2px solid ${roomMode === 'offline' ? '#10B981' : 'var(--border-glass)'}`,
-              background: roomMode === 'offline' ? 'rgba(16, 185, 129, 0.15)' : 'var(--bg-glass)',
+              border: `2px solid ${roomMode === 'offline' ? 'var(--accent-green)' : 'var(--border-glass)'}`,
+              background: roomMode === 'offline' ? 'var(--badge-green-bg)' : 'var(--bg-glass)',
               cursor: 'pointer',
               display: 'flex',
               flexDirection: 'column',
               gap: '4px'
             }}
           >
-            <div style={{ fontWeight: 800, fontSize: '0.85rem', color: roomMode === 'offline' ? '#34D399' : '#FFF' }}>
+            <div style={{ fontWeight: 800, fontSize: '0.85rem', color: roomMode === 'offline' ? 'var(--badge-green-text)' : 'var(--text-main)' }}>
               📱 {t('room_mode.offline')}
             </div>
             <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: 1.3 }}>

@@ -8,7 +8,9 @@
 -- User 1: Gabriel (Admin + Pro)
 INSERT INTO auth.users (
   instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
-  raw_app_meta_data, raw_user_meta_data, created_at, updated_at
+  raw_app_meta_data, raw_user_meta_data, created_at, updated_at,
+  confirmation_token, recovery_token, email_change_token_new, email_change,
+  email_change_token_current, phone_change, phone_change_token, reauthentication_token
 ) VALUES (
   '00000000-0000-0000-0000-000000000000',
   'd0d8be02-4ee0-496a-9366-508b53298c4d',
@@ -20,8 +22,14 @@ INSERT INTO auth.users (
   '{"provider": "email", "providers": ["email"]}',
   '{"full_name": "Gabriel Aswinta (Admin)"}',
   now(),
-  now()
-) ON CONFLICT (id) DO UPDATE SET encrypted_password = EXCLUDED.encrypted_password;
+  now(),
+  '', '', '', '', '', '', '', ''
+) ON CONFLICT (id) DO UPDATE SET 
+  encrypted_password = EXCLUDED.encrypted_password,
+  confirmation_token = '',
+  recovery_token = '',
+  email_change_token_new = '',
+  email_change = '';
 
 INSERT INTO auth.identities (id, user_id, identity_data, provider, provider_id, last_sign_in_at, created_at, updated_at)
 VALUES (
@@ -36,7 +44,9 @@ VALUES (
 -- User 2: Pro User (Ad-Free)
 INSERT INTO auth.users (
   instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
-  raw_app_meta_data, raw_user_meta_data, created_at, updated_at
+  raw_app_meta_data, raw_user_meta_data, created_at, updated_at,
+  confirmation_token, recovery_token, email_change_token_new, email_change,
+  email_change_token_current, phone_change, phone_change_token, reauthentication_token
 ) VALUES (
   '00000000-0000-0000-0000-000000000000',
   'd0d8be02-4ee0-496a-9366-508b53298c4e',
@@ -48,8 +58,14 @@ INSERT INTO auth.users (
   '{"provider": "email", "providers": ["email"]}',
   '{"full_name": "Kanca Pro Member"}',
   now(),
-  now()
-) ON CONFLICT (id) DO UPDATE SET encrypted_password = EXCLUDED.encrypted_password;
+  now(),
+  '', '', '', '', '', '', '', ''
+) ON CONFLICT (id) DO UPDATE SET 
+  encrypted_password = EXCLUDED.encrypted_password,
+  confirmation_token = '',
+  recovery_token = '',
+  email_change_token_new = '',
+  email_change = '';
 
 INSERT INTO auth.identities (id, user_id, identity_data, provider, provider_id, last_sign_in_at, created_at, updated_at)
 VALUES (
@@ -64,7 +80,9 @@ VALUES (
 -- User 3: Free User (With Ads)
 INSERT INTO auth.users (
   instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
-  raw_app_meta_data, raw_user_meta_data, created_at, updated_at
+  raw_app_meta_data, raw_user_meta_data, created_at, updated_at,
+  confirmation_token, recovery_token, email_change_token_new, email_change,
+  email_change_token_current, phone_change, phone_change_token, reauthentication_token
 ) VALUES (
   '00000000-0000-0000-0000-000000000000',
   'd0d8be02-4ee0-496a-9366-508b53298c4f',
@@ -76,8 +94,14 @@ INSERT INTO auth.users (
   '{"provider": "email", "providers": ["email"]}',
   '{"full_name": "Free Player (With Ads)"}',
   now(),
-  now()
-) ON CONFLICT (id) DO UPDATE SET encrypted_password = EXCLUDED.encrypted_password;
+  now(),
+  '', '', '', '', '', '', '', ''
+) ON CONFLICT (id) DO UPDATE SET 
+  encrypted_password = EXCLUDED.encrypted_password,
+  confirmation_token = '',
+  recovery_token = '',
+  email_change_token_new = '',
+  email_change = '';
 
 INSERT INTO auth.identities (id, user_id, identity_data, provider, provider_id, last_sign_in_at, created_at, updated_at)
 VALUES (
@@ -128,18 +152,18 @@ VALUES
   ('b1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c02', 'a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d', 2, '{"dealerIndex": 1, "trufSuit": 1, "playMode": "bawah"}'::jsonb, now() - interval '80 minutes')
 ON CONFLICT DO NOTHING;
 
-INSERT INTO public.player_scores (round_id, player_index, stats, score_change, score_cumulative)
+INSERT INTO public.player_scores (round_id, player_index, bid, won, stats, score_change, score_cumulative)
 VALUES
   -- Round 1
-  ('b1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c01', 0, '{"bid": 4, "won": 4}'::jsonb, 4, 4),
-  ('b1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c01', 1, '{"bid": 3, "won": 2}'::jsonb, -2, -2),
-  ('b1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c01', 2, '{"bid": 3, "won": 4}'::jsonb, -1, -1),
-  ('b1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c01', 3, '{"bid": 4, "won": 3}'::jsonb, -2, -2),
+  ('b1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c01', 0, 4, 4, '{"bid": 4, "won": 4}'::jsonb, 4, 4),
+  ('b1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c01', 1, 3, 2, '{"bid": 3, "won": 2}'::jsonb, -2, -2),
+  ('b1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c01', 2, 3, 4, '{"bid": 3, "won": 4}'::jsonb, -1, -1),
+  ('b1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c01', 3, 4, 3, '{"bid": 4, "won": 3}'::jsonb, -2, -2),
   -- Round 2
-  ('b1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c02', 0, '{"bid": 3, "won": 3}'::jsonb, 3, 7),
-  ('b1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c02', 1, '{"bid": 2, "won": 3}'::jsonb, -2, -4),
-  ('b1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c02', 2, '{"bid": 4, "won": 4}'::jsonb, 4, 3),
-  ('b1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c02', 3, '{"bid": 3, "won": 3}'::jsonb, 3, 1)
+  ('b1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c02', 0, 3, 3, '{"bid": 3, "won": 3}'::jsonb, 3, 7),
+  ('b1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c02', 1, 2, 3, '{"bid": 2, "won": 3}'::jsonb, -2, -4),
+  ('b1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c02', 2, 4, 4, '{"bid": 4, "won": 4}'::jsonb, 4, 3),
+  ('b1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c02', 3, 3, 3, '{"bid": 3, "won": 3}'::jsonb, 3, 1)
 ON CONFLICT DO NOTHING;
 
 -- Session 2: Active Room (Joinable by code 'TEST88')

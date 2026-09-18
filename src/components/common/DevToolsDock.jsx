@@ -88,8 +88,8 @@ export default function DevToolsDock({ user, onUserRefresh, onOpenPricing, onOpe
     <div
       style={{
         position: 'fixed',
-        bottom: '16px',
-        right: '16px',
+        bottom: 'calc(var(--bottom-nav-height, 70px) + 12px)',
+        right: '14px',
         zIndex: 9999,
         fontFamily: 'system-ui, -apple-system, sans-serif',
       }}
@@ -102,24 +102,25 @@ export default function DevToolsDock({ user, onUserRefresh, onOpenPricing, onOpe
           color: '#FFF',
           border: '1px solid rgba(255, 255, 255, 0.25)',
           borderRadius: '999px',
-          padding: '8px 16px',
-          fontSize: '0.78rem',
+          padding: '6px 12px',
+          fontSize: '0.74rem',
           fontWeight: 800,
           cursor: 'pointer',
           display: 'flex',
           alignItems: 'center',
-          gap: '8px',
+          gap: '6px',
           boxShadow: '0 8px 24px rgba(79, 70, 229, 0.45)',
           backdropFilter: 'blur(8px)',
         }}
+        title="Toggle Local DevTools"
       >
-        <span>🛠️ Local DevTools</span>
+        <span>🛠️ DevTools</span>
         <span style={{
           background: isPro ? '#F59E0B' : '#10B981',
           color: '#000',
-          fontSize: '0.65rem',
+          fontSize: '0.62rem',
           fontWeight: 900,
-          padding: '1px 6px',
+          padding: '1px 5px',
           borderRadius: '999px',
         }}>
           {isPro ? 'PRO 👑' : 'FREE'}
@@ -131,9 +132,11 @@ export default function DevToolsDock({ user, onUserRefresh, onOpenPricing, onOpe
         <div
           style={{
             position: 'absolute',
-            bottom: '48px',
+            bottom: '44px',
             right: '0',
-            width: '320px',
+            width: 'min(320px, calc(100vw - 28px))',
+            maxHeight: '75vh',
+            overflowY: 'auto',
             background: 'linear-gradient(145deg, #131728 0%, #0D0F1B 100%)',
             borderRadius: '16px',
             border: '1px solid rgba(139, 92, 246, 0.3)',

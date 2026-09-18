@@ -134,53 +134,67 @@ export default function OmbenPlay({
       )}
 
       {/* Header */}
-      <div className="glass-panel" style={{ padding: '14px 18px', marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
+      <div className="glass-panel" style={{ padding: '10px 12px', marginBottom: '12px' }}>
+        {/* Top Meta Bar */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '8px', minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, flex: 1, overflow: 'hidden' }}>
             {onBackToLobby && (
               <button 
                 type="button"
                 className="btn btn-secondary btn-sm"
                 onClick={onBackToLobby}
-                style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '6px' }}
+                style={{ fontSize: '0.72rem', padding: '3px 8px', borderRadius: '6px', whiteSpace: 'nowrap', flexShrink: 0 }}
                 title="Kembali ke Lobby Omben"
               >
                 ← Lobby
               </button>
             )}
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-dim)', fontWeight: 700, textTransform: 'uppercase' }}>
+            <span style={{
+              fontSize: '0.76rem',
+              color: 'var(--text-dim)',
+              fontWeight: 700,
+              textTransform: 'uppercase',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap'
+            }}>
               {session?.title || 'Omben Session'}
             </span>
 
             {/* Role Badge */}
             <span style={{
-              fontSize: '0.72rem',
-              padding: '2px 8px',
-              borderRadius: '6px',
+              fontSize: '0.68rem',
+              padding: '2px 6px',
+              borderRadius: '5px',
               fontWeight: 800,
-              background: isHost ? 'rgba(245, 158, 11, 0.15)' : isSpectator ? 'rgba(59, 130, 246, 0.15)' : 'rgba(139, 92, 246, 0.15)',
-              color: isHost ? '#FBBF24' : isSpectator ? '#60A5FA' : '#C084FC',
-              border: `1px solid ${isHost ? 'rgba(245, 158, 11, 0.35)' : isSpectator ? 'rgba(59, 130, 246, 0.35)' : 'rgba(139, 92, 246, 0.35)'}`
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
+              background: isHost ? 'var(--badge-gold-bg)' : isSpectator ? 'var(--badge-blue-bg)' : 'var(--badge-purple-bg)',
+              color: isHost ? 'var(--badge-gold-text)' : isSpectator ? 'var(--badge-blue-text)' : 'var(--badge-purple-text)',
+              border: `1px solid ${isHost ? 'var(--badge-gold-border)' : isSpectator ? 'var(--badge-blue-border)' : 'var(--badge-purple-border)'}`
             }}>
-              {isHost ? '👑 Host' : isSpectator ? '👀 Penonton' : `🪑 Kursi P${(myPlayerIndex ?? 0) + 1}`}
+              {isHost ? '👑 Host' : isSpectator ? '👀 Penonton' : `🪑 P${(myPlayerIndex ?? 0) + 1}`}
             </span>
+          </div>
 
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
             <button 
               type="button"
               className="btn btn-sm"
               onClick={() => setIsInviteModalOpen(true)}
               style={{
                 fontSize: '0.72rem',
-                padding: '2px 8px',
-                background: 'rgba(249, 115, 22, 0.15)',
-                border: '1px solid rgba(249, 115, 22, 0.35)',
-                color: '#FB923C',
+                padding: '3px 7px',
+                background: 'var(--badge-orange-bg)',
+                border: '1px solid var(--badge-orange-border)',
+                color: 'var(--badge-orange-text)',
                 fontWeight: 700,
                 borderRadius: '6px',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '4px'
+                gap: '3px'
               }}
+              title="Undang Teman & Kode Room"
             >
               <span>🔗</span>
               <span>{session?.room_code || 'Undang'}</span>
@@ -193,32 +207,43 @@ export default function OmbenPlay({
               onClick={() => setIsRulesModalOpen(true)}
               style={{
                 fontSize: '0.72rem',
-                padding: '2px 8px',
+                padding: '3px 7px',
                 borderRadius: '6px',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '4px',
-                color: '#FBBF24',
-                borderColor: 'rgba(245, 158, 11, 0.4)'
+                gap: '3px',
+                color: 'var(--badge-gold-text)',
+                borderColor: 'var(--badge-gold-border)'
               }}
               title="Aturan Permainan & Cara Main Omben"
             >
               <span>📖</span>
-              <span>Aturan</span>
             </button>
           </div>
-          <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#F97316' }}>
+        </div>
+
+        {/* Bottom Row */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', borderTop: '1px solid var(--border-glass)', paddingTop: '8px' }}>
+          <h2 style={{ fontSize: '1.35rem', fontWeight: 900, color: 'var(--accent-orange)', margin: 0, letterSpacing: '-0.3px', whiteSpace: 'nowrap' }}>
             {t('omben.round', { num: currentRoundNumber })}
           </h2>
-        </div>
-        <div style={{ textAlign: 'right', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-          Batas Kalah: <strong style={{ color: '#F97316' }}>{targetLoss}x Omben 🍺</strong>
+          <div style={{
+            fontSize: '0.74rem',
+            padding: '2px 8px',
+            borderRadius: '6px',
+            background: 'var(--badge-orange-bg)',
+            border: '1px solid var(--badge-orange-border)',
+            color: 'var(--badge-orange-text)',
+            fontWeight: 700
+          }}>
+            Batas Kalah: <strong>{targetLoss}x Omben 🍺</strong>
+          </div>
         </div>
       </div>
 
       {/* Dare Alert Banner */}
       {targetReachedPlayers.length > 0 && (
-        <div style={{ background: 'rgba(249, 115, 22, 0.2)', border: '1px solid rgba(249, 115, 22, 0.4)', padding: '14px', borderRadius: '12px', marginBottom: '16px', textAlign: 'center', color: '#FDBA74', fontWeight: 700 }}>
+        <div style={{ background: 'var(--badge-orange-bg)', border: '1px solid var(--badge-orange-border)', padding: '14px', borderRadius: '12px', marginBottom: '16px', textAlign: 'center', color: 'var(--badge-orange-text)', fontWeight: 700 }}>
           {t('omben.dare_alert', { name: targetReachedPlayers.map(p => p.name).join(', '), count: targetLoss })}
         </div>
       )}
@@ -247,16 +272,16 @@ export default function OmbenPlay({
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  background: isWinner ? 'rgba(16, 185, 129, 0.1)' : isOmben ? 'rgba(249, 115, 22, 0.12)' : 'rgba(0,0,0,0.25)',
-                  border: isWinner ? '1px solid rgba(16, 185, 129, 0.4)' : isOmben ? '1px solid rgba(249, 115, 22, 0.4)' : '1px solid var(--border-glass)',
+                  background: isWinner ? 'var(--badge-green-bg)' : isOmben ? 'var(--badge-orange-bg)' : 'var(--bg-card-nested)',
+                  border: isWinner ? '1.5px solid var(--badge-green-border)' : isOmben ? '1.5px solid var(--badge-orange-border)' : '1px solid var(--border-glass)',
                   padding: '12px 16px',
                   borderRadius: '12px'
                 }}
               >
                 <div>
-                  <strong style={{ fontSize: '0.95rem' }}>{name}</strong>
-                  {isWinner && <span style={{ marginLeft: '8px', color: '#34D399', fontSize: '0.75rem', fontWeight: 800 }}>👑 JUARA 1 (OUT)</span>}
-                  {isOmben && <span style={{ marginLeft: '8px', color: '#F97316', fontSize: '0.75rem', fontWeight: 800 }}>🍺 KENA OMBEN</span>}
+                  <strong style={{ fontSize: '0.95rem', color: 'var(--text-main)' }}>{name}</strong>
+                  {isWinner && <span style={{ marginLeft: '8px', color: 'var(--badge-green-text)', fontSize: '0.75rem', fontWeight: 800 }}>👑 JUARA 1 (OUT)</span>}
+                  {isOmben && <span style={{ marginLeft: '8px', color: 'var(--badge-orange-text)', fontSize: '0.75rem', fontWeight: 800 }}>🍺 KENA OMBEN</span>}
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -320,20 +345,20 @@ export default function OmbenPlay({
                   alignItems: 'center',
                   justifyContent: 'space-between',
                   padding: '12px 16px',
-                  background: 'rgba(0,0,0,0.25)',
+                  background: count > 0 ? 'var(--badge-orange-bg)' : 'var(--bg-card-nested)',
                   borderRadius: '12px',
-                  border: '1px solid var(--border-glass)'
+                  border: count > 0 ? '1px solid var(--badge-orange-border)' : '1px solid var(--border-glass)'
                 }}
               >
                 <div>
-                  <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>{name}</div>
+                  <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-main)' }}>{name}</div>
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                     Menang: {wins}x ronde
                   </div>
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ fontWeight: 800, color: count > 0 ? '#F97316' : 'var(--text-muted)', fontSize: '1.1rem' }}>
+                  <span style={{ fontWeight: 800, color: count > 0 ? 'var(--badge-orange-text)' : 'var(--text-muted)', fontSize: '1.1rem' }}>
                     {count}x Omben
                   </span>
                   <span style={{ fontSize: '1.2rem' }}>

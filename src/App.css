@@ -311,18 +311,42 @@
 }
 
 .btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.12);
+  background: var(--bg-glass);
   border-color: var(--border-glass-light);
 }
 
+[data-theme="light"] .btn-secondary {
+  background: #FFFFFF;
+  border-color: #CBD5E1;
+  color: #0F172A;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+[data-theme="light"] .btn-secondary:hover {
+  background: #F1F5F9;
+  border-color: #94A3B8;
+  color: #0F172A;
+}
+
 .btn-danger {
-  background: rgba(239, 68, 68, 0.15);
-  color: #F87171;
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: var(--badge-red-bg);
+  color: var(--badge-red-text);
+  border: 1px solid var(--badge-red-border);
 }
 
 .btn-danger:hover {
   background: rgba(239, 68, 68, 0.25);
+}
+
+[data-theme="light"] .btn-danger {
+  background: #FEE2E2;
+  color: #991B1B;
+  border-color: #FECACA;
+}
+
+[data-theme="light"] .btn-danger:hover {
+  background: #FCA5A5;
+  color: #7F1D1D;
 }
 
 .btn-success {
@@ -348,7 +372,7 @@
 .form-label {
   display: block;
   font-size: 0.85rem;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--text-muted);
   margin-bottom: 6px;
 }
@@ -363,6 +387,13 @@
   font-size: 0.95rem;
   outline: none;
   transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+[data-theme="light"] .form-input,
+[data-theme="light"] .form-select {
+  background: #FFFFFF;
+  border-color: rgba(15, 23, 42, 0.18);
+  color: #0F172A;
 }
 
 .form-input:focus, .form-select:focus {
@@ -585,6 +616,20 @@
     justify-content: center;
     gap: 6px;
     margin-bottom: 10px;
+  }
+  .hide-mobile {
+    display: none !important;
+  }
+  .app-header {
+    padding: 0 10px;
+    height: 52px;
+  }
+  .brand-logo {
+    font-size: 1.15rem;
+    gap: 6px;
+  }
+  .header-actions {
+    gap: 5px;
   }
 }
 

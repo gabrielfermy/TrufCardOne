@@ -32,14 +32,15 @@ export default function AppHeader({ user, onOpenAuth, onOpenProfile, onNavigate,
               border: '1px solid rgba(16, 185, 129, 0.6)',
               color: '#34D399',
               fontWeight: 800,
-              fontSize: '0.76rem',
-              padding: '4px 10px',
+              fontSize: '0.74rem',
+              padding: '3px 8px',
               borderRadius: '999px',
               display: 'flex',
               alignItems: 'center',
-              gap: '5px',
+              gap: '4px',
               cursor: 'pointer',
-              boxShadow: '0 0 12px rgba(16, 185, 129, 0.2)'
+              boxShadow: '0 0 12px rgba(16, 185, 129, 0.2)',
+              whiteSpace: 'nowrap'
             }}
             title="Kanca Pro Aktif - Klik untuk lihat status & transaksi"
           >
@@ -51,33 +52,32 @@ export default function AppHeader({ user, onOpenAuth, onOpenProfile, onNavigate,
             className="btn btn-sm"
             onClick={onOpenPricing}
             style={{
-              background: 'linear-gradient(90deg, rgba(139, 92, 246, 0.2), rgba(236, 72, 153, 0.2))',
-              border: '1px solid rgba(139, 92, 246, 0.4)',
-              color: '#C084FC',
+              background: 'linear-gradient(90deg, var(--badge-purple-bg), var(--badge-blue-bg))',
+              border: '1px solid var(--badge-purple-border)',
+              color: 'var(--badge-purple-text)',
               fontWeight: 800,
-              fontSize: '0.78rem',
-              padding: '5px 10px',
+              fontSize: '0.76rem',
+              padding: '4px 8px',
               display: 'flex',
               alignItems: 'center',
-              gap: '4px'
+              gap: '3px',
+              whiteSpace: 'nowrap'
             }}
           >
             <span>⭐</span>
-            <span>Upgrade</span>
+            <span className="hide-mobile">Upgrade</span>
           </button>
         )}
 
-        {/* Game Rules Reference Button */}
+        {/* Game Rules Reference Button (Desktop only, mobile has it inside games) */}
         <button
-          className="btn btn-sm btn-secondary"
+          className="btn btn-sm btn-secondary hide-mobile"
           onClick={onOpenRules}
           style={{
             fontSize: '0.78rem',
             padding: '5px 10px',
             borderRadius: '8px',
-            color: '#E0E7FF',
-            borderColor: 'rgba(255, 255, 255, 0.15)',
-            display: 'flex',
+            color: 'var(--text-main)',
             alignItems: 'center',
             gap: '4px'
           }}
@@ -91,9 +91,10 @@ export default function AppHeader({ user, onOpenAuth, onOpenProfile, onNavigate,
         <button 
           className="btn-lang" 
           onClick={toggleLocale}
+          style={{ padding: '4px 8px', fontSize: '0.75rem' }}
           title="Toggle Language / Ganti Bahasa"
         >
-          <span>{locale === 'id' ? '🇮🇩 ID' : '🇬🇧 EN'}</span>
+          <span>{locale === 'id' ? 'ID' : 'EN'}</span>
         </button>
 
         {/* Theme Selector (Dark, Light, System) */}
@@ -102,7 +103,7 @@ export default function AppHeader({ user, onOpenAuth, onOpenProfile, onNavigate,
         {/* Admin Portal Shortcut if Admin */}
         {user?.profile?.role === 'admin' && (
           <button 
-            className="btn btn-sm btn-secondary"
+            className="btn btn-sm btn-secondary hide-mobile"
             onClick={() => {
               if (typeof window !== 'undefined') {
                 const host = window.location.hostname
@@ -121,7 +122,7 @@ export default function AppHeader({ user, onOpenAuth, onOpenProfile, onNavigate,
                 }
               }
             }}
-            style={{ fontSize: '0.78rem', padding: '5px 10px', borderColor: 'rgba(139, 92, 246, 0.5)', color: '#A78BFA' }}
+            style={{ fontSize: '0.74rem', padding: '4px 8px', borderColor: 'rgba(139, 92, 246, 0.5)', color: '#A78BFA' }}
             title="Buka Portal Superadmin"
           >
             🛡️ {t('nav.admin')} ↗
@@ -130,8 +131,8 @@ export default function AppHeader({ user, onOpenAuth, onOpenProfile, onNavigate,
 
         {/* User Profile or Guest Login Button */}
         {user ? (
-          <div className="user-badge" onClick={handleProfileClick} style={{ cursor: 'pointer' }}>
-            <div className="avatar-circle" style={{ overflow: 'hidden', padding: 0 }}>
+          <div className="user-badge" onClick={handleProfileClick} style={{ cursor: 'pointer', padding: '2px 6px' }}>
+            <div className="avatar-circle" style={{ width: '26px', height: '26px', fontSize: '0.75rem', overflow: 'hidden', padding: 0 }}>
               {user.profile?.avatar_url ? (
                 <img 
                   src={user.profile.avatar_url} 
@@ -143,12 +144,15 @@ export default function AppHeader({ user, onOpenAuth, onOpenProfile, onNavigate,
                 user.profile?.display_name?.charAt(0)?.toUpperCase() || 'U'
               )}
             </div>
-            <span>{user.profile?.display_name || user.email?.split('@')[0]}</span>
+            <span className="hide-mobile" style={{ fontSize: '0.8rem', maxWidth: '100px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {user.profile?.display_name || user.email?.split('@')[0]}
+            </span>
           </div>
         ) : (
           <button 
             className="btn btn-secondary btn-sm" 
             onClick={onOpenAuth}
+            style={{ padding: '4px 8px', fontSize: '0.76rem' }}
           >
             {t('nav.login')}
           </button>

@@ -62,7 +62,7 @@ export default function ThemeSelector({ compact = false }) {
             alignItems: 'center',
             justifyContent: 'center',
             gap: '4px',
-            padding: '6px 10px',
+            padding: '4px 8px',
             borderRadius: 'var(--radius-full)',
             background: 'var(--bg-glass)',
             border: '1px solid var(--border-glass)',
@@ -73,9 +73,9 @@ export default function ThemeSelector({ compact = false }) {
             transition: 'all 0.2s ease'
           }}
         >
-          <span style={{ fontSize: '1rem' }}>{currentOption.icon}</span>
-          <span className="theme-toggle-label" style={{ fontSize: '0.78rem' }}>{currentOption.label}</span>
-          <span style={{ fontSize: '0.65rem', opacity: 0.7 }}>▾</span>
+          <span style={{ fontSize: '0.95rem' }}>{currentOption.icon}</span>
+          <span className="theme-toggle-label hide-mobile" style={{ fontSize: '0.78rem' }}>{currentOption.label}</span>
+          <span className="hide-mobile" style={{ fontSize: '0.65rem', opacity: 0.7 }}>▾</span>
         </button>
 
         {isOpen && (
@@ -117,11 +117,11 @@ export default function ThemeSelector({ compact = false }) {
                     gap: '8px',
                     padding: '8px 10px',
                     borderRadius: 'var(--radius-sm)',
-                    background: isSelected ? 'var(--primary-glow)' : 'transparent',
-                    border: isSelected ? '1px solid var(--primary)' : '1px solid transparent',
-                    color: isSelected ? 'var(--text-main)' : 'var(--text-muted)',
+                    background: isSelected ? 'var(--badge-purple-bg)' : 'transparent',
+                    border: isSelected ? '1px solid var(--badge-purple-border)' : '1px solid transparent',
+                    color: isSelected ? 'var(--badge-purple-text)' : 'var(--text-muted)',
                     fontSize: '0.84rem',
-                    fontWeight: isSelected ? 700 : 500,
+                    fontWeight: isSelected ? 800 : 500,
                     cursor: 'pointer',
                     textAlign: 'left',
                     transition: 'all 0.15s ease'
@@ -129,7 +129,7 @@ export default function ThemeSelector({ compact = false }) {
                 >
                   <span style={{ fontSize: '1rem' }}>{opt.icon}</span>
                   <span style={{ flex: 1 }}>{opt.label}</span>
-                  {isSelected && <span style={{ color: 'var(--primary)', fontWeight: 800 }}>✓</span>}
+                  {isSelected && <span style={{ color: 'var(--badge-purple-text)', fontWeight: 800 }}>✓</span>}
                 </button>
               )
             })}

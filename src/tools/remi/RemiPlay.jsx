@@ -239,53 +239,67 @@ export default function RemiPlay({
       )}
 
       {/* Header */}
-      <div className="glass-panel" style={{ padding: '14px 18px', marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
+      <div className="glass-panel" style={{ padding: '10px 12px', marginBottom: '12px' }}>
+        {/* Top Meta Bar */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '8px', minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, flex: 1, overflow: 'hidden' }}>
             {onBackToLobby && (
               <button 
                 type="button"
                 className="btn btn-secondary btn-sm"
                 onClick={onBackToLobby}
-                style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '6px' }}
+                style={{ fontSize: '0.72rem', padding: '3px 8px', borderRadius: '6px', whiteSpace: 'nowrap', flexShrink: 0 }}
                 title="Kembali ke Lobby Remi"
               >
                 ← Lobby
               </button>
             )}
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-dim)', fontWeight: 700, textTransform: 'uppercase' }}>
+            <span style={{
+              fontSize: '0.76rem',
+              color: 'var(--text-dim)',
+              fontWeight: 700,
+              textTransform: 'uppercase',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap'
+            }}>
               {session?.title || 'Remi Session'}
             </span>
 
             {/* Role Badge */}
             <span style={{
-              fontSize: '0.72rem',
-              padding: '2px 8px',
-              borderRadius: '6px',
+              fontSize: '0.68rem',
+              padding: '2px 6px',
+              borderRadius: '5px',
               fontWeight: 800,
-              background: isHost ? 'rgba(245, 158, 11, 0.15)' : isSpectator ? 'rgba(59, 130, 246, 0.15)' : 'rgba(139, 92, 246, 0.15)',
-              color: isHost ? '#FBBF24' : isSpectator ? '#60A5FA' : '#C084FC',
-              border: `1px solid ${isHost ? 'rgba(245, 158, 11, 0.35)' : isSpectator ? 'rgba(59, 130, 246, 0.35)' : 'rgba(139, 92, 246, 0.35)'}`
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
+              background: isHost ? 'var(--badge-gold-bg)' : isSpectator ? 'var(--badge-blue-bg)' : 'var(--badge-purple-bg)',
+              color: isHost ? 'var(--badge-gold-text)' : isSpectator ? 'var(--badge-blue-text)' : 'var(--badge-purple-text)',
+              border: `1px solid ${isHost ? 'var(--badge-gold-border)' : isSpectator ? 'var(--badge-blue-border)' : 'var(--badge-purple-border)'}`
             }}>
-              {isHost ? '👑 Host' : isSpectator ? '👀 Penonton' : `🪑 Kursi P${(myPlayerIndex ?? 0) + 1}`}
+              {isHost ? '👑 Host' : isSpectator ? '👀 Penonton' : `🪑 P${(myPlayerIndex ?? 0) + 1}`}
             </span>
+          </div>
 
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
             <button 
               type="button"
               className="btn btn-sm"
               onClick={() => setIsInviteModalOpen(true)}
               style={{
                 fontSize: '0.72rem',
-                padding: '2px 8px',
-                background: 'rgba(245, 158, 11, 0.15)',
-                border: '1px solid rgba(245, 158, 11, 0.35)',
-                color: '#FBBF24',
+                padding: '3px 7px',
+                background: 'var(--badge-gold-bg)',
+                border: '1px solid var(--badge-gold-border)',
+                color: 'var(--badge-gold-text)',
                 fontWeight: 700,
                 borderRadius: '6px',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '4px'
+                gap: '3px'
               }}
+              title="Undang Teman & Kode Room"
             >
               <span>🔗</span>
               <span>{session?.room_code || 'Undang'}</span>
@@ -298,31 +312,42 @@ export default function RemiPlay({
               onClick={() => setIsRulesModalOpen(true)}
               style={{
                 fontSize: '0.72rem',
-                padding: '2px 8px',
+                padding: '3px 7px',
                 borderRadius: '6px',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '4px',
-                color: '#F472B6',
-                borderColor: 'rgba(236, 72, 153, 0.4)'
+                gap: '3px',
+                color: 'var(--badge-purple-text)',
+                borderColor: 'var(--badge-purple-border)'
               }}
               title="Aturan Permainan & Denda Remi"
             >
               <span>📖</span>
-              <span>Aturan</span>
             </button>
           </div>
-          <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#F59E0B' }}>
+        </div>
+
+        {/* Bottom Row */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', borderTop: '1px solid var(--border-glass)', paddingTop: '8px' }}>
+          <h2 style={{ fontSize: '1.35rem', fontWeight: 900, color: 'var(--accent-gold)', margin: 0, letterSpacing: '-0.3px', whiteSpace: 'nowrap' }}>
             {t('remi.round', { num: currentRoundNumber })}
           </h2>
-        </div>
-        <div style={{ textAlign: 'right', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-          Batas Kalah: <strong style={{ color: '#F87171' }}>-{targetPenalty} pts</strong>
+          <div style={{
+            fontSize: '0.74rem',
+            padding: '2px 8px',
+            borderRadius: '6px',
+            background: 'var(--badge-red-bg)',
+            border: '1px solid var(--badge-red-border)',
+            color: 'var(--badge-red-text)',
+            fontWeight: 700
+          }}>
+            Batas Kalah: <strong>-{targetPenalty} pts</strong>
+          </div>
         </div>
       </div>
 
       {eliminatedPlayers.length > 0 && (
-        <div style={{ background: 'rgba(239, 68, 68, 0.2)', border: '1px solid rgba(239, 68, 68, 0.4)', padding: '14px', borderRadius: '12px', marginBottom: '16px', textAlign: 'center', color: '#FCA5A5', fontWeight: 700 }}>
+        <div style={{ background: 'var(--badge-red-bg)', border: '1px solid var(--badge-red-border)', padding: '14px', borderRadius: '12px', marginBottom: '16px', textAlign: 'center', color: 'var(--badge-red-text)', fontWeight: 700 }}>
           🚨 {t('remi.game_over', { name: eliminatedPlayers.map(p => p.name).join(', ') })}
         </div>
       )}
@@ -394,15 +419,15 @@ export default function RemiPlay({
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  background: isCloser ? 'rgba(245, 158, 11, 0.1)' : 'rgba(0,0,0,0.25)',
-                  border: isCloser ? '1px solid rgba(245, 158, 11, 0.4)' : '1px solid var(--border-glass)',
+                  background: isCloser ? 'var(--badge-gold-bg)' : 'var(--bg-card-nested)',
+                  border: isCloser ? '1.5px solid var(--badge-gold-border)' : '1px solid var(--border-glass)',
                   padding: '12px 16px',
                   borderRadius: '12px'
                 }}
               >
                 <div>
-                  <strong style={{ fontSize: '0.95rem' }}>{name}</strong>
-                  {isCloser && <span style={{ marginLeft: '8px', color: '#F59E0B', fontSize: '0.75rem', fontWeight: 800 }}>MENUTUP (0 Pts)</span>}
+                  <strong style={{ fontSize: '0.95rem', color: 'var(--text-main)' }}>{name}</strong>
+                  {isCloser && <span style={{ marginLeft: '8px', color: 'var(--badge-gold-text)', fontSize: '0.75rem', fontWeight: 800 }}>MENUTUP (0 Pts)</span>}
                 </div>
 
                 {!isCloser && (
@@ -428,10 +453,10 @@ export default function RemiPlay({
                       style={{
                         width: '70px',
                         padding: '6px 8px',
-                        background: 'rgba(0,0,0,0.4)',
+                        background: 'var(--bg-input)',
                         border: '1px solid var(--border-glass)',
                         borderRadius: '8px',
-                        color: '#F87171',
+                        color: 'var(--badge-red-text)',
                         fontWeight: 700,
                         textAlign: 'center'
                       }}

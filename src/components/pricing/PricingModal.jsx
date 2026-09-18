@@ -110,7 +110,7 @@ export default function PricingModal({ isOpen, onClose, user, onOpenAuth, onPaym
         <div style={{ flexShrink: 0 }}>
           <div className="modal-header" style={{ marginBottom: '4px' }}>
             <div>
-              <span style={{ fontSize: '0.76rem', fontWeight: 800, color: '#A78BFA', letterSpacing: '1px', textTransform: 'uppercase' }}>
+              <span style={{ fontSize: '0.76rem', fontWeight: 800, color: 'var(--primary)', letterSpacing: '1px', textTransform: 'uppercase' }}>
                 KANCASELA TIERS & CLOUD PLANS
               </span>
               <h3 className="modal-title" style={{ fontSize: '1.45rem', fontWeight: 900, marginTop: '2px' }}>
@@ -135,8 +135,8 @@ export default function PricingModal({ isOpen, onClose, user, onOpenAuth, onPaym
           {/* Guest vs Kanca Free Notice Banner */}
           {isGuest && (
             <div style={{
-              background: 'rgba(234, 179, 8, 0.1)',
-              border: '1px solid rgba(234, 179, 8, 0.35)',
+              background: 'var(--badge-gold-bg)',
+              border: '1px solid var(--badge-gold-border)',
               borderRadius: '12px',
               padding: '8px 14px',
               marginBottom: '10px',
@@ -149,7 +149,7 @@ export default function PricingModal({ isOpen, onClose, user, onOpenAuth, onPaym
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{ fontSize: '1.2rem' }}>👤</span>
                 <div>
-                  <strong style={{ color: '#FCD34D' }}>Mode Tamu (Guest):</strong>{' '}
+                  <strong style={{ color: 'var(--badge-gold-text)' }}>Mode Tamu (Guest):</strong>{' '}
                   <span style={{ color: 'var(--text-muted)' }}>
                     Bisa gabung & main di HP langsung tanpa login (tetapi riwayat tidak disimpan). Daftar <strong>Kanca Free</strong> gratis untuk simpan catatan game di Cloud.
                   </span>
@@ -181,7 +181,7 @@ export default function PricingModal({ isOpen, onClose, user, onOpenAuth, onPaym
             <div style={{
               display: 'flex',
               alignItems: 'center',
-              background: 'rgba(0,0,0,0.4)',
+              background: 'var(--stepper-bg)',
               padding: '3px',
               borderRadius: '999px',
               border: '1px solid var(--border-glass)'

@@ -42,7 +42,7 @@ export default function BottomNav({ activeView, onNavigate, isAdmin, activeGameT
                     borderRadius: '50%',
                     backgroundColor: '#10B981',
                     boxShadow: '0 0 6px #10B981',
-                    border: '1.5px solid #0F172A'
+                    border: '1.5px solid var(--bg-nav)'
                   }} 
                   title="Ada game yang sedang berjalan"
                 />

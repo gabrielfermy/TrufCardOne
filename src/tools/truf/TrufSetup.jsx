@@ -103,15 +103,15 @@ export default function TrufSetup({ onStartGame, onBack }) {
             style={{
               padding: '12px',
               borderRadius: '12px',
-              border: `2px solid ${roomMode === 'multiplayer' ? '#8B5CF6' : 'var(--border-glass)'}`,
-              background: roomMode === 'multiplayer' ? 'rgba(139, 92, 246, 0.15)' : 'var(--bg-glass)',
+              border: `2px solid ${roomMode === 'multiplayer' ? 'var(--primary)' : 'var(--border-glass)'}`,
+              background: roomMode === 'multiplayer' ? 'var(--badge-purple-bg)' : 'var(--bg-glass)',
               cursor: 'pointer',
               display: 'flex',
               flexDirection: 'column',
               gap: '4px'
             }}
           >
-            <div style={{ fontWeight: 800, fontSize: '0.85rem', color: roomMode === 'multiplayer' ? '#C084FC' : '#FFF' }}>
+            <div style={{ fontWeight: 800, fontSize: '0.85rem', color: roomMode === 'multiplayer' ? 'var(--badge-purple-text)' : 'var(--text-main)' }}>
               🌐 {t('room_mode.multiplayer')}
             </div>
             <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: 1.3 }}>
@@ -124,15 +124,15 @@ export default function TrufSetup({ onStartGame, onBack }) {
             style={{
               padding: '12px',
               borderRadius: '12px',
-              border: `2px solid ${roomMode === 'offline' ? '#10B981' : 'var(--border-glass)'}`,
-              background: roomMode === 'offline' ? 'rgba(16, 185, 129, 0.15)' : 'var(--bg-glass)',
+              border: `2px solid ${roomMode === 'offline' ? 'var(--accent-green)' : 'var(--border-glass)'}`,
+              background: roomMode === 'offline' ? 'var(--badge-green-bg)' : 'var(--bg-glass)',
               cursor: 'pointer',
               display: 'flex',
               flexDirection: 'column',
               gap: '4px'
             }}
           >
-            <div style={{ fontWeight: 800, fontSize: '0.85rem', color: roomMode === 'offline' ? '#34D399' : '#FFF' }}>
+            <div style={{ fontWeight: 800, fontSize: '0.85rem', color: roomMode === 'offline' ? 'var(--badge-green-text)' : 'var(--text-main)' }}>
               📱 {t('room_mode.offline')}
             </div>
             <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: 1.3 }}>
@@ -145,7 +145,7 @@ export default function TrufSetup({ onStartGame, onBack }) {
         <div className="form-group" style={{ marginBottom: '18px' }}>
           <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span>👥 {t('truf.player_count_label') || 'Jumlah Pemain'}</span>
-            <span style={{ fontSize: '0.74rem', color: '#C084FC', fontWeight: 800 }}>
+            <span style={{ fontSize: '0.74rem', color: 'var(--badge-purple-text)', fontWeight: 800 }}>
               {playerCount === 3 ? '17 Trik / Ronde (51 Kartu)' : playerCount === 5 ? '10 Trik / Ronde (50 Kartu)' : '13 Trik / Ronde (52 Kartu)'}
             </span>
           </label>
@@ -178,10 +178,10 @@ export default function TrufSetup({ onStartGame, onBack }) {
               marginTop: '8px',
               padding: '8px 12px',
               borderRadius: '8px',
-              background: 'rgba(139, 92, 246, 0.12)',
-              border: '1px solid rgba(139, 92, 246, 0.3)',
+              background: 'var(--badge-purple-bg)',
+              border: '1px solid var(--badge-purple-border)',
               fontSize: '0.74rem',
-              color: '#DDD6FE',
+              color: 'var(--badge-purple-text)',
               lineHeight: 1.4
             }}>
               💡 <strong>Aturan Distribusi Kartu:</strong> {playerCount === 3
@@ -226,8 +226,8 @@ export default function TrufSetup({ onStartGame, onBack }) {
 
         {/* Initial Scores (Handicap / Resume Lost Game) */}
         <div style={{
-          background: useInitialScores ? 'rgba(139, 92, 246, 0.12)' : 'var(--bg-glass)',
-          border: `1px solid ${useInitialScores ? 'rgba(139, 92, 246, 0.4)' : 'var(--border-glass)'}`,
+          background: useInitialScores ? 'var(--badge-purple-bg)' : 'var(--bg-glass)',
+          border: `1px solid ${useInitialScores ? 'var(--badge-purple-border)' : 'var(--border-glass)'}`,
           borderRadius: '12px',
           padding: '14px 16px',
           marginBottom: '18px'
@@ -246,7 +246,7 @@ export default function TrufSetup({ onStartGame, onBack }) {
                 ➕ {t('truf.initial_scores_toggle')}
               </label>
             </div>
-            <span style={{ fontSize: '0.75rem', color: useInitialScores ? '#C084FC' : 'var(--text-muted)' }}>
+            <span style={{ fontSize: '0.75rem', color: useInitialScores ? 'var(--badge-purple-text)' : 'var(--text-muted)' }}>
               {useInitialScores ? 'Aktif' : 'Nonaktif'}
             </span>
           </div>
@@ -258,8 +258,8 @@ export default function TrufSetup({ onStartGame, onBack }) {
           {useInitialScores && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px', marginTop: '12px' }}>
               {playerNames.map((name, idx) => (
-                <div key={idx} style={{ background: 'rgba(0,0,0,0.25)', padding: '10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)' }}>
-                  <div style={{ fontSize: '0.76rem', fontWeight: 700, color: '#CBD5E1', marginBottom: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                <div key={idx} style={{ background: 'var(--bg-card)', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-glass)' }}>
+                  <div style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {name}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>

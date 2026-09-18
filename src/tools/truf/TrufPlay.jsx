@@ -126,6 +126,7 @@ export default function TrufPlay({
   const firstDealer = session?.first_dealer ?? session?.settings?.first_dealer ?? session?.settings?.firstDealer ?? 0
   const dealerIndex = determineNextDealer(localRounds, firstDealer, initialScores, playerCount)
   const dealerConsecutiveStreak = getDealerConsecutiveStreak(localRounds, dealerIndex, firstDealer) + 1
+  const currentRoundNumber = localRounds.length + 1
 
   // Input states for current round
   const [bids, setBids] = useState(Array(playerCount).fill(0))
@@ -563,37 +564,51 @@ export default function TrufPlay({
       )}
 
       {/* Round Header & Status */}
-      <div className="glass-panel" style={{ padding: '14px 18px', marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
+      <div className="glass-panel" style={{ padding: '10px 12px', marginBottom: '12px' }}>
+        {/* Top Meta Bar: Navigation & Action Chips */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '8px', minWidth: 0 }}>
+          {/* Left: Lobby Back & Session Title */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, flex: 1, overflow: 'hidden' }}>
             {onBackToLobby && (
               <button 
                 type="button"
                 className="btn btn-secondary btn-sm"
                 onClick={onBackToLobby}
-                style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '6px' }}
+                style={{ fontSize: '0.72rem', padding: '3px 8px', borderRadius: '6px', whiteSpace: 'nowrap', flexShrink: 0 }}
                 title="Kembali ke Lobby Truf"
               >
                 ← Lobby
               </button>
             )}
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-dim)', fontWeight: 700, textTransform: 'uppercase' }}>
+            <span style={{
+              fontSize: '0.76rem',
+              color: 'var(--text-dim)',
+              fontWeight: 700,
+              textTransform: 'uppercase',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap'
+            }}>
               {session?.title || 'Truf Session'}
             </span>
-
             {/* Role Badge */}
             <span style={{
-              fontSize: '0.72rem',
-              padding: '2px 8px',
-              borderRadius: '6px',
+              fontSize: '0.68rem',
+              padding: '2px 6px',
+              borderRadius: '5px',
               fontWeight: 800,
-              background: isHost ? 'rgba(245, 158, 11, 0.15)' : isSpectator ? 'rgba(59, 130, 246, 0.15)' : 'rgba(139, 92, 246, 0.15)',
-              color: isHost ? '#FBBF24' : isSpectator ? '#60A5FA' : '#C084FC',
-              border: `1px solid ${isHost ? 'rgba(245, 158, 11, 0.35)' : isSpectator ? 'rgba(59, 130, 246, 0.35)' : 'rgba(139, 92, 246, 0.35)'}`
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
+              background: isHost ? 'var(--badge-gold-bg)' : isSpectator ? 'var(--badge-blue-bg)' : 'var(--badge-purple-bg)',
+              color: isHost ? 'var(--badge-gold-text)' : isSpectator ? 'var(--badge-blue-text)' : 'var(--badge-purple-text)',
+              border: `1px solid ${isHost ? 'var(--badge-gold-border)' : isSpectator ? 'var(--badge-blue-border)' : 'var(--badge-purple-border)'}`
             }}>
-              {isHost ? '👑 Host' : isSpectator ? '👀 Penonton' : `🪑 Kursi P${(myPlayerIndex ?? 0) + 1}`}
+              {isHost ? '👑 Host' : isSpectator ? '👀 Penonton' : `🪑 P${(myPlayerIndex ?? 0) + 1}`}
             </span>
+          </div>
 
+          {/* Right Action Icons Group */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
             {/* Room Invite Button */}
             <button 
               type="button"
@@ -601,16 +616,17 @@ export default function TrufPlay({
               onClick={() => setIsInviteModalOpen(true)}
               style={{
                 fontSize: '0.72rem',
-                padding: '2px 8px',
-                background: 'rgba(139, 92, 246, 0.15)',
-                border: '1px solid rgba(139, 92, 246, 0.35)',
-                color: '#C084FC',
+                padding: '3px 7px',
+                background: 'var(--badge-purple-bg)',
+                border: '1px solid var(--badge-purple-border)',
+                color: 'var(--badge-purple-text)',
                 fontWeight: 700,
                 borderRadius: '6px',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '4px'
+                gap: '3px'
               }}
+              title="Undang Teman & Kode Room"
             >
               <span>🔗</span>
               <span>{session?.room_code || 'Undang'}</span>
@@ -623,15 +639,16 @@ export default function TrufPlay({
               onClick={() => setIsLogDrawerOpen(true)}
               style={{
                 fontSize: '0.72rem',
-                padding: '2px 8px',
+                padding: '3px 7px',
                 borderRadius: '6px',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '4px'
+                gap: '3px'
               }}
+              title="Log Aktivitas Ronde"
             >
               <span>📜</span>
-              <span>Log ({activityLogs.length})</span>
+              <span>{activityLogs.length}</span>
             </button>
 
             {/* Game Rules Reference */}
@@ -641,36 +658,48 @@ export default function TrufPlay({
               onClick={() => setIsRulesModalOpen(true)}
               style={{
                 fontSize: '0.72rem',
-                padding: '2px 8px',
+                padding: '3px 7px',
                 borderRadius: '6px',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '4px',
-                color: '#C084FC',
-                borderColor: 'rgba(139, 92, 246, 0.4)'
+                gap: '3px',
+                color: 'var(--badge-purple-text)',
+                borderColor: 'var(--badge-purple-border)'
               }}
               title="Aturan Permainan & Rumus Skor"
             >
               <span>📖</span>
-              <span>Aturan</span>
             </button>
           </div>
-          <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--primary)' }}>
+        </div>
+
+        {/* Bottom Row: Large Round Number + Live Table Roles (Scorer & Dealer) */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', borderTop: '1px solid var(--border-glass)', paddingTop: '8px' }}>
+          <h2 style={{ fontSize: '1.35rem', fontWeight: 900, color: 'var(--primary)', margin: 0, letterSpacing: '-0.3px', whiteSpace: 'nowrap' }}>
             {t('truf.round', { num: currentRoundNumber })}
           </h2>
-        </div>
-        <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>✍️ {t('truf.scorer')}</div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
-              <span style={{ fontWeight: 700, color: isScorer ? '#C084FC' : '#CBD5E1', fontSize: '0.88rem' }}>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            {/* Scorer Pill */}
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+              background: 'var(--badge-purple-bg)',
+              border: '1px solid var(--badge-purple-border)',
+              padding: '2px 7px',
+              borderRadius: '8px',
+              fontSize: '0.74rem'
+            }}>
+              <span style={{ color: 'var(--text-muted)' }}>✍️</span>
+              <span style={{ fontWeight: 800, color: 'var(--badge-purple-text)', whiteSpace: 'nowrap' }}>
                 {playerNames[scorerIndex]} {isScorer && !isLocalOrOffline ? `(${t('truf.you_badge')})` : ''}
               </span>
               {!isLocalOrOffline && (
                 <button
                   type="button"
                   className="btn btn-secondary btn-sm"
-                  style={{ padding: '1px 5px', fontSize: '0.68rem', height: '20px', borderRadius: '4px' }}
+                  style={{ padding: '0 4px', fontSize: '0.65rem', height: '18px', minWidth: '18px', borderRadius: '4px', border: 'none', background: 'var(--bg-glass-strong)' }}
                   onClick={() => setShowTransferScorerModal(true)}
                   title={t('truf.transfer_scorer')}
                 >
@@ -678,27 +707,32 @@ export default function TrufPlay({
                 </button>
               )}
             </div>
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{t('truf.dealer')}</div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
-              <span style={{ fontWeight: 700, color: dealerConsecutiveStreak >= 7 ? '#EF4444' : '#F59E0B', fontSize: '0.88rem' }}>
-                🎲 {playerNames[dealerIndex]}
+
+            {/* Dealer Pill */}
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+              background: dealerConsecutiveStreak >= 7 ? 'var(--badge-red-bg)' : 'var(--badge-gold-bg)',
+              border: `1px solid ${dealerConsecutiveStreak >= 7 ? 'var(--badge-red-border)' : 'var(--badge-gold-border)'}`,
+              padding: '2px 7px',
+              borderRadius: '8px',
+              fontSize: '0.74rem'
+            }}>
+              <span>🎲</span>
+              <span style={{ fontWeight: 800, color: dealerConsecutiveStreak >= 7 ? 'var(--badge-red-text)' : 'var(--badge-gold-text)', whiteSpace: 'nowrap' }}>
+                {playerNames[dealerIndex]}
               </span>
               {dealerConsecutiveStreak > 1 && (
-                <span 
-                  style={{
-                    fontSize: '0.72rem',
-                    padding: '1px 6px',
-                    borderRadius: '4px',
-                    fontWeight: 800,
-                    background: dealerConsecutiveStreak >= 7 ? 'rgba(239, 68, 68, 0.2)' : 'rgba(245, 158, 11, 0.2)',
-                    color: dealerConsecutiveStreak >= 7 ? '#F87171' : '#FBBF24',
-                    border: `1px solid ${dealerConsecutiveStreak >= 7 ? 'rgba(239, 68, 68, 0.4)' : 'rgba(245, 158, 11, 0.4)'}`
-                  }}
-                  title={`${dealerConsecutiveStreak}x berturut-turut`}
-                >
-                  {dealerConsecutiveStreak}/10x
+                <span style={{
+                  fontSize: '0.65rem',
+                  padding: '0 4px',
+                  borderRadius: '4px',
+                  fontWeight: 900,
+                  background: dealerConsecutiveStreak >= 7 ? 'var(--accent-red)' : 'var(--accent-gold)',
+                  color: '#FFF'
+                }}>
+                  {dealerConsecutiveStreak}x
                 </span>
               )}
             </div>
@@ -747,14 +781,14 @@ export default function TrufPlay({
       )}
 
       {/* Input Form Panel */}
-      <div className="glass-panel" style={{ padding: '20px', marginBottom: '16px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
+      <div className="glass-panel" style={{ padding: 'clamp(12px, 3vw, 18px)', marginBottom: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
           <div>
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>
+            <h3 style={{ fontSize: '1.05rem', fontWeight: 800, margin: 0 }}>
               {inputPhase === 'bid' ? t('truf.phase_bid') : t('truf.phase_won')}
             </h3>
             {inputPhase === 'won' && activeSuitObj && (
-              <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '5px' }}>
                 <span>{t('truf.truf_suit')}:</span>
                 <span style={{ color: activeSuitObj.color, fontWeight: 800 }}>
                   {activeSuitObj.label} {t('truf.suit_' + activeSuitObj.key, activeSuitObj.name)}
@@ -763,27 +797,30 @@ export default function TrufPlay({
             )}
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
             {inputPhase === 'won' && (
               <span style={{
-                fontSize: '0.8rem',
+                fontSize: '0.74rem',
                 fontWeight: 800,
-                padding: '4px 10px',
+                padding: '3px 8px',
                 borderRadius: '999px',
-                background: totalWon === totalTricks ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
-                color: totalWon === totalTricks ? '#34D399' : '#F87171',
-                border: `1px solid ${totalWon === totalTricks ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)'}`
+                whiteSpace: 'nowrap',
+                background: totalWon === totalTricks ? 'var(--badge-green-bg)' : 'var(--badge-red-bg)',
+                color: totalWon === totalTricks ? 'var(--badge-green-text)' : 'var(--badge-red-text)',
+                border: `1px solid ${totalWon === totalTricks ? 'var(--badge-green-border)' : 'var(--badge-red-border)'}`
               }}>
                 Trik: {totalWon} / {totalTricks} {totalWon === totalTricks ? '✓' : ''}
               </span>
             )}
             <span style={{
-              fontSize: '0.8rem',
+              fontSize: '0.74rem',
               fontWeight: 800,
-              padding: '4px 10px',
+              padding: '3px 8px',
               borderRadius: '999px',
-              background: isMainAtas ? 'rgba(59, 130, 246, 0.2)' : 'rgba(249, 115, 22, 0.2)',
-              color: isMainAtas ? '#60A5FA' : '#FB923C'
+              whiteSpace: 'nowrap',
+              background: isMainAtas ? 'var(--badge-blue-bg)' : 'var(--badge-orange-bg)',
+              color: isMainAtas ? 'var(--badge-blue-text)' : 'var(--badge-orange-text)',
+              border: `1px solid ${isMainAtas ? 'var(--badge-blue-border)' : 'var(--badge-orange-border)'}`
             }}>
               {isMainAtas ? t('truf.main_atas') : t('truf.main_bawah')} ({t('truf.total_bid', { count: totalBid })})
             </span>
@@ -791,13 +828,13 @@ export default function TrufPlay({
         </div>
 
         {errorMsg && (
-          <div style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#F87171', padding: '10px 14px', borderRadius: '8px', marginBottom: '14px', fontSize: '0.85rem' }}>
+          <div style={{ background: 'var(--badge-red-bg)', color: 'var(--badge-red-text)', border: '1px solid var(--badge-red-border)', padding: '10px 14px', borderRadius: '8px', marginBottom: '14px', fontSize: '0.85rem' }}>
             {errorMsg}
           </div>
         )}
 
         {/* Player Input Rows */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
           {playerNames.map((name, idx) => {
             const isDealer = idx === dealerIndex
             const val = inputPhase === 'bid' ? bids[idx] : wons[idx]
@@ -815,45 +852,56 @@ export default function TrufPlay({
                   flexDirection: 'column',
                   gap: '8px',
                   background: isMe
-                    ? 'rgba(139, 92, 246, 0.12)'
+                    ? 'var(--card-active-bg)'
                     : isDealer 
-                    ? 'rgba(245, 158, 11, 0.08)' 
-                    : 'rgba(0,0,0,0.25)',
+                    ? 'var(--badge-gold-bg)' 
+                    : 'var(--bg-card-nested)',
                   border: isMe
-                    ? '1.5px solid #8B5CF6'
+                    ? '1.5px solid var(--card-active-border)'
                     : isDealer 
-                    ? '1px solid rgba(245, 158, 11, 0.3)' 
+                    ? '1.5px solid var(--badge-gold-border)' 
                     : '1px solid var(--border-glass)',
-                  padding: '12px 16px',
-                  borderRadius: '12px'
+                  padding: '10px 12px',
+                  borderRadius: '14px',
+                  boxShadow: isMe ? '0 2px 10px var(--primary-glow)' : '0 1px 3px rgba(0,0,0,0.04)',
+                  transition: 'all 0.2s ease'
                 }}
               >
-                {/* Header line: Player Name + Badges + Value / Status */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                    <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>{name}</span>
+                {/* Header line: Player Name + Badges + Target / Live Status */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, flexWrap: 'wrap' }}>
+                    <span style={{ fontWeight: 800, fontSize: '0.92rem', color: 'var(--text-main)', whiteSpace: 'nowrap' }}>
+                      {name}
+                    </span>
                     {isMe && (
-                      <span style={{ fontSize: '0.7rem', background: '#8B5CF6', color: '#FFF', padding: '1px 6px', borderRadius: '4px', fontWeight: 800 }}>
+                      <span style={{ fontSize: '0.65rem', background: 'var(--primary)', color: '#FFF', padding: '1px 5px', borderRadius: '4px', fontWeight: 800, textTransform: 'uppercase' }}>
                         {t('truf.you_badge')}
                       </span>
                     )}
-                    {isDealer && <span style={{ fontSize: '0.72rem', background: '#F59E0B', color: '#000', padding: '2px 6px', borderRadius: '4px', fontWeight: 800 }}>{t('truf.dealer_badge')}</span>}
+                    {isDealer && (
+                      <span style={{ fontSize: '0.65rem', background: 'var(--accent-gold)', color: '#FFF', padding: '1px 5px', borderRadius: '4px', fontWeight: 900 }}>
+                        {t('truf.dealer_badge')}
+                      </span>
+                    )}
                     {idx === scorerIndex && (
-                      <span style={{ fontSize: '0.7rem', background: 'rgba(168, 85, 247, 0.22)', color: '#C084FC', border: '1px solid rgba(168, 85, 247, 0.45)', padding: '1px 6px', borderRadius: '4px', fontWeight: 800 }}>
+                      <span style={{ fontSize: '0.65rem', background: 'var(--badge-purple-bg)', color: 'var(--badge-purple-text)', border: '1px solid var(--badge-purple-border)', padding: '1px 5px', borderRadius: '4px', fontWeight: 800 }}>
                         ✍️ {t('truf.scorer_badge')}
                       </span>
                     )}
                   </div>
 
-                  {/* Status Indicator */}
+                  {/* Status Indicator Badges */}
                   {inputPhase === 'won' ? (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexShrink: 0 }}>
                       <span style={{ 
-                        background: 'rgba(139, 92, 246, 0.2)', 
-                        color: '#C084FC', 
-                        padding: '2px 8px', 
+                        background: 'var(--badge-purple-bg)', 
+                        color: 'var(--badge-purple-text)', 
+                        border: '1px solid var(--badge-purple-border)',
+                        padding: '2px 7px', 
                         borderRadius: '6px', 
-                        fontWeight: 700 
+                        fontWeight: 800,
+                        fontSize: '0.72rem',
+                        whiteSpace: 'nowrap'
                       }}>
                         Bid: {playerBid}
                       </span>
@@ -861,59 +909,80 @@ export default function TrufPlay({
                         padding: '2px 8px',
                         borderRadius: '6px',
                         fontWeight: 800,
-                        background: deltaFromBid === 0 ? 'rgba(52, 211, 153, 0.2)' : deltaFromBid < 0 ? 'rgba(239, 68, 68, 0.2)' : 'rgba(249, 115, 22, 0.2)',
-                        color: deltaFromBid === 0 ? '#34D399' : deltaFromBid < 0 ? '#F87171' : '#FB923C',
-                        border: `1px solid ${deltaFromBid === 0 ? 'rgba(52, 211, 153, 0.4)' : deltaFromBid < 0 ? 'rgba(239, 68, 68, 0.4)' : 'rgba(249, 115, 22, 0.4)'}`
+                        fontSize: '0.74rem',
+                        whiteSpace: 'nowrap',
+                        background: deltaFromBid === 0 ? 'var(--badge-green-bg)' : deltaFromBid < 0 ? 'var(--badge-red-bg)' : 'var(--badge-orange-bg)',
+                        color: deltaFromBid === 0 ? 'var(--badge-green-text)' : deltaFromBid < 0 ? 'var(--badge-red-text)' : 'var(--badge-orange-text)',
+                        border: `1px solid ${deltaFromBid === 0 ? 'var(--badge-green-border)' : deltaFromBid < 0 ? 'var(--badge-red-border)' : 'var(--badge-orange-border)'}`
                       }}>
-                        {deltaFromBid === 0 ? `🎯 Pas (Trik: ${wonVal})` : deltaFromBid < 0 ? `🔻 Kurang ${Math.abs(deltaFromBid)} (Trik: ${wonVal})` : `🔺 Lebih +${deltaFromBid} (Trik: ${wonVal})`}
+                        {deltaFromBid === 0 ? `🎯 Pas (${wonVal})` : deltaFromBid < 0 ? `🔻 ${deltaFromBid} (${wonVal})` : `🔺 +${deltaFromBid} (${wonVal})`}
                       </span>
                     </div>
                   ) : (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Target:</span>
-                      <span style={{ fontSize: '1.2rem', fontWeight: 900, color: '#FCD34D' }}>{bids[idx]}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Bid:</span>
+                      <span style={{
+                        fontSize: '1rem',
+                        fontWeight: 900,
+                        color: 'var(--badge-gold-text)',
+                        background: 'var(--badge-gold-bg)',
+                        border: '1px solid var(--badge-gold-border)',
+                        padding: '1px 8px',
+                        borderRadius: '6px'
+                      }}>
+                        {bids[idx]}
+                      </span>
                     </div>
                   )}
                 </div>
 
-                {/* Input Controls Row */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', paddingTop: '4px' }}>
+                {/* Input Controls: Unified Single-Row on Mobile */}
+                <div style={{ display: 'flex', alignItems: 'center', width: '100%', gap: '6px' }}>
                   {inputPhase === 'won' ? (
-                    /* Won Phase: 1-Tap Quick Delta Buttons (Kurang / Lebih / Pas) + Fine Stepper */
+                    /* Won Phase: Compact Segmented Quick Delta Chips + Stepper */
                     canEdit ? (
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', flexWrap: 'wrap', gap: '6px' }}>
-                        {/* Quick Delta Buttons */}
-                        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '6px' }}>
+                        {/* Quick Delta Chips Grid */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '4px', flex: 1 }}>
                           {[-2, -1, 0, 1, 2].map((delta) => {
                             const isSelected = deltaFromBid === delta
                             const isPas = delta === 0
                             const isKurang = delta < 0
-                            const label = isPas ? '🎯 Pas' : isKurang ? `Kurang ${Math.abs(delta)}` : `Lebih +${delta}`
+                            const label = isPas ? '🎯 Pas' : isKurang ? `${delta}` : `+${delta}`
+                            const titleTooltip = isPas ? 'Pas (Trik = Bid)' : isKurang ? `Kurang ${Math.abs(delta)} Trik` : `Lebih +${delta} Trik`
+
+                            const activeBg = isPas ? 'var(--accent-green)' : isKurang ? 'var(--accent-red)' : 'var(--accent-orange)'
+                            const unselectedBg = isPas ? 'var(--badge-green-bg)' : isKurang ? 'var(--badge-red-bg)' : 'var(--badge-orange-bg)'
+                            const unselectedColor = isPas ? 'var(--badge-green-text)' : isKurang ? 'var(--badge-red-text)' : 'var(--badge-orange-text)'
+                            const unselectedBorder = isPas ? 'var(--badge-green-border)' : isKurang ? 'var(--badge-red-border)' : 'var(--badge-orange-border)'
 
                             return (
                               <button
                                 key={delta}
                                 type="button"
                                 onClick={() => handleWonDelta(idx, delta)}
+                                title={titleTooltip}
                                 style={{
-                                  padding: '5px 8px',
-                                  fontSize: '0.75rem',
+                                  padding: '6px 2px',
+                                  fontSize: '0.76rem',
                                   borderRadius: '8px',
-                                  fontWeight: isSelected ? 800 : 600,
+                                  fontWeight: isSelected ? 900 : 700,
                                   cursor: 'pointer',
                                   border: isSelected
-                                    ? `2px solid ${isPas ? '#34D399' : isKurang ? '#F87171' : '#FB923C'}`
-                                    : '1px solid var(--border-glass)',
+                                    ? `1.5px solid ${activeBg}`
+                                    : `1px solid ${unselectedBorder}`,
                                   background: isSelected
-                                    ? (isPas ? 'rgba(52, 211, 153, 0.3)' : isKurang ? 'rgba(239, 68, 68, 0.3)' : 'rgba(249, 115, 22, 0.3)')
-                                    : 'rgba(255, 255, 255, 0.05)',
+                                    ? activeBg
+                                    : unselectedBg,
                                   color: isSelected
                                     ? '#FFF'
-                                    : (isPas ? '#A7F3D0' : isKurang ? '#FECACA' : '#FED7AA'),
+                                    : unselectedColor,
                                   boxShadow: isSelected
-                                    ? `0 0 10px ${isPas ? 'rgba(52, 211, 153, 0.4)' : isKurang ? 'rgba(239, 68, 68, 0.4)' : 'rgba(249, 115, 22, 0.4)'}`
+                                    ? `0 2px 8px ${activeBg}66`
                                     : 'none',
-                                  transition: 'all 0.15s ease'
+                                  textAlign: 'center',
+                                  whiteSpace: 'nowrap',
+                                  transition: 'all 0.12s ease'
                                 }}
                               >
                                 {label}
@@ -922,24 +991,33 @@ export default function TrufPlay({
                           })}
                         </div>
 
-                        {/* Fine Stepper */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        {/* Direct Trick Stepper */}
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '2px',
+                          background: 'var(--stepper-bg)',
+                          padding: '2px 4px',
+                          borderRadius: '10px',
+                          border: '1px solid var(--border-glass)',
+                          flexShrink: 0
+                        }}>
                           <button 
                             type="button" 
                             className="btn btn-secondary btn-sm"
-                            style={{ width: '32px', height: '32px', padding: 0, fontSize: '1.1rem' }}
+                            style={{ width: '28px', height: '28px', padding: 0, fontSize: '1rem', borderRadius: '6px' }}
                             onClick={() => handleWonStep(idx, -1)}
                             title="Kurang 1 Trik"
                           >
                             -
                           </button>
-                          <span style={{ fontSize: '1.15rem', fontWeight: 900, width: '28px', textAlign: 'center', color: '#38BDF8' }}>
+                          <span style={{ fontSize: '1.05rem', fontWeight: 900, minWidth: '24px', textAlign: 'center', color: 'var(--accent-blue)' }}>
                             {wonVal}
                           </span>
                           <button 
                             type="button" 
                             className="btn btn-secondary btn-sm"
-                            style={{ width: '32px', height: '32px', padding: 0, fontSize: '1.1rem' }}
+                            style={{ width: '28px', height: '28px', padding: 0, fontSize: '1rem', borderRadius: '6px' }}
                             onClick={() => handleWonStep(idx, 1)}
                             title="Tambah 1 Trik"
                           >
@@ -948,67 +1026,81 @@ export default function TrufPlay({
                         </div>
                       </div>
                     ) : (
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Hasil Trik: <strong>{wonVal}</strong></span>
-                        <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)', background: 'rgba(255,255,255,0.04)', padding: '2px 6px', borderRadius: '4px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '2px 4px' }}>
+                        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Hasil Trik: <strong style={{ color: 'var(--accent-blue)' }}>{wonVal}</strong></span>
+                        <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)', background: 'var(--bg-glass)', padding: '2px 6px', borderRadius: '4px' }}>
                           🔒 {name}
                         </span>
                       </div>
                     )
                   ) : (
-                    /* Bid Phase: Stepper & Quick Number Select */
+                    /* Bid Phase: Quick Number Row + Stepper */
                     canEdit ? (
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                          {[0, 1, 2, 3, 4, 5, 6].map(bNum => (
-                            <button
-                              key={bNum}
-                              type="button"
-                              onClick={() => {
-                                if (!canEditPlayer(idx)) return
-                                setErrorMsg('')
-                                try { hapticsService.light(); soundService.playTick() } catch {}
-                                setBids(prev => {
-                                  const next = [...prev]
-                                  next[idx] = bNum
-                                  broadcastState({ bids: next })
-                                  return next
-                                })
-                              }}
-                              style={{
-                                width: '28px',
-                                height: '28px',
-                                padding: 0,
-                                borderRadius: '6px',
-                                fontSize: '0.8rem',
-                                fontWeight: bids[idx] === bNum ? 900 : 600,
-                                border: bids[idx] === bNum ? '1.5px solid #F59E0B' : '1px solid var(--border-glass)',
-                                background: bids[idx] === bNum ? 'rgba(245, 158, 11, 0.25)' : 'rgba(255,255,255,0.04)',
-                                color: bids[idx] === bNum ? '#FCD34D' : 'var(--text-main)',
-                                cursor: 'pointer'
-                              }}
-                            >
-                              {bNum}
-                            </button>
-                          ))}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '6px' }}>
+                        <div style={{ display: 'flex', gap: '3px', flex: 1, overflowX: 'auto', paddingBottom: '1px' }}>
+                          {[0, 1, 2, 3, 4, 5, 6].map(bNum => {
+                            const isSelected = bids[idx] === bNum
+                            return (
+                              <button
+                                key={bNum}
+                                type="button"
+                                onClick={() => {
+                                  if (!canEditPlayer(idx)) return
+                                  setErrorMsg('')
+                                  try { hapticsService.light(); soundService.playTick() } catch {}
+                                  setBids(prev => {
+                                    const next = [...prev]
+                                    next[idx] = bNum
+                                    broadcastState({ bids: next })
+                                    return next
+                                  })
+                                }}
+                                style={{
+                                  flex: 1,
+                                  minWidth: '26px',
+                                  height: '28px',
+                                  padding: 0,
+                                  borderRadius: '6px',
+                                  fontSize: '0.78rem',
+                                  fontWeight: isSelected ? 900 : 700,
+                                  border: isSelected ? '1.5px solid var(--accent-gold)' : '1px solid var(--border-glass)',
+                                  background: isSelected ? 'var(--accent-gold)' : 'var(--bg-glass-strong)',
+                                  color: isSelected ? '#FFF' : 'var(--text-main)',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.12s ease'
+                                }}
+                              >
+                                {bNum}
+                              </button>
+                            )
+                          })}
                         </div>
 
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '2px',
+                          background: 'var(--stepper-bg)',
+                          padding: '2px 4px',
+                          borderRadius: '10px',
+                          border: '1px solid var(--border-glass)',
+                          flexShrink: 0
+                        }}>
                           <button 
                             type="button" 
                             className="btn btn-secondary btn-sm"
-                            style={{ width: '34px', height: '34px', padding: 0, fontSize: '1.1rem' }}
+                            style={{ width: '28px', height: '28px', padding: 0, fontSize: '1rem', borderRadius: '6px' }}
                             onClick={() => handleBidStep(idx, -1)}
                           >
                             -
                           </button>
-                          <span style={{ fontSize: '1.25rem', fontWeight: 800, width: '28px', textAlign: 'center' }}>
+                          <span style={{ fontSize: '1.05rem', fontWeight: 900, minWidth: '24px', textAlign: 'center', color: 'var(--accent-gold)' }}>
                             {val}
                           </span>
                           <button 
                             type="button" 
                             className="btn btn-secondary btn-sm"
-                            style={{ width: '34px', height: '34px', padding: 0, fontSize: '1.1rem' }}
+                            style={{ width: '28px', height: '28px', padding: 0, fontSize: '1rem', borderRadius: '6px' }}
                             onClick={() => handleBidStep(idx, 1)}
                           >
                             +
@@ -1016,9 +1108,9 @@ export default function TrufPlay({
                         </div>
                       </div>
                     ) : (
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Target Bid: <strong>{val}</strong></span>
-                        <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)', background: 'rgba(255,255,255,0.04)', padding: '2px 6px', borderRadius: '4px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '2px 4px' }}>
+                        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Target Bid: <strong style={{ color: 'var(--accent-gold)' }}>{val}</strong></span>
+                        <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)', background: 'var(--bg-glass)', padding: '2px 6px', borderRadius: '4px' }}>
                           🔒 {name}
                         </span>
                       </div>
@@ -1036,7 +1128,7 @@ export default function TrufPlay({
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
               <label className="form-label" style={{ margin: 0 }}>{t('truf.truf_suit')}</label>
               {!isScorer && (
-                <span style={{ fontSize: '0.72rem', color: '#C084FC', fontWeight: 600 }}>
+                <span style={{ fontSize: '0.72rem', color: 'var(--badge-purple-text)', fontWeight: 700 }}>
                   🔒 {t('truf.scorer_only_suit')}
                 </span>
               )}
@@ -1056,7 +1148,7 @@ export default function TrufPlay({
                   style={{
                     background: trufSuit === suit.id ? 'var(--primary)' : 'var(--bg-glass-strong)',
                     color: trufSuit === suit.id ? '#FFF' : suit.color,
-                    border: trufSuit === suit.id ? '2px solid #C084FC' : '1px solid var(--border-glass)',
+                    border: trufSuit === suit.id ? '2px solid var(--primary-hover)' : '1px solid var(--border-glass)',
                     borderRadius: '10px',
                     padding: '10px 4px',
                     fontSize: '1.2rem',
@@ -1064,7 +1156,7 @@ export default function TrufPlay({
                     flexDirection: 'column',
                     alignItems: 'center',
                     gap: '2px',
-                    boxShadow: trufSuit === suit.id ? '0 0 15px rgba(168, 85, 247, 0.45)' : 'none',
+                    boxShadow: trufSuit === suit.id ? '0 0 15px var(--primary-glow)' : 'none',
                     opacity: (!isScorer && trufSuit !== suit.id) ? 0.45 : 1,
                     cursor: isScorer ? 'pointer' : 'default'
                   }}
@@ -1080,7 +1172,7 @@ export default function TrufPlay({
         {/* Phase Buttons */}
         {isSpectator ? (
           <div style={{
-            background: 'rgba(255, 255, 255, 0.03)',
+            background: 'var(--bg-glass)',
             border: '1px solid var(--border-glass)',
             borderRadius: '12px',
             padding: '14px',
@@ -1095,7 +1187,7 @@ export default function TrufPlay({
         ) : isScorer ? (
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-              <span style={{ fontSize: '0.75rem', color: '#C084FC', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <span style={{ fontSize: '0.75rem', color: 'var(--primary)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
                 ✍️ {t('truf.you_are_scorer')}
               </span>
               {!isLocalOrOffline && (
@@ -1127,7 +1219,13 @@ export default function TrufPlay({
                 </button>
                 <button 
                   className={`btn ${totalWon === totalTricks ? 'btn-success' : 'btn-secondary'}`} 
-                  style={{ flex: 1, fontWeight: 800 }} 
+                  style={{ 
+                    flex: 1, 
+                    fontWeight: 800,
+                    background: totalWon === totalTricks ? undefined : 'var(--badge-gold-bg)',
+                    color: totalWon === totalTricks ? undefined : 'var(--badge-gold-text)',
+                    borderColor: totalWon === totalTricks ? undefined : 'var(--badge-gold-border)'
+                  }} 
                   onClick={handleSaveRoundSubmit}
                 >
                   {totalWon === totalTricks ? `💾 ${t('truf.save_round')} & Lanjut` : `⚠️ Trik: ${totalWon} / ${totalTricks} (Harus ${totalTricks})`}
@@ -1137,8 +1235,8 @@ export default function TrufPlay({
           </div>
         ) : (
           <div style={{
-            background: 'rgba(168, 85, 247, 0.08)',
-            border: '1px solid rgba(168, 85, 247, 0.25)',
+            background: 'var(--badge-purple-bg)',
+            border: '1px solid var(--badge-purple-border)',
             borderRadius: '12px',
             padding: '14px 16px',
             textAlign: 'center',
@@ -1147,7 +1245,7 @@ export default function TrufPlay({
             alignItems: 'center',
             gap: '8px'
           }}>
-            <div style={{ fontSize: '0.88rem', color: '#E2E8F0', fontWeight: 600 }}>
+            <div style={{ fontSize: '0.88rem', color: 'var(--text-main)', fontWeight: 600 }}>
               ⏳ {inputPhase === 'bid'
                 ? t('truf.waiting_for_scorer_bid', { name: playerNames[scorerIndex] })
                 : t('truf.waiting_for_scorer_save', { name: playerNames[scorerIndex] })}
@@ -1155,7 +1253,7 @@ export default function TrufPlay({
             <button
               type="button"
               className="btn btn-secondary btn-sm"
-              style={{ fontSize: '0.78rem', borderColor: 'rgba(168, 85, 247, 0.45)', color: '#C084FC', background: 'rgba(168, 85, 247, 0.12)' }}
+              style={{ fontSize: '0.78rem', borderColor: 'var(--badge-purple-border)', color: 'var(--badge-purple-text)', background: 'var(--badge-purple-bg)' }}
               onClick={handleTakeOverScorer}
             >
               ✋ {t('truf.take_over_scorer')}
@@ -1165,7 +1263,7 @@ export default function TrufPlay({
       </div>
 
       {/* Leaderboard & Ledger Table */}
-      <div className="glass-panel" style={{ padding: '20px' }}>
+      <div className="glass-panel" style={{ padding: 'clamp(12px, 3vw, 18px)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
           <div>
             <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>📊 {t('truf.leaderboard')}</h3>
@@ -1205,8 +1303,8 @@ export default function TrufPlay({
           <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '2px', textAlign: 'center', fontSize: '0.88rem' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border-glass)' }}>
-                <th style={{ padding: '10px 8px', textAlign: 'left', minWidth: '100px' }}>{t('truf.players_col')}</th>
-                <th style={{ padding: '10px 8px', minWidth: '85px', background: 'rgba(255,255,255,0.03)' }}>{t('truf.total_score_col')}</th>
+                <th style={{ padding: '10px 8px', textAlign: 'left', minWidth: '100px', color: 'var(--text-main)' }}>{t('truf.players_col')}</th>
+                <th style={{ padding: '10px 8px', minWidth: '85px', background: 'var(--bg-glass)', color: 'var(--text-main)' }}>{t('truf.total_score_col')}</th>
                 {localRounds.slice().reverse().map((r, i) => {
                   const rNum = r.round_number
                   const setNum = Math.ceil(rNum / playerCount)
@@ -1222,10 +1320,10 @@ export default function TrufPlay({
                       <th style={{ 
                         padding: '8px 6px', 
                         minWidth: '85px',
-                        background: 'rgba(0,0,0,0.2)',
+                        background: 'var(--table-header-bg)',
                         borderRadius: '6px'
                       }}>
-                        <div style={{ fontSize: '0.82rem', fontWeight: 800 }}>{t('truf.table_round', { num: rNum })}</div>
+                        <div style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-main)' }}>{t('truf.table_round', { num: rNum })}</div>
                         <div style={{ fontSize: '0.7rem', color: rSuit?.color || 'var(--text-muted)' }}>
                           {rSuit?.label} {t('truf.suit_' + rSuit?.key, rSuit?.name)}
                         </div>
@@ -1236,9 +1334,9 @@ export default function TrufPlay({
                           padding: '1px 5px',
                           borderRadius: '4px',
                           display: 'inline-block',
-                          background: rIsMainAtas ? 'rgba(59, 130, 246, 0.2)' : 'rgba(249, 115, 22, 0.2)',
-                          color: rIsMainAtas ? '#60A5FA' : '#FB923C',
-                          border: `1px solid ${rIsMainAtas ? 'rgba(59, 130, 246, 0.35)' : 'rgba(249, 115, 22, 0.35)'}`,
+                          background: rIsMainAtas ? 'var(--badge-blue-bg)' : 'var(--badge-orange-bg)',
+                          color: rIsMainAtas ? 'var(--badge-blue-text)' : 'var(--badge-orange-text)',
+                          border: `1px solid ${rIsMainAtas ? 'var(--badge-blue-border)' : 'var(--badge-orange-border)'}`,
                           whiteSpace: 'nowrap'
                         }}>
                           {rIsMainAtas ? '▲ ' + t('truf.mode_atas_short') : '▼ ' + t('truf.mode_bawah_short')} ({rTotalBid})
@@ -1249,14 +1347,14 @@ export default function TrufPlay({
                         <th style={{
                           padding: '8px 6px',
                           minWidth: '95px',
-                          background: 'rgba(168, 85, 247, 0.18)',
-                          border: '1.5px solid rgba(168, 85, 247, 0.45)',
+                          background: 'var(--badge-purple-bg)',
+                          border: '1.5px solid var(--badge-purple-border)',
                           borderRadius: '8px',
-                          color: '#C084FC',
+                          color: 'var(--badge-purple-text)',
                           fontWeight: 800
                         }}>
                           <div style={{ fontSize: '0.82rem' }}>⭕ {t('truf.set_title', { num: setNum })}</div>
-                          <div style={{ fontSize: '0.68rem', color: '#E9D5FF' }}>Akumulasi</div>
+                          <div style={{ fontSize: '0.68rem', opacity: 0.9 }}>Akumulasi</div>
                         </th>
                       )}
                     </React.Fragment>
@@ -1266,7 +1364,7 @@ export default function TrufPlay({
                   <th style={{
                     padding: '8px 6px',
                     minWidth: '70px',
-                    background: 'rgba(255,255,255,0.03)',
+                    background: 'var(--bg-glass)',
                     borderRadius: '6px',
                     color: 'var(--text-muted)'
                   }}>
@@ -1280,9 +1378,9 @@ export default function TrufPlay({
               {playerNames.map((name, idx) => {
                 const total = latestScores[idx] || 0
                 return (
-                  <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                    <td style={{ padding: '10px 8px', textAlign: 'left', fontWeight: 700 }}>{name}</td>
-                    <td style={{ padding: '10px 8px', fontWeight: 800, fontSize: '1rem', color: total >= 0 ? '#34D399' : '#F87171', background: 'rgba(255,255,255,0.03)', borderRadius: '6px' }}>
+                  <tr key={idx} style={{ borderBottom: '1px solid var(--border-glass)' }}>
+                    <td style={{ padding: '10px 8px', textAlign: 'left', fontWeight: 700, color: 'var(--text-main)' }}>{name}</td>
+                    <td style={{ padding: '10px 8px', fontWeight: 800, fontSize: '1rem', color: total >= 0 ? 'var(--badge-green-text)' : 'var(--badge-red-text)', background: 'var(--bg-glass)', borderRadius: '6px' }}>
                       {total > 0 ? `+${total}` : total}
                     </td>
                     {localRounds.slice().reverse().map((r, rIdx) => {
@@ -1303,7 +1401,7 @@ export default function TrufPlay({
 
                       return (
                         <React.Fragment key={r.id || rIdx}>
-                          <td style={{ padding: '8px 4px', background: 'rgba(0,0,0,0.15)', borderRadius: '6px' }}>
+                          <td style={{ padding: '8px 4px', background: 'var(--table-cell-bg)', borderRadius: '6px' }}>
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
                               {/* Bulatan Skor Ronde: Dilingkari jika Pas/Dapat Bid */}
                               {isPass ? (
@@ -1313,15 +1411,15 @@ export default function TrufPlay({
                                     width: '32px',
                                     height: '32px',
                                     borderRadius: '50%',
-                                    border: '2.5px solid #34D399',
-                                    background: 'rgba(52, 211, 153, 0.22)',
-                                    color: '#34D399',
+                                    border: '2px solid var(--accent-green)',
+                                    background: 'var(--badge-green-bg)',
+                                    color: 'var(--badge-green-text)',
                                     fontWeight: 900,
                                     fontSize: '0.85rem',
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                    boxShadow: '0 0 10px rgba(52, 211, 153, 0.35)'
+                                    boxShadow: '0 0 8px var(--badge-green-border)'
                                   }}
                                 >
                                   {change > 0 ? `+${change}` : change}
@@ -1332,7 +1430,7 @@ export default function TrufPlay({
                                   display: 'flex',
                                   alignItems: 'center',
                                   justifyContent: 'center',
-                                  color: '#F87171',
+                                  color: 'var(--badge-red-text)',
                                   fontWeight: 800,
                                   fontSize: '0.88rem'
                                 }}>
@@ -1340,7 +1438,7 @@ export default function TrufPlay({
                                 </div>
                               )}
                               <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-                                B:<strong style={{ color: '#FCD34D' }}>{bid}</strong> / T:<strong style={{ color: '#38BDF8' }}>{won}</strong>
+                                B:<strong style={{ color: 'var(--accent-gold)' }}>{bid}</strong> / T:<strong style={{ color: 'var(--accent-blue)' }}>{won}</strong>
                               </span>
                             </div>
                           </td>
@@ -1349,12 +1447,12 @@ export default function TrufPlay({
                           {isEndOfSetInReverse && (
                             <td style={{
                               padding: '6px 4px',
-                              background: 'rgba(168, 85, 247, 0.12)',
-                              border: '1.5px solid rgba(168, 85, 247, 0.35)',
+                              background: 'var(--badge-purple-bg)',
+                              border: '1.5px solid var(--badge-purple-border)',
                               borderRadius: '8px',
                               fontWeight: 800,
                               fontSize: '0.95rem',
-                              color: setCumScore >= 0 ? '#A7F3D0' : '#FECACA'
+                              color: setCumScore >= 0 ? 'var(--badge-green-text)' : 'var(--badge-red-text)'
                             }}>
                               {setCumScore > 0 ? `+${setCumScore}` : setCumScore}
                             </td>
@@ -1365,11 +1463,11 @@ export default function TrufPlay({
                     {hasInitialScores && (
                       <td style={{
                         padding: '8px 4px',
-                        background: 'rgba(255,255,255,0.02)',
+                        background: 'var(--bg-glass)',
                         borderRadius: '6px',
                         fontWeight: 700,
                         fontSize: '0.9rem',
-                        color: initialScores[idx] >= 0 ? 'var(--text-muted)' : '#F87171'
+                        color: initialScores[idx] >= 0 ? 'var(--text-muted)' : 'var(--badge-red-text)'
                       }}>
                         {initialScores[idx] > 0 ? `+${initialScores[idx]}` : initialScores[idx]}
                       </td>
@@ -1385,7 +1483,7 @@ export default function TrufPlay({
       {/* Detailed Round Breakdown Cards */}
       {localRounds.length > 0 && (
         <div className="glass-panel" style={{ padding: '20px', marginTop: '16px' }}>
-          <h4 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <h4 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-main)' }}>
             <span>📋</span>
             <span>{t('truf.round_details_title')}</span>
           </h4>
@@ -1408,23 +1506,24 @@ export default function TrufPlay({
                   style={{
                     padding: '12px 14px',
                     borderRadius: '12px',
-                    background: isSetEnd ? 'rgba(168, 85, 247, 0.08)' : 'rgba(0,0,0,0.25)',
-                    border: isSetEnd ? '1.5px solid rgba(168, 85, 247, 0.4)' : '1px solid var(--border-glass)'
+                    background: isSetEnd ? 'var(--badge-purple-bg)' : 'var(--bg-card)',
+                    border: isSetEnd ? '1.5px solid var(--badge-purple-border)' : '1px solid var(--border-glass)'
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '6px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                       <span style={{ 
                         fontWeight: 800, 
-                        color: '#A855F7', 
+                        color: 'var(--badge-purple-text)', 
                         fontSize: '0.9rem',
-                        background: 'rgba(168, 85, 247, 0.15)',
+                        background: 'var(--badge-purple-bg)',
+                        border: '1px solid var(--badge-purple-border)',
                         padding: '2px 8px',
                         borderRadius: '6px'
                       }}>
                         {t('truf.table_round_title', { num: rNum })}
                       </span>
-                      <span style={{ fontSize: '0.78rem', color: isSetEnd ? '#C084FC' : '#93C5FD', fontWeight: 700 }}>
+                      <span style={{ fontSize: '0.78rem', color: isSetEnd ? 'var(--badge-purple-text)' : 'var(--badge-blue-text)', fontWeight: 700 }}>
                         ⭕ {t('truf.set_title', { num: setNum })} {isSetEnd ? t('truf.end_of_set') : ''}
                       </span>
                       <span style={{
@@ -1432,9 +1531,9 @@ export default function TrufPlay({
                         fontWeight: 800,
                         padding: '2px 8px',
                         borderRadius: '6px',
-                        background: rIsMainAtas ? 'rgba(59, 130, 246, 0.2)' : 'rgba(249, 115, 22, 0.2)',
-                        color: rIsMainAtas ? '#60A5FA' : '#FB923C',
-                        border: `1px solid ${rIsMainAtas ? 'rgba(59, 130, 246, 0.4)' : 'rgba(249, 115, 22, 0.4)'}`
+                        background: rIsMainAtas ? 'var(--badge-blue-bg)' : 'var(--badge-orange-bg)',
+                        color: rIsMainAtas ? 'var(--badge-blue-text)' : 'var(--badge-orange-text)',
+                        border: `1px solid ${rIsMainAtas ? 'var(--badge-blue-border)' : 'var(--badge-orange-border)'}`
                       }}>
                         {rIsMainAtas ? '▲ ' + t('truf.mode_atas') : '▼ ' + t('truf.mode_bawah')} ({t('truf.total_bid', { count: rTotalBid })})
                       </span>
@@ -1464,15 +1563,15 @@ export default function TrufPlay({
                           style={{
                             padding: '8px 10px',
                             borderRadius: '8px',
-                            background: 'rgba(255, 255, 255, 0.03)',
-                            border: '1px solid rgba(255, 255, 255, 0.06)',
+                            background: 'var(--bg-glass)',
+                            border: '1px solid var(--border-glass)',
                             display: 'flex',
                             flexDirection: 'column',
                             gap: '3px'
                           }}
                         >
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontWeight: 700, fontSize: '0.82rem' }}>{name}</span>
+                            <span style={{ fontWeight: 700, fontSize: '0.82rem', color: 'var(--text-main)' }}>{name}</span>
                             {/* Bulatan Skor di Kartu Rincian */}
                             {isPass ? (
                               <span 
@@ -1481,15 +1580,15 @@ export default function TrufPlay({
                                   width: '28px',
                                   height: '28px',
                                   borderRadius: '50%',
-                                  border: '2px solid #34D399',
-                                  background: 'rgba(52, 211, 153, 0.22)',
-                                  color: '#34D399',
+                                  border: '2px solid var(--accent-green)',
+                                  background: 'var(--badge-green-bg)',
+                                  color: 'var(--badge-green-text)',
                                   fontWeight: 900, 
                                   fontSize: '0.82rem',
                                   display: 'inline-flex',
                                   alignItems: 'center',
                                   justifyContent: 'center',
-                                  boxShadow: '0 0 8px rgba(52, 211, 153, 0.35)'
+                                  boxShadow: '0 0 8px var(--badge-green-border)'
                                 }}
                               >
                                 {change > 0 ? `+${change}` : change}
@@ -1498,7 +1597,7 @@ export default function TrufPlay({
                               <span style={{ 
                                 fontWeight: 800, 
                                 fontSize: '0.88rem',
-                                color: '#F87171'
+                                color: 'var(--badge-red-text)'
                               }}>
                                 {change}
                               </span>
@@ -1506,12 +1605,12 @@ export default function TrufPlay({
                           </div>
 
                           <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'flex', justifyContent: 'space-between' }}>
-                            <span>Bid: <strong style={{ color: '#FCD34D' }}>{bid}</strong></span>
-                            <span>Trik: <strong style={{ color: '#38BDF8' }}>{won}</strong></span>
+                            <span>Bid: <strong style={{ color: 'var(--accent-gold)' }}>{bid}</strong></span>
+                            <span>Trik: <strong style={{ color: 'var(--accent-blue)' }}>{won}</strong></span>
                           </div>
 
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.7rem', marginTop: '2px' }}>
-                            <span style={{ color: isPass ? '#34D399' : '#F87171', fontWeight: 600 }}>
+                            <span style={{ color: isPass ? 'var(--badge-green-text)' : 'var(--badge-red-text)', fontWeight: 600 }}>
                               {isPass ? t('truf.exact_bid') : diff > 0 ? t('truf.over_bid', { diff }) : t('truf.under_bid', { diff: Math.abs(diff) })}
                             </span>
                             <span style={{ color: 'var(--text-dim)', fontSize: '0.68rem' }}>

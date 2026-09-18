@@ -138,9 +138,9 @@ export default function ProfileModal({
       case 'capture':
         return (
           <span style={{
-            background: 'rgba(16, 185, 129, 0.18)',
-            border: '1px solid rgba(16, 185, 129, 0.4)',
-            color: '#34D399',
+            background: 'var(--badge-green-bg)',
+            border: '1px solid var(--badge-green-border)',
+            color: 'var(--badge-green-text)',
             fontSize: '0.74rem',
             fontWeight: 800,
             padding: '2px 10px',
@@ -155,9 +155,9 @@ export default function ProfileModal({
       case 'pending':
         return (
           <span style={{
-            background: 'rgba(245, 158, 11, 0.2)',
-            border: '1px solid rgba(245, 158, 11, 0.5)',
-            color: '#FCD34D',
+            background: 'var(--badge-gold-bg)',
+            border: '1px solid var(--badge-gold-border)',
+            color: 'var(--badge-gold-text)',
             fontSize: '0.74rem',
             fontWeight: 800,
             padding: '2px 10px',
@@ -176,9 +176,9 @@ export default function ProfileModal({
       case 'failure':
         return (
           <span style={{
-            background: 'rgba(239, 68, 68, 0.15)',
-            border: '1px solid rgba(239, 68, 68, 0.4)',
-            color: '#F87171',
+            background: 'var(--badge-red-bg)',
+            border: '1px solid var(--badge-red-border)',
+            color: 'var(--badge-red-text)',
             fontSize: '0.74rem',
             fontWeight: 700,
             padding: '2px 10px',
@@ -193,9 +193,9 @@ export default function ProfileModal({
       case 'refund':
         return (
           <span style={{
-            background: 'rgba(59, 130, 246, 0.15)',
-            border: '1px solid rgba(59, 130, 246, 0.4)',
-            color: '#60A5FA',
+            background: 'var(--badge-blue-bg)',
+            border: '1px solid var(--badge-blue-border)',
+            color: 'var(--badge-blue-text)',
             fontSize: '0.74rem',
             fontWeight: 700,
             padding: '2px 10px',
@@ -207,8 +207,9 @@ export default function ProfileModal({
       default:
         return (
           <span style={{
-            background: 'rgba(255, 255, 255, 0.1)',
-            color: 'var(--text-muted)',
+            background: 'var(--badge-gray-bg)',
+            border: '1px solid var(--badge-gray-border)',
+            color: 'var(--badge-gray-text)',
             fontSize: '0.74rem',
             padding: '2px 8px',
             borderRadius: '999px'
@@ -246,7 +247,7 @@ export default function ProfileModal({
           <div style={{
             display: 'flex',
             gap: '8px',
-            background: 'rgba(0,0,0,0.3)',
+            background: 'var(--stepper-bg)',
             padding: '4px',
             borderRadius: '12px',
             border: '1px solid var(--border-glass)',

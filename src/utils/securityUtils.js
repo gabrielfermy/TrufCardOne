@@ -21,13 +21,8 @@ export function sanitizeText(input, maxLength = 60) {
     .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
     // Strip remaining HTML tags (<img ...>, <div>, etc.)
     .replace(/<[^>]*>?/gm, '')
-    // Replace dangerous HTML entities
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#x27;')
-    .replace(/\//g, '&#x2F;')
+    // Strip stray angle brackets if any
+    .replace(/[<>]/g, '')
     // Strip javascript: or data: URIs
     .replace(/javascript:/gi, '')
     .replace(/data:/gi, '')
