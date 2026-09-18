@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gns-v2';
+const CACHE_NAME = 'gns-v3';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
@@ -37,14 +37,28 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   const { request } = e;
 
-  // Ignore non-GET requests or chrome-extension schemes
+  // Ignore non-GET requests or non-http(s) schemes
   if (request.method !== 'GET' || !request.url.startsWith('http')) {
+    return;
+  }
+
+  // Bypass cross-origin requests (Cloudflare beacon, Supabase, Midtrans, Google Ads)
+  // Let the browser fetch them directly to prevent CSP/CORS interference in SW
+  try {
+    const url = new URL(request.url);
+    const isSameOrigin = url.origin === self.location.origin;
+    const isGoogleFont = url.hostname.includes('fonts.googleapis.com') || url.hostname.includes('fonts.gstatic.com');
+    
+    if (!isSameOrigin && !isGoogleFont) {
+      return;
+    }
+  } catch (err) {
     return;
   }
 
   // Always fetch version.json from network to ensure instant deployment detection
   if (request.url.includes('/version.json')) {
-    e.respondWith(fetch(request));
+    e.respondWith(fetch(request).catch(() => new Response(JSON.stringify({ version: 'offline' }))));
     return;
   }
 
@@ -68,32 +82,37 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
-  // 2. Static Assets (JS, CSS, images, etc.): Cache-First with Network Fallback
+  // 2. Static Assets (JS, CSS, images, fonts): Cache-First with Network Fallback
   e.respondWith(
     caches.match(request).then((cachedResponse) => {
       if (cachedResponse) {
         return cachedResponse;
       }
-      return fetch(request).then((networkResponse) => {
-        if (
-          networkResponse &&
-          networkResponse.status === 200 &&
-          networkResponse.type === 'basic'
-        ) {
-          // Never cache HTML fallback when requesting scripts/stylesheets
-          const contentType = networkResponse.headers.get('content-type') || '';
+      return fetch(request)
+        .then((networkResponse) => {
           if (
-            (request.destination === 'script' || request.url.endsWith('.js')) &&
-            contentType.includes('text/html')
+            networkResponse &&
+            networkResponse.status === 200 &&
+            (networkResponse.type === 'basic' || networkResponse.type === 'cors')
           ) {
-            return networkResponse;
-          }
+            // Never cache HTML fallback when requesting scripts/stylesheets
+            const contentType = networkResponse.headers.get('content-type') || '';
+            if (
+              (request.destination === 'script' || request.url.endsWith('.js')) &&
+              contentType.includes('text/html')
+            ) {
+              return networkResponse;
+            }
 
-          const copy = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
-        }
-        return networkResponse;
-      });
+            const copy = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+          }
+          return networkResponse;
+        })
+        .catch((fetchErr) => {
+          // Graceful fallback without unhandled promise rejection
+          return caches.match(request);
+        });
     })
   );
 });
