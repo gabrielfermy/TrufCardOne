@@ -1,6 +1,7 @@
 import React from 'react'
 import { useTranslation } from '../../i18n/I18nContext'
 import { authService } from '../../services/authService'
+import ThemeSelector from '../common/ThemeSelector'
 
 export default function AppHeader({ user, onOpenAuth, onOpenProfile, onNavigate, currentView, onOpenPricing, onOpenRules }) {
   const { locale, toggleLocale, t } = useTranslation()
@@ -94,6 +95,9 @@ export default function AppHeader({ user, onOpenAuth, onOpenProfile, onNavigate,
         >
           <span>{locale === 'id' ? '🇮🇩 ID' : '🇬🇧 EN'}</span>
         </button>
+
+        {/* Theme Selector (Dark, Light, System) */}
+        <ThemeSelector compact={true} />
 
         {/* Admin Portal Shortcut if Admin */}
         {user?.profile?.role === 'admin' && (

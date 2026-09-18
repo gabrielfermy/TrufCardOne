@@ -5,6 +5,7 @@ import { soundService } from '../../services/soundService'
 import { hapticsService } from '../../services/hapticsService'
 import { useTranslation } from '../../i18n/I18nContext'
 import { supabase } from '../../services/supabaseClient'
+import ThemeSelector from '../common/ThemeSelector'
 
 export default function ProfileModal({
   isOpen,
@@ -586,6 +587,22 @@ export default function ProfileModal({
                     Nama saat ini: <strong style={{ color: '#FFF' }}>{user.profile?.display_name || 'Player'}</strong>
                   </div>
                 )}
+              </div>
+
+              {/* Display Theme Selector Card */}
+              <div style={{
+                background: 'rgba(0,0,0,0.25)',
+                border: '1px solid var(--border-glass)',
+                borderRadius: '16px',
+                padding: '16px',
+                marginBottom: '20px'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-main)' }}>
+                    🎨 {t('theme.title') || 'Tema Tampilan'}
+                  </span>
+                </div>
+                <ThemeSelector compact={false} />
               </div>
 
               {/* Help & Support Button */}

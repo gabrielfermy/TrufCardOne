@@ -507,5 +507,14 @@
       "rapid_desc": "10m+0s, 15m+10s, 30m+0s for deep tactical games.",
       "fischer_desc": "Fischer Increment adds bonus seconds on every move tap."
     }
+  },
+  "theme": {
+    "title": "Display Theme",
+    "dark": "Dark",
+    "dark_desc": "Deep obsidian dark mode",
+    "light": "Light",
+    "light_desc": "Clean crystal light mode",
+    "system": "System",
+    "system_desc": "Follow device settings"
   }
 }

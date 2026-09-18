@@ -507,5 +507,14 @@
       "rapid_desc": "10m+0s, 15m+10s, 30m+0s untuk permainan taktis mendalam.",
       "fischer_desc": "Fischer Increment menambahkan detik waktu setiap tombol ditekan."
     }
+  },
+  "theme": {
+    "title": "Tema Tampilan",
+    "dark": "Gelap",
+    "dark_desc": "Mode obsidian kontras tinggi",
+    "light": "Terang",
+    "light_desc": "Mode cerah bersih & jernih",
+    "system": "Sistem",
+    "system_desc": "Mengikuti setelan perangkat"
   }
 }

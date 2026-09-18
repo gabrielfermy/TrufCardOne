@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { I18nProvider, useTranslation } from './i18n/I18nContext'
+import { ThemeProvider } from './context/ThemeContext'
 import { authService } from './services/authService'
 import { sessionTimeoutService } from './services/sessionTimeoutService'
 import { gameService } from './services/gameService'
@@ -1058,15 +1059,19 @@ export default function App() {
 
   if (isAdminPortal) {
     return (
-      <I18nProvider>
-        <AdminPortalShell />
-      </I18nProvider>
+      <ThemeProvider>
+        <I18nProvider>
+          <AdminPortalShell />
+        </I18nProvider>
+      </ThemeProvider>
     )
   }
 
   return (
-    <I18nProvider>
-      <MainApp />
-    </I18nProvider>
+    <ThemeProvider>
+      <I18nProvider>
+        <MainApp />
+      </I18nProvider>
+    </ThemeProvider>
   )
 }
