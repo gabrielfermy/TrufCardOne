@@ -271,6 +271,85 @@ describe('Truf Dealer Determination Logic', () => {
     ]
     assert.equal(determineNextDealer(rounds, 0, initialScores), 1)
   })
+
+  it('3-Player Mode: rotates dealer clockwise correctly among 3 players', () => {
+    const rounds = [
+      {
+        round_number: 1,
+        dealer_index: 0,
+        player_scores: [
+          { player_index: 0, score_cumulative: 20 },
+          { player_index: 1, score_cumulative: -10 },
+          { player_index: 2, score_cumulative: -10 }
+        ]
+      }
+    ]
+    // Tied between P1 and P2. Previous dealer was 0.
+    // Clockwise from 0+1: P1 (tied -> selected)
+    assert.equal(determineNextDealer(rounds, 0, [], 3), 1)
+  })
+
+  it('5-Player Mode: rotates dealer clockwise correctly among 5 players', () => {
+    const rounds = [
+      {
+        round_number: 1,
+        dealer_index: 4,
+        player_scores: [
+          { player_index: 0, score_cumulative: 10 },
+          { player_index: 1, score_cumulative: 5 },
+          { player_index: 2, score_cumulative: -15 },
+          { player_index: 3, score_cumulative: 0 },
+          { player_index: 4, score_cumulative: 20 }
+        ]
+      }
+    ]
+    // Lowest score is P2 (-15)
+    assert.equal(determineNextDealer(rounds, 4, [], 5), 2)
+  })
+})
+
+describe('Truf Player Count Variations (3, 4, 5 Players)', () => {
+  const defaultSettings = {
+    multiplier: 1,
+    bid0Bonus: 0,
+    atasLackMult: -2,
+    atasExcessMult: -1,
+    bawahLackMult: -1,
+    bawahExcessMult: -2
+  }
+
+  it('3 Players (17 total tricks): correctly calculates Main Atas (>17) and Main Bawah (<17)', () => {
+    // 3 Players with bids sum = 18 (>17 -> Main Atas)
+    const bidsAtas = [7, 6, 5] // sum = 18
+    const wonsAtas = [7, 5, 5] // sum = 17 (P1 under 1)
+    const scoresAtas = calculateTrufRoundScores(bidsAtas, wonsAtas, { ...defaultSettings, totalTricks: 17 }, 18)
+    // P0: 7 == 7 -> +7
+    // P1: 5 < 6 (under 1 in Main Atas) -> -2
+    // P2: 5 == 5 -> +5
+    assert.deepEqual(scoresAtas, [7, -2, 5])
+
+    // 3 Players with bids sum = 15 (<17 -> Main Bawah)
+    const bidsBawah = [6, 5, 4] // sum = 15
+    const wonsBawah = [6, 7, 4] // sum = 17 (P1 over 2 in Main Bawah)
+    const scoresBawah = calculateTrufRoundScores(bidsBawah, wonsBawah, { ...defaultSettings, totalTricks: 17 }, 15)
+    // P0: 6 == 6 -> +6
+    // P1: 7 > 5 (over 2 in Main Bawah) -> 2 * -2 = -4
+    // P2: 4 == 4 -> +4
+    assert.deepEqual(scoresBawah, [6, -4, 4])
+  })
+
+  it('5 Players (10 total tricks): correctly calculates Main Atas (>10) and Main Bawah (<10)', () => {
+    // 5 Players with bids sum = 11 (>10 -> Main Atas)
+    const bids = [3, 2, 2, 2, 2] // sum = 11
+    const wons = [3, 2, 2, 1, 2] // sum = 10 (P3 under 1)
+    const scores = calculateTrufRoundScores(bids, wons, { ...defaultSettings, totalTricks: 10 }, 11)
+    // P0: 3 == 3 -> +3
+    // P1: 2 == 2 -> +2
+    // P2: 2 == 2 -> +2
+    // P3: 1 < 2 (under 1 in Main Atas) -> -2
+    // P4: 2 == 2 -> +2
+    assert.deepEqual(scores, [3, 2, 2, -2, 2])
+  })
 })
 
 describe('Dealer Consecutive Streak Calculation', () => {

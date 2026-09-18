@@ -93,19 +93,20 @@ export default function TrufPlay({
     }
   }, [rounds])
 
-  const currentRoundNumber = localRounds.length + 1
+  const playerCount = playerNames.length
+  const totalTricks = session?.settings?.totalTricks || (playerCount === 3 ? 17 : playerCount === 5 ? 10 : 13)
 
-  const initialScores = session?.settings?.initialScores || session?.initial_scores || [0, 0, 0, 0]
+  const initialScores = session?.settings?.initialScores || session?.initial_scores || Array(playerCount).fill(0)
   const hasInitialScores = initialScores.some(s => s !== 0)
 
   // Cumulative Leaderboard / Current Cumulative Scores
-  const latestScores = [initialScores[0] || 0, initialScores[1] || 0, initialScores[2] || 0, initialScores[3] || 0]
+  const latestScores = Array(playerCount).fill(0).map((_, i) => initialScores[i] || 0)
   if (localRounds.length > 0) {
     const lastRound = localRounds[localRounds.length - 1]
     const hasCumulative = lastRound.player_scores?.some(ps => ps.score_cumulative !== undefined && ps.score_cumulative !== null)
     if (hasCumulative) {
       lastRound.player_scores?.forEach(ps => {
-        if (ps.player_index !== undefined) {
+        if (ps.player_index !== undefined && ps.player_index < playerCount) {
           latestScores[ps.player_index] = ps.score_cumulative ?? 0
         }
       })
@@ -114,19 +115,21 @@ export default function TrufPlay({
         const pScores = r.player_scores || r.playerScores || []
         pScores.forEach(ps => {
           const pIdx = ps.player_index ?? 0
-          latestScores[pIdx] += (ps.score_change ?? 0)
+          if (pIdx < playerCount) {
+            latestScores[pIdx] += (ps.score_change ?? 0)
+          }
         })
       })
     }
   }
 
   const firstDealer = session?.first_dealer ?? session?.settings?.first_dealer ?? session?.settings?.firstDealer ?? 0
-  const dealerIndex = determineNextDealer(localRounds, firstDealer, initialScores)
+  const dealerIndex = determineNextDealer(localRounds, firstDealer, initialScores, playerCount)
   const dealerConsecutiveStreak = getDealerConsecutiveStreak(localRounds, dealerIndex, firstDealer) + 1
 
   // Input states for current round
-  const [bids, setBids] = useState([0, 0, 0, 0])
-  const [wons, setWons] = useState([0, 0, 0, 0])
+  const [bids, setBids] = useState(Array(playerCount).fill(0))
+  const [wons, setWons] = useState(Array(playerCount).fill(0))
   const [trufSuit, setTrufSuit] = useState(0) // Default: 0 (Sekop / Spades)
   const [inputPhase, setInputPhase] = useState('bid') // 'bid' | 'won'
   const [forcedPlayMode, setForcedPlayMode] = useState(null)
@@ -154,7 +157,7 @@ export default function TrufPlay({
 
   // Scorer transfer & takeover handlers
   const handleTransferScorer = (newIdx) => {
-    if (newIdx < 0 || newIdx > 3) return
+    if (newIdx < 0 || newIdx >= playerCount) return
     try { hapticsService.medium() } catch {}
     setScorerIndex(newIdx)
     broadcastState({ scorerIndex: newIdx })
@@ -213,8 +216,8 @@ export default function TrufPlay({
             updated = exists ? prev : [...prev, payload.round]
             return updated
           })
-          setBids([0, 0, 0, 0])
-          setWons([0, 0, 0, 0])
+          setBids(Array(playerCount).fill(0))
+          setWons(Array(playerCount).fill(0))
           setTrufSuit(0)
           setInputPhase('bid')
           setForcedPlayMode(null)
@@ -289,8 +292,8 @@ export default function TrufPlay({
 
     setBids(prev => {
       const next = [...prev]
-      const oldVal = next[playerIdx]
-      const newVal = Math.max(0, Math.min(13, oldVal + delta))
+      const oldVal = next[playerIdx] || 0
+      const newVal = Math.max(0, Math.min(totalTricks, oldVal + delta))
       if (oldVal !== newVal) {
         next[playerIdx] = newVal
         broadcastState({ bids: next })
@@ -314,8 +317,8 @@ export default function TrufPlay({
 
     setWons(prev => {
       const next = [...prev]
-      const oldVal = next[playerIdx]
-      const newVal = Math.max(0, Math.min(13, oldVal + delta))
+      const oldVal = next[playerIdx] || 0
+      const newVal = Math.max(0, Math.min(totalTricks, oldVal + delta))
       if (oldVal !== newVal) {
         next[playerIdx] = newVal
         broadcastState({ wons: next })
@@ -329,10 +332,37 @@ export default function TrufPlay({
     })
   }
 
-  // Handle Proceed to Won Phase
+  const handleWonDelta = (playerIdx, deltaFromBid) => {
+    if (!canEditPlayer(playerIdx)) return
+    setErrorMsg('')
+    try {
+      hapticsService.light()
+      soundService.playTick()
+    } catch {}
+
+    setWons(prev => {
+      const next = [...prev]
+      const oldVal = next[playerIdx] || 0
+      const playerBid = bids[playerIdx] || 0
+      const newVal = Math.max(0, Math.min(totalTricks, playerBid + deltaFromBid))
+      if (oldVal !== newVal) {
+        next[playerIdx] = newVal
+        broadcastState({ wons: next })
+        const targetName = playerNames[playerIdx]
+        const deltaLabel = deltaFromBid === 0 ? 'Pas' : deltaFromBid > 0 ? `Lebih +${deltaFromBid}` : `Kurang ${deltaFromBid}`
+        const text = isScorer && myPlayerIndex !== playerIdx
+          ? `Mengatur Hasil ${targetName}: ${deltaLabel} (Trik: ${newVal})`
+          : `Hasil Trik: ${deltaLabel} (${newVal})`
+        addLog(text, 'won')
+      }
+      return next
+    })
+  }
+
+  // Handle Proceed to Won Phase (Pre-fills with exact bids so scorer only inputs deviations!)
   const handleProceedToWon = () => {
     setErrorMsg('')
-    if (settings.bid13Decision && totalBid === 13 && !forcedPlayMode) {
+    if (settings.bid13Decision && totalBid === totalTricks && !forcedPlayMode) {
       setShowBid13Modal(true)
       return
     }
@@ -340,30 +370,33 @@ export default function TrufPlay({
       hapticsService.medium()
       soundService.playCardFlip()
     } catch {}
+    // Pre-populate wons with current bids if wons are all 0
+    const nextWons = [...bids]
+    setWons(nextWons)
     setInputPhase('won')
-    broadcastState({ inputPhase: 'won' })
+    broadcastState({ wons: nextWons, inputPhase: 'won' })
     addLog(`Fase Bid selesai (Total Bid: ${totalBid}). Memulai fase Hasil Trik.`, 'play_mode')
   }
 
   // Handle Save Round (Instant Optimistic UI & Broadcast)
   const handleSaveRoundSubmit = async () => {
     setErrorMsg('')
-    if (totalWon !== 13) {
+    if (totalWon !== totalTricks) {
       try { hapticsService.warning() } catch {}
-      setErrorMsg(t('truf.validation_won_13'))
+      setErrorMsg(t('truf.validation_won_total', { count: totalTricks, actual: totalWon }) || `Total Trik dari ke-${playerCount} pemain harus tepat ${totalTricks}! (Saat ini: ${totalWon})`)
       return
     }
 
     const calculatedScores = calculateTrufRoundScores(bids, wons, settings, totalBid, forcedPlayMode)
     
     // Compute cumulative scores from localRounds (starting with initialScores)
-    const lastCumulative = [initialScores[0] || 0, initialScores[1] || 0, initialScores[2] || 0, initialScores[3] || 0]
+    const lastCumulative = Array(playerCount).fill(0).map((_, i) => initialScores[i] || 0)
     if (localRounds.length > 0) {
       const lastRound = localRounds[localRounds.length - 1]
       const lastScores = lastRound.player_scores || lastRound.playerScores || []
       lastScores.forEach(ps => {
         const pIdx = ps.player_index ?? ps.playerIndex
-        if (pIdx !== undefined && pIdx >= 0 && pIdx <= 3) {
+        if (pIdx !== undefined && pIdx >= 0 && pIdx < playerCount) {
           lastCumulative[pIdx] = ps.score_cumulative ?? ps.scoreCumulative ?? latestScores[pIdx] ?? 0
         }
       })
@@ -403,8 +436,8 @@ export default function TrufPlay({
     // 1. Instantly advance UI locally
     const updatedRounds = [...localRounds, newRoundPayload]
     setLocalRounds(updatedRounds)
-    setBids([0, 0, 0, 0])
-    setWons([0, 0, 0, 0])
+    setBids(Array(playerCount).fill(0))
+    setWons(Array(playerCount).fill(0))
     setTrufSuit(0)
     setInputPhase('bid')
     setForcedPlayMode(null)
@@ -473,7 +506,7 @@ export default function TrufPlay({
       hapticsService.medium()
       soundService.playCardFlip()
     } catch {}
-    addLog(`Aturan Bid 13: Memilih Main Atas. Seluruh bid dikurangi 1 (Total Bid: ${newTotal}).`, 'play_mode')
+    addLog(`Aturan Bid ${totalTricks}: Memilih Main Atas. Seluruh bid dikurangi 1 (Total Bid: ${newTotal}).`, 'play_mode')
   }
 
   const handleBid13ChooseBawah = () => {
@@ -492,10 +525,10 @@ export default function TrufPlay({
       hapticsService.medium()
       soundService.playCardFlip()
     } catch {}
-    addLog(`Aturan Bid 13: Memilih Main Bawah. Seluruh bid ditambah 1 (Total Bid: ${newTotal}).`, 'play_mode')
+    addLog(`Aturan Bid ${totalTricks}: Memilih Main Bawah. Seluruh bid ditambah 1 (Total Bid: ${newTotal}).`, 'play_mode')
   }
 
-  const isMainAtas = forcedPlayMode ? forcedPlayMode === 'atas' : totalBid > 13
+  const isMainAtas = forcedPlayMode ? forcedPlayMode === 'atas' : totalBid > totalTricks
   const activeSuitObj = SUITS.find(s => s.id === trufSuit)
 
   return (
@@ -737,11 +770,11 @@ export default function TrufPlay({
                 fontWeight: 800,
                 padding: '4px 10px',
                 borderRadius: '999px',
-                background: totalWon === 13 ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
-                color: totalWon === 13 ? '#34D399' : '#F87171',
-                border: `1px solid ${totalWon === 13 ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)'}`
+                background: totalWon === totalTricks ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                color: totalWon === totalTricks ? '#34D399' : '#F87171',
+                border: `1px solid ${totalWon === totalTricks ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)'}`
               }}>
-                Trik: {totalWon} / 13 {totalWon === 13 ? '✓' : ''}
+                Trik: {totalWon} / {totalTricks} {totalWon === totalTricks ? '✓' : ''}
               </span>
             )}
             <span style={{
@@ -763,11 +796,14 @@ export default function TrufPlay({
           </div>
         )}
 
-        {/* 4 Player Input Rows */}
+        {/* Player Input Rows */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' }}>
           {playerNames.map((name, idx) => {
             const isDealer = idx === dealerIndex
             const val = inputPhase === 'bid' ? bids[idx] : wons[idx]
+            const playerBid = bids[idx] || 0
+            const wonVal = wons[idx] || 0
+            const deltaFromBid = wonVal - playerBid
             const canEdit = canEditPlayer(idx)
             const isMe = myPlayerIndex === idx
 
@@ -776,8 +812,8 @@ export default function TrufPlay({
                 key={idx}
                 style={{
                   display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
+                  flexDirection: 'column',
+                  gap: '8px',
                   background: isMe
                     ? 'rgba(139, 92, 246, 0.12)'
                     : isDealer 
@@ -792,7 +828,8 @@ export default function TrufPlay({
                   borderRadius: '12px'
                 }}
               >
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                {/* Header line: Player Name + Badges + Value / Status */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                     <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>{name}</span>
                     {isMe && (
@@ -808,61 +845,184 @@ export default function TrufPlay({
                     )}
                   </div>
 
-                  {/* Show Player Bid in Phase 2 */}
-                  {inputPhase === 'won' && (
+                  {/* Status Indicator */}
+                  {inputPhase === 'won' ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem' }}>
                       <span style={{ 
                         background: 'rgba(139, 92, 246, 0.2)', 
                         color: '#C084FC', 
-                        padding: '1px 7px', 
+                        padding: '2px 8px', 
                         borderRadius: '6px', 
                         fontWeight: 700 
                       }}>
-                        {t('truf.target_bid')}: {bids[idx]}
+                        Bid: {playerBid}
                       </span>
-                      {wons[idx] === bids[idx] ? (
-                        <span style={{ color: '#34D399', fontWeight: 700 }}>{t('truf.exact_bid')}</span>
-                      ) : wons[idx] < bids[idx] ? (
-                        <span style={{ color: '#F87171', fontWeight: 600 }}>{t('truf.under_bid', { diff: bids[idx] - wons[idx] })}</span>
-                      ) : (
-                        <span style={{ color: '#FB923C', fontWeight: 600 }}>{t('truf.over_bid', { diff: wons[idx] - bids[idx] })}</span>
-                      )}
+                      <span style={{
+                        padding: '2px 8px',
+                        borderRadius: '6px',
+                        fontWeight: 800,
+                        background: deltaFromBid === 0 ? 'rgba(52, 211, 153, 0.2)' : deltaFromBid < 0 ? 'rgba(239, 68, 68, 0.2)' : 'rgba(249, 115, 22, 0.2)',
+                        color: deltaFromBid === 0 ? '#34D399' : deltaFromBid < 0 ? '#F87171' : '#FB923C',
+                        border: `1px solid ${deltaFromBid === 0 ? 'rgba(52, 211, 153, 0.4)' : deltaFromBid < 0 ? 'rgba(239, 68, 68, 0.4)' : 'rgba(249, 115, 22, 0.4)'}`
+                      }}>
+                        {deltaFromBid === 0 ? `🎯 Pas (Trik: ${wonVal})` : deltaFromBid < 0 ? `🔻 Kurang ${Math.abs(deltaFromBid)} (Trik: ${wonVal})` : `🔺 Lebih +${deltaFromBid} (Trik: ${wonVal})`}
+                      </span>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Target:</span>
+                      <span style={{ fontSize: '1.2rem', fontWeight: 900, color: '#FCD34D' }}>{bids[idx]}</span>
                     </div>
                   )}
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  {canEdit ? (
-                    <>
-                      <button 
-                        type="button" 
-                        className="btn btn-secondary btn-sm"
-                        style={{ width: '36px', height: '36px', padding: 0, fontSize: '1.2rem' }}
-                        onClick={() => inputPhase === 'bid' ? handleBidStep(idx, -1) : handleWonStep(idx, -1)}
-                      >
-                        -
-                      </button>
-                      <span style={{ fontSize: '1.3rem', fontWeight: 800, width: '30px', textAlign: 'center' }}>
-                        {val}
-                      </span>
-                      <button 
-                        type="button" 
-                        className="btn btn-secondary btn-sm"
-                        style={{ width: '36px', height: '36px', padding: 0, fontSize: '1.2rem' }}
-                        onClick={() => inputPhase === 'bid' ? handleBidStep(idx, 1) : handleWonStep(idx, 1)}
-                      >
-                        +
-                      </button>
-                    </>
+                {/* Input Controls Row */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', paddingTop: '4px' }}>
+                  {inputPhase === 'won' ? (
+                    /* Won Phase: 1-Tap Quick Delta Buttons (Kurang / Lebih / Pas) + Fine Stepper */
+                    canEdit ? (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', flexWrap: 'wrap', gap: '6px' }}>
+                        {/* Quick Delta Buttons */}
+                        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', flex: 1 }}>
+                          {[-2, -1, 0, 1, 2].map((delta) => {
+                            const isSelected = deltaFromBid === delta
+                            const isPas = delta === 0
+                            const isKurang = delta < 0
+                            const label = isPas ? '🎯 Pas' : isKurang ? `Kurang ${Math.abs(delta)}` : `Lebih +${delta}`
+
+                            return (
+                              <button
+                                key={delta}
+                                type="button"
+                                onClick={() => handleWonDelta(idx, delta)}
+                                style={{
+                                  padding: '5px 8px',
+                                  fontSize: '0.75rem',
+                                  borderRadius: '8px',
+                                  fontWeight: isSelected ? 800 : 600,
+                                  cursor: 'pointer',
+                                  border: isSelected
+                                    ? `2px solid ${isPas ? '#34D399' : isKurang ? '#F87171' : '#FB923C'}`
+                                    : '1px solid var(--border-glass)',
+                                  background: isSelected
+                                    ? (isPas ? 'rgba(52, 211, 153, 0.3)' : isKurang ? 'rgba(239, 68, 68, 0.3)' : 'rgba(249, 115, 22, 0.3)')
+                                    : 'rgba(255, 255, 255, 0.05)',
+                                  color: isSelected
+                                    ? '#FFF'
+                                    : (isPas ? '#A7F3D0' : isKurang ? '#FECACA' : '#FED7AA'),
+                                  boxShadow: isSelected
+                                    ? `0 0 10px ${isPas ? 'rgba(52, 211, 153, 0.4)' : isKurang ? 'rgba(239, 68, 68, 0.4)' : 'rgba(249, 115, 22, 0.4)'}`
+                                    : 'none',
+                                  transition: 'all 0.15s ease'
+                                }}
+                              >
+                                {label}
+                              </button>
+                            )
+                          })}
+                        </div>
+
+                        {/* Fine Stepper */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <button 
+                            type="button" 
+                            className="btn btn-secondary btn-sm"
+                            style={{ width: '32px', height: '32px', padding: 0, fontSize: '1.1rem' }}
+                            onClick={() => handleWonStep(idx, -1)}
+                            title="Kurang 1 Trik"
+                          >
+                            -
+                          </button>
+                          <span style={{ fontSize: '1.15rem', fontWeight: 900, width: '28px', textAlign: 'center', color: '#38BDF8' }}>
+                            {wonVal}
+                          </span>
+                          <button 
+                            type="button" 
+                            className="btn btn-secondary btn-sm"
+                            style={{ width: '32px', height: '32px', padding: 0, fontSize: '1.1rem' }}
+                            onClick={() => handleWonStep(idx, 1)}
+                            title="Tambah 1 Trik"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Hasil Trik: <strong>{wonVal}</strong></span>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)', background: 'rgba(255,255,255,0.04)', padding: '2px 6px', borderRadius: '4px' }}>
+                          🔒 {name}
+                        </span>
+                      </div>
+                    )
                   ) : (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span style={{ fontSize: '1.2rem', fontWeight: 800, minWidth: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                        {val}
-                      </span>
-                      <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)', background: 'rgba(255,255,255,0.04)', padding: '2px 6px', borderRadius: '4px' }}>
-                        🔒 {name}
-                      </span>
-                    </div>
+                    /* Bid Phase: Stepper & Quick Number Select */
+                    canEdit ? (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                          {[0, 1, 2, 3, 4, 5, 6].map(bNum => (
+                            <button
+                              key={bNum}
+                              type="button"
+                              onClick={() => {
+                                if (!canEditPlayer(idx)) return
+                                setErrorMsg('')
+                                try { hapticsService.light(); soundService.playTick() } catch {}
+                                setBids(prev => {
+                                  const next = [...prev]
+                                  next[idx] = bNum
+                                  broadcastState({ bids: next })
+                                  return next
+                                })
+                              }}
+                              style={{
+                                width: '28px',
+                                height: '28px',
+                                padding: 0,
+                                borderRadius: '6px',
+                                fontSize: '0.8rem',
+                                fontWeight: bids[idx] === bNum ? 900 : 600,
+                                border: bids[idx] === bNum ? '1.5px solid #F59E0B' : '1px solid var(--border-glass)',
+                                background: bids[idx] === bNum ? 'rgba(245, 158, 11, 0.25)' : 'rgba(255,255,255,0.04)',
+                                color: bids[idx] === bNum ? '#FCD34D' : 'var(--text-main)',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              {bNum}
+                            </button>
+                          ))}
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <button 
+                            type="button" 
+                            className="btn btn-secondary btn-sm"
+                            style={{ width: '34px', height: '34px', padding: 0, fontSize: '1.1rem' }}
+                            onClick={() => handleBidStep(idx, -1)}
+                          >
+                            -
+                          </button>
+                          <span style={{ fontSize: '1.25rem', fontWeight: 800, width: '28px', textAlign: 'center' }}>
+                            {val}
+                          </span>
+                          <button 
+                            type="button" 
+                            className="btn btn-secondary btn-sm"
+                            style={{ width: '34px', height: '34px', padding: 0, fontSize: '1.1rem' }}
+                            onClick={() => handleBidStep(idx, 1)}
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Target Bid: <strong>{val}</strong></span>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)', background: 'rgba(255,255,255,0.04)', padding: '2px 6px', borderRadius: '4px' }}>
+                          🔒 {name}
+                        </span>
+                      </div>
+                    )
                   )}
                 </div>
               </div>
@@ -930,7 +1090,7 @@ export default function TrufPlay({
           }}>
             {inputPhase === 'bid'
               ? '⏳ Pemain sedang memasang target bid masing-masing...'
-              : `⏳ Pertandingan ronde sedang berlangsung (Trik: ${totalWon}/13).`}
+              : `⏳ Pertandingan ronde sedang berlangsung (Trik: ${totalWon}/${totalTricks}).`}
           </div>
         ) : isScorer ? (
           <div>
@@ -966,11 +1126,11 @@ export default function TrufPlay({
                   ← Ubah Bid
                 </button>
                 <button 
-                  className={`btn ${totalWon === 13 ? 'btn-success' : 'btn-secondary'}`} 
+                  className={`btn ${totalWon === totalTricks ? 'btn-success' : 'btn-secondary'}`} 
                   style={{ flex: 1, fontWeight: 800 }} 
                   onClick={handleSaveRoundSubmit}
                 >
-                  {totalWon === 13 ? `💾 ${t('truf.save_round')} & Lanjut` : `⚠️ Trik: ${totalWon} / 13 (Harus 13)`}
+                  {totalWon === totalTricks ? `💾 ${t('truf.save_round')} & Lanjut` : `⚠️ Trik: ${totalWon} / ${totalTricks} (Harus ${totalTricks})`}
                 </button>
               </div>
             )}
@@ -1010,7 +1170,7 @@ export default function TrufPlay({
           <div>
             <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>📊 {t('truf.leaderboard')}</h3>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-              Set putaran per 4 ronde • Detail skor (+/-) & bid tiap ronde
+              {t('truf.scoreboard_set_sub', { count: playerCount }) || `Set putaran per ${playerCount} ronde • Detail skor (+/-) & bid tiap ronde`}
             </span>
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
@@ -1049,13 +1209,13 @@ export default function TrufPlay({
                 <th style={{ padding: '10px 8px', minWidth: '85px', background: 'rgba(255,255,255,0.03)' }}>{t('truf.total_score_col')}</th>
                 {localRounds.slice().reverse().map((r, i) => {
                   const rNum = r.round_number
-                  const setNum = Math.ceil(rNum / 4)
-                  const isEndOfSetInReverse = (rNum % 4 === 1) && localRounds.some(rd => rd.round_number === setNum * 4)
+                  const setNum = Math.ceil(rNum / playerCount)
+                  const isEndOfSetInReverse = (rNum % playerCount === 1) && localRounds.some(rd => rd.round_number === setNum * playerCount)
                   const rSuitId = r.round_data?.trufSuit ?? r.round_data?.truf_suit ?? r.roundData?.trufSuit ?? r.truf_suit_index ?? 0
                   const rSuit = SUITS.find(s => s.id === rSuitId) || SUITS[0]
                   const rTotalBid = r.round_data?.totalBid ?? r.roundData?.totalBid ?? r.player_scores?.reduce((sum, p) => sum + (p.stats?.bid ?? 0), 0) ?? 0
                   const rForcedMode = r.round_data?.forcedPlayMode ?? r.roundData?.forcedPlayMode
-                  const rIsMainAtas = rForcedMode ? rForcedMode === 'atas' : rTotalBid > 13
+                  const rIsMainAtas = rForcedMode ? rForcedMode === 'atas' : rTotalBid > totalTricks
 
                   return (
                     <React.Fragment key={r.id || i}>
@@ -1084,7 +1244,7 @@ export default function TrufPlay({
                           {rIsMainAtas ? '▲ ' + t('truf.mode_atas_short') : '▼ ' + t('truf.mode_bawah_short')} ({rTotalBid})
                         </div>
                       </th>
-                      {/* Set Rounding Column at every 4th round (rendered after R1/R5/etc. in reverse order) */}
+                      {/* Set Rounding Column at every Nth round (rendered after R1/R(N+1)/etc. in reverse order) */}
                       {isEndOfSetInReverse && (
                         <th style={{
                           padding: '8px 6px',
@@ -1127,8 +1287,8 @@ export default function TrufPlay({
                     </td>
                     {localRounds.slice().reverse().map((r, rIdx) => {
                       const rNum = r.round_number
-                      const setNum = Math.ceil(rNum / 4)
-                      const isEndOfSetInReverse = (rNum % 4 === 1) && localRounds.some(rd => rd.round_number === setNum * 4)
+                      const setNum = Math.ceil(rNum / playerCount)
+                      const isEndOfSetInReverse = (rNum % playerCount === 1) && localRounds.some(rd => rd.round_number === setNum * playerCount)
                       const pScores = r.player_scores || r.playerScores || []
                       const ps = pScores.find(p => (p.player_index ?? p.playerIndex) === idx)
                       const change = ps?.score_change ?? ps?.scoreChange ?? 0
@@ -1136,8 +1296,8 @@ export default function TrufPlay({
                       const won = ps?.stats?.won ?? ps?.won ?? 0
                       const isPass = bid === won
 
-                      // Cumulative score of the 4th round for the set total
-                      const setEndRound = isEndOfSetInReverse ? localRounds.find(rd => (rd.round_number ?? rd.roundNumber) === setNum * 4) : null
+                      // Cumulative score of the last round of the set
+                      const setEndRound = isEndOfSetInReverse ? localRounds.find(rd => (rd.round_number ?? rd.roundNumber) === setNum * playerCount) : null
                       const setEndScores = setEndRound?.player_scores || setEndRound?.playerScores || []
                       const setCumScore = setEndScores.find(p => (p.player_index ?? p.playerIndex) === idx)?.score_cumulative ?? setEndScores.find(p => (p.player_index ?? p.playerIndex) === idx)?.scoreCumulative ?? 0
 
@@ -1233,14 +1393,14 @@ export default function TrufPlay({
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {localRounds.slice().reverse().map((round, rIndex) => {
               const rNum = round.round_number
-              const setNum = Math.ceil(rNum / 4)
-              const rDealerIdx = round.round_data?.dealerIndex ?? ((firstDealer + rNum - 1) % 4)
+              const setNum = Math.ceil(rNum / playerCount)
+              const rDealerIdx = round.round_data?.dealerIndex ?? round.dealer_index ?? ((firstDealer + rNum - 1) % playerCount)
               const rSuitId = round.round_data?.trufSuit ?? round.round_data?.truf_suit ?? round.roundData?.trufSuit ?? round.truf_suit_index ?? 0
               const rSuitObj = SUITS.find(s => s.id === rSuitId) || SUITS[0]
               const rTotalBid = round.round_data?.totalBid ?? round.roundData?.totalBid ?? round.player_scores?.reduce((sum, p) => sum + (p.stats?.bid ?? 0), 0) ?? 0
               const rForcedMode = round.round_data?.forcedPlayMode ?? round.roundData?.forcedPlayMode
-              const rIsMainAtas = rForcedMode ? rForcedMode === 'atas' : rTotalBid > 13
-              const isSetEnd = rNum % 4 === 0
+              const rIsMainAtas = rForcedMode ? rForcedMode === 'atas' : rTotalBid > totalTricks
+              const isSetEnd = rNum % playerCount === 0
 
               return (
                 <div 
@@ -1286,7 +1446,7 @@ export default function TrufPlay({
                     </div>
                   </div>
 
-                  {/* 4 Players details grid */}
+                  {/* Players details grid */}
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px' }}>
                     {playerNames.map((name, pIdx) => {
                       const roundScores = round.player_scores || round.playerScores || []
@@ -1374,7 +1534,7 @@ export default function TrufPlay({
         <div className="modal-overlay">
           <div className="modal-content" style={{ maxWidth: '460px', textAlign: 'center' }}>
             <h3 style={{ fontSize: '1.3rem', fontWeight: 800, marginBottom: '8px', color: '#F59E0B' }}>
-              ⚠️ {t('truf.bid13_modal_title')}
+              ⚠️ {t('truf.bid13_modal_title', { total: totalTricks }) || `Total Bid Berjumlah ${totalTricks} (Pas ${totalTricks})!`}
             </h3>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.86rem', marginBottom: '16px', lineHeight: 1.4 }}>
               {t('truf.bid13_modal_desc', { name: playerNames[dealerIndex] })}

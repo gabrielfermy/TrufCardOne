@@ -4,6 +4,7 @@ import CardGameRulesModal from '../../components/common/CardGameRulesModal'
 
 export default function TrufSetup({ onStartGame, onBack }) {
   const { t } = useTranslation()
+  const [playerCount, setPlayerCount] = useState(4)
   const [playerNames, setPlayerNames] = useState(['Pemain 1', 'Pemain 2', 'Pemain 3', 'Pemain 4'])
   const [firstDealer, setFirstDealer] = useState(0)
   const [multiplier, setMultiplier] = useState(1)
@@ -14,6 +15,26 @@ export default function TrufSetup({ onStartGame, onBack }) {
   const [initialScores, setInitialScores] = useState([0, 0, 0, 0])
   const [roomMode, setRoomMode] = useState('multiplayer') // 'multiplayer' | 'offline'
   const [isRulesOpen, setIsRulesOpen] = useState(false)
+
+  const handlePlayerCountChange = (count) => {
+    setPlayerCount(count)
+    const nextNames = [...playerNames]
+    const nextScores = [...initialScores]
+    if (count > nextNames.length) {
+      for (let i = nextNames.length; i < count; i++) {
+        nextNames.push(`Pemain ${i + 1}`)
+        nextScores.push(0)
+      }
+    } else {
+      nextNames.splice(count)
+      nextScores.splice(count)
+    }
+    setPlayerNames(nextNames)
+    setInitialScores(nextScores)
+    if (firstDealer >= count) {
+      setFirstDealer(0)
+    }
+  }
 
   const handleNameChange = (index, value) => {
     const updated = [...playerNames]
@@ -34,6 +55,8 @@ export default function TrufSetup({ onStartGame, onBack }) {
     setInitialScores(updated)
   }
 
+  const totalTricks = playerCount === 3 ? 17 : playerCount === 5 ? 10 : 13
+
   const handleStart = (e) => {
     e.preventDefault()
     onStartGame({
@@ -44,7 +67,8 @@ export default function TrufSetup({ onStartGame, onBack }) {
         multiplier,
         bid0Bonus,
         bid13Decision,
-        initialScores: useInitialScores ? initialScores.map(Number) : [0, 0, 0, 0],
+        totalTricks,
+        initialScores: useInitialScores ? initialScores.map(Number) : Array(playerCount).fill(0),
         atasLackMult: -2,
         atasExcessMult: -1,
         bawahLackMult: -1,
@@ -115,6 +139,56 @@ export default function TrufSetup({ onStartGame, onBack }) {
               {t('room_mode.offline_desc')}
             </div>
           </div>
+        </div>
+
+        {/* Player Count Selection (3, 4, 5 Players) */}
+        <div className="form-group" style={{ marginBottom: '18px' }}>
+          <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>👥 {t('truf.player_count_label') || 'Jumlah Pemain'}</span>
+            <span style={{ fontSize: '0.74rem', color: '#C084FC', fontWeight: 800 }}>
+              {playerCount === 3 ? '17 Trik / Ronde (51 Kartu)' : playerCount === 5 ? '10 Trik / Ronde (50 Kartu)' : '13 Trik / Ronde (52 Kartu)'}
+            </span>
+          </label>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+            {[3, 4, 5].map(num => (
+              <button
+                key={num}
+                type="button"
+                className={`btn ${playerCount === num ? 'btn-primary' : 'btn-secondary'}`}
+                style={{
+                  padding: '10px 4px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '2px',
+                  borderRadius: '10px',
+                  fontWeight: playerCount === num ? 800 : 600
+                }}
+                onClick={() => handlePlayerCountChange(num)}
+              >
+                <span style={{ fontSize: '1.05rem', fontWeight: 900 }}>{num} Pemain</span>
+                <span style={{ fontSize: '0.68rem', opacity: 0.85 }}>
+                  {num === 3 ? '17 Kartu' : num === 5 ? '10 Kartu' : '13 Kartu (Std)'}
+                </span>
+              </button>
+            ))}
+          </div>
+          {playerCount !== 4 && (
+            <div style={{
+              marginTop: '8px',
+              padding: '8px 12px',
+              borderRadius: '8px',
+              background: 'rgba(139, 92, 246, 0.12)',
+              border: '1px solid rgba(139, 92, 246, 0.3)',
+              fontSize: '0.74rem',
+              color: '#DDD6FE',
+              lineHeight: 1.4
+            }}>
+              💡 <strong>Aturan Distribusi Kartu:</strong> {playerCount === 3
+                ? 'Truf 3 Pemain: 1 kartu (2♣) disisihkan dari dek. Setiap pemain memegang 17 kartu (total 17 trik per ronde).'
+                : 'Truf 5 Pemain: 2 kartu (2♣ & 2♦) disisihkan dari dek. Setiap pemain memegang 10 kartu (total 10 trik per ronde).'}
+            </div>
+          )}
         </div>
 
         <div className="section-label">{t('truf.players')}</div>

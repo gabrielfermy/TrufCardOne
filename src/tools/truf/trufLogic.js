@@ -13,13 +13,14 @@ export const SUITS = [
  * Calculates round score change for all 4 players
  */
 export function calculateTrufRoundScores(bids, wons, settings = {}, totalBid, forcedMode = null) {
-  const isMainAtas = forcedMode ? forcedMode === 'atas' : totalBid > 13
+  const totalTricks = settings?.totalTricks || (bids?.length === 3 ? 17 : bids?.length === 5 ? 10 : 13)
+  const isMainAtas = forcedMode ? forcedMode === 'atas' : totalBid > totalTricks
   const mult = settings?.multiplier || 1
   const customBonus0 = settings?.bid0Bonus
   const maxBid = (bids && bids.length > 0) ? Math.max(...bids) : 0
 
   return bids.map((bid, index) => {
-    const won = wons[index]
+    const won = wons[index] ?? 0
     const diff = Math.abs(won - bid)
     let scoreChange = 0
 
@@ -75,15 +76,19 @@ export function determineTrufSuitWinner(bids) {
  * Round 1: firstDealer
  * Round 2+: Player with the lowest cumulative score.
  * Tie-breaker: If previous round's dealer is among the tied lowest scorers, they remain dealer.
- * Otherwise, clockwise starting from (previous dealer + 1) % 4.
+ * Otherwise, clockwise starting from (previous dealer + 1) % playerCount.
  */
-export function determineNextDealer(roundsList, firstDealer = 0, initialScores = [0, 0, 0, 0]) {
+export function determineNextDealer(roundsList, firstDealer = 0, initialScores = [], playerCount = 4) {
   if (!roundsList || roundsList.length === 0) {
     return firstDealer
   }
 
+  const pCount = (initialScores && initialScores.length > 0)
+    ? initialScores.length
+    : (roundsList?.[0]?.player_scores?.length || playerCount || 4)
+
   // Calculate cumulative scores
-  const cumulativeScores = [initialScores[0] || 0, initialScores[1] || 0, initialScores[2] || 0, initialScores[3] || 0]
+  const cumulativeScores = Array(pCount).fill(0).map((_, idx) => initialScores[idx] || 0)
   const lastRound = roundsList[roundsList.length - 1]
   const lastScores = lastRound?.player_scores || lastRound?.playerScores || []
   const hasCumulative = lastScores.some(ps => (ps.score_cumulative !== undefined && ps.score_cumulative !== null) || (ps.scoreCumulative !== undefined && ps.scoreCumulative !== null))
@@ -91,7 +96,7 @@ export function determineNextDealer(roundsList, firstDealer = 0, initialScores =
   if (hasCumulative) {
     lastScores.forEach(ps => {
       const pIdx = ps.player_index ?? ps.playerIndex
-      if (pIdx !== undefined && pIdx >= 0 && pIdx <= 3) {
+      if (pIdx !== undefined && pIdx >= 0 && pIdx < pCount) {
         cumulativeScores[pIdx] = ps.score_cumulative ?? ps.scoreCumulative ?? 0
       }
     })
@@ -100,7 +105,7 @@ export function determineNextDealer(roundsList, firstDealer = 0, initialScores =
       const pScores = r.player_scores || r.playerScores || []
       pScores.forEach(ps => {
         const pIdx = ps.player_index ?? ps.playerIndex ?? 0
-        if (pIdx >= 0 && pIdx <= 3) {
+        if (pIdx >= 0 && pIdx < pCount) {
           cumulativeScores[pIdx] += (ps.score_change ?? ps.scoreChange ?? 0)
         }
       })
@@ -108,7 +113,7 @@ export function determineNextDealer(roundsList, firstDealer = 0, initialScores =
   }
 
   const minScore = Math.min(...cumulativeScores)
-  const lowestScorers = [0, 1, 2, 3].filter(idx => cumulativeScores[idx] === minScore)
+  const lowestScorers = Array.from({ length: pCount }, (_, i) => i).filter(idx => cumulativeScores[idx] === minScore)
 
   if (lowestScorers.length === 1) {
     return lowestScorers[0]
@@ -122,8 +127,8 @@ export function determineNextDealer(roundsList, firstDealer = 0, initialScores =
   }
 
   // Otherwise, check clockwise starting from previous dealer + 1
-  for (let step = 1; step <= 3; step++) {
-    const candidate = (prevDealer + step) % 4
+  for (let step = 1; step < pCount; step++) {
+    const candidate = (prevDealer + step) % pCount
     if (lowestScorers.includes(candidate)) {
       return candidate
     }

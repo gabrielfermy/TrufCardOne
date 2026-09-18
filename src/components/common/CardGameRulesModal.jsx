@@ -162,6 +162,32 @@ export default function CardGameRulesModal({ isOpen, onClose, initialGame = 'tru
                 </p>
               </div>
 
+              {/* Player Count Variations Card */}
+              <div style={{
+                background: 'var(--bg-glass)',
+                border: '1px solid var(--border-glass)',
+                borderRadius: '14px',
+                padding: '14px 16px'
+              }}>
+                <div style={{ fontWeight: 800, fontSize: '0.88rem', marginBottom: '8px', color: '#FFF' }}>
+                  👥 {t('rules_modal.sec_players_variation')}
+                </div>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '10px' }}>
+                  {t('rules_modal.truf.players_variation_desc')}
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ padding: '8px 12px', background: 'rgba(0,0,0,0.3)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)', fontSize: '0.8rem', lineHeight: 1.4 }}>
+                    <strong style={{ color: '#FBBF24' }}>{t('rules_modal.truf.var_3p')}</strong>
+                  </div>
+                  <div style={{ padding: '8px 12px', background: 'rgba(139, 92, 246, 0.15)', borderRadius: '8px', border: '1px solid rgba(139, 92, 246, 0.35)', fontSize: '0.8rem', lineHeight: 1.4 }}>
+                    <strong style={{ color: '#C084FC' }}>{t('rules_modal.truf.var_4p')}</strong>
+                  </div>
+                  <div style={{ padding: '8px 12px', background: 'rgba(0,0,0,0.3)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)', fontSize: '0.8rem', lineHeight: 1.4 }}>
+                    <strong style={{ color: '#38BDF8' }}>{t('rules_modal.truf.var_5p')}</strong>
+                  </div>
+                </div>
+              </div>
+
               {/* Suit Hierarchy */}
               <div style={{
                 background: 'var(--bg-glass)',
@@ -248,8 +274,8 @@ export default function CardGameRulesModal({ isOpen, onClose, initialGame = 'tru
                     <thead>
                       <tr style={{ background: 'rgba(0,0,0,0.4)', borderBottom: '1px solid var(--border-glass)' }}>
                         <th style={{ padding: '8px 10px', textAlign: 'left', color: 'var(--text-dim)' }}>Kondisi</th>
-                        <th style={{ padding: '8px 10px', textAlign: 'center', color: '#C084FC' }}>Main Atas (&gt;13)</th>
-                        <th style={{ padding: '8px 10px', textAlign: 'center', color: '#34D399' }}>Main Bawah (&lt;13)</th>
+                        <th style={{ padding: '8px 10px', textAlign: 'center', color: '#C084FC' }}>Main Atas (&gt; Total Trik)</th>
+                        <th style={{ padding: '8px 10px', textAlign: 'center', color: '#34D399' }}>Main Bawah (&lt; Total Trik)</th>
                       </tr>
                     </thead>
                     <tbody>
