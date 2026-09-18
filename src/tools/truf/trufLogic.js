@@ -15,7 +15,8 @@ export const SUITS = [
 export function calculateTrufRoundScores(bids, wons, settings = {}, totalBid, forcedMode = null) {
   const isMainAtas = forcedMode ? forcedMode === 'atas' : totalBid > 13
   const mult = settings?.multiplier || 1
-  const bonus0 = settings?.bid0Bonus || 0
+  const customBonus0 = settings?.bid0Bonus
+  const maxBid = (bids && bids.length > 0) ? Math.max(...bids) : 0
 
   return bids.map((bid, index) => {
     const won = wons[index]
@@ -25,21 +26,25 @@ export function calculateTrufRoundScores(bids, wons, settings = {}, totalBid, fo
     if (won === bid) {
       // Met the bid target
       if (bid === 0) {
-        scoreChange = bonus0 * mult
+        // Standard Truf rule: Bid 0 earns the highest bid of that round!
+        // If a positive custom bonus is explicitly configured, use it instead.
+        const earnedPoints = (customBonus0 && customBonus0 > 0) ? customBonus0 : maxBid
+        scoreChange = earnedPoints * mult
       } else {
         scoreChange = bid * mult
       }
     } else {
       // Failed to meet the target
       if (bid === 0) {
-        // Special penalty for failed Bid 0
-        scoreChange = won * (settings?.atasLackMult || -2) * mult
+        // Special penalty for failed Bid 0 (excess tricks)
+        const excessMult = isMainAtas ? (settings?.atasExcessMult ?? -1) : (settings?.bawahExcessMult ?? -2)
+        scoreChange = won * excessMult * mult
       } else {
         if (won < bid) {
-          const lackMult = isMainAtas ? (settings?.atasLackMult || -2) : (settings?.bawahLackMult || -1)
+          const lackMult = isMainAtas ? (settings?.atasLackMult ?? -2) : (settings?.bawahLackMult ?? -1)
           scoreChange = diff * lackMult * mult
         } else {
-          const excessMult = isMainAtas ? (settings?.atasExcessMult || -1) : (settings?.bawahExcessMult || -2)
+          const excessMult = isMainAtas ? (settings?.atasExcessMult ?? -1) : (settings?.bawahExcessMult ?? -2)
           scoreChange = diff * excessMult * mult
         }
       }
@@ -72,13 +77,13 @@ export function determineTrufSuitWinner(bids) {
  * Tie-breaker: If previous round's dealer is among the tied lowest scorers, they remain dealer.
  * Otherwise, clockwise starting from (previous dealer + 1) % 4.
  */
-export function determineNextDealer(roundsList, firstDealer = 0) {
+export function determineNextDealer(roundsList, firstDealer = 0, initialScores = [0, 0, 0, 0]) {
   if (!roundsList || roundsList.length === 0) {
     return firstDealer
   }
 
   // Calculate cumulative scores
-  const cumulativeScores = [0, 0, 0, 0]
+  const cumulativeScores = [initialScores[0] || 0, initialScores[1] || 0, initialScores[2] || 0, initialScores[3] || 0]
   const lastRound = roundsList[roundsList.length - 1]
   const lastScores = lastRound?.player_scores || lastRound?.playerScores || []
   const hasCumulative = lastScores.some(ps => (ps.score_cumulative !== undefined && ps.score_cumulative !== null) || (ps.scoreCumulative !== undefined && ps.scoreCumulative !== null))

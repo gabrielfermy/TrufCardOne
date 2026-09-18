@@ -270,12 +270,12 @@ export default function CardGameRulesModal({ isOpen, onClose, initialGame = 'tru
                       </tr>
                       <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                         <td style={{ padding: '8px 10px', fontWeight: 600 }}>Bid 0 Sukses (Won == 0)</td>
-                        <td style={{ padding: '8px 10px', textAlign: 'center', color: '#60A5FA', fontWeight: 700 }}>+Bonus0 × Mult</td>
-                        <td style={{ padding: '8px 10px', textAlign: 'center', color: '#60A5FA', fontWeight: 700 }}>+Bonus0 × Mult</td>
+                        <td style={{ padding: '8px 10px', textAlign: 'center', color: '#60A5FA', fontWeight: 700 }}>+MaxBid × Mult</td>
+                        <td style={{ padding: '8px 10px', textAlign: 'center', color: '#60A5FA', fontWeight: 700 }}>+MaxBid × Mult</td>
                       </tr>
                       <tr>
                         <td style={{ padding: '8px 10px', fontWeight: 600 }}>Bid 0 Gagal (Won &gt; 0)</td>
-                        <td style={{ padding: '8px 10px', textAlign: 'center', color: '#EF4444', fontWeight: 700 }}>-(Won × 2 × Mult)</td>
+                        <td style={{ padding: '8px 10px', textAlign: 'center', color: '#FCA5A5', fontWeight: 700 }}>-(Won × 1 × Mult)</td>
                         <td style={{ padding: '8px 10px', textAlign: 'center', color: '#EF4444', fontWeight: 700 }}>-(Won × 2 × Mult)</td>
                       </tr>
                     </tbody>

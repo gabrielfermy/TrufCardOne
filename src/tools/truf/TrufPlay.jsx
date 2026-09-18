@@ -95,8 +95,11 @@ export default function TrufPlay({
 
   const currentRoundNumber = localRounds.length + 1
 
+  const initialScores = session?.settings?.initialScores || session?.initial_scores || [0, 0, 0, 0]
+  const hasInitialScores = initialScores.some(s => s !== 0)
+
   // Cumulative Leaderboard / Current Cumulative Scores
-  const latestScores = [0, 0, 0, 0]
+  const latestScores = [initialScores[0] || 0, initialScores[1] || 0, initialScores[2] || 0, initialScores[3] || 0]
   if (localRounds.length > 0) {
     const lastRound = localRounds[localRounds.length - 1]
     const hasCumulative = lastRound.player_scores?.some(ps => ps.score_cumulative !== undefined && ps.score_cumulative !== null)
@@ -118,7 +121,7 @@ export default function TrufPlay({
   }
 
   const firstDealer = session?.first_dealer ?? session?.settings?.first_dealer ?? session?.settings?.firstDealer ?? 0
-  const dealerIndex = determineNextDealer(localRounds, firstDealer)
+  const dealerIndex = determineNextDealer(localRounds, firstDealer, initialScores)
   const dealerConsecutiveStreak = getDealerConsecutiveStreak(localRounds, dealerIndex, firstDealer) + 1
 
   // Input states for current round
@@ -353,8 +356,8 @@ export default function TrufPlay({
 
     const calculatedScores = calculateTrufRoundScores(bids, wons, settings, totalBid, forcedPlayMode)
     
-    // Compute cumulative scores from localRounds
-    const lastCumulative = [0, 0, 0, 0]
+    // Compute cumulative scores from localRounds (starting with initialScores)
+    const lastCumulative = [initialScores[0] || 0, initialScores[1] || 0, initialScores[2] || 0, initialScores[3] || 0]
     if (localRounds.length > 0) {
       const lastRound = localRounds[localRounds.length - 1]
       const lastScores = lastRound.player_scores || lastRound.playerScores || []
@@ -451,6 +454,45 @@ export default function TrufPlay({
     setLocalRounds(prev => prev.slice(0, -1))
     addLog(`Membatalkan (Undo) ronde terakhir`, 'undo')
     if (onUndoRound) onUndoRound()
+  }
+
+  // Bid 13 Decider Handlers: Shifts all player bids by -1 (for Main Atas) or +1 (for Main Bawah)
+  const handleBid13ChooseAtas = () => {
+    const adjustedBids = bids.map(b => Math.max(0, b - 1))
+    const newTotal = adjustedBids.reduce((a, b) => a + b, 0)
+    setBids(adjustedBids)
+    setForcedPlayMode('atas')
+    setShowBid13Modal(false)
+    setInputPhase('won')
+    broadcastState({ 
+      bids: adjustedBids, 
+      forcedPlayMode: 'atas', 
+      inputPhase: 'won' 
+    })
+    try {
+      hapticsService.medium()
+      soundService.playCardFlip()
+    } catch {}
+    addLog(`Aturan Bid 13: Memilih Main Atas. Seluruh bid dikurangi 1 (Total Bid: ${newTotal}).`, 'play_mode')
+  }
+
+  const handleBid13ChooseBawah = () => {
+    const adjustedBids = bids.map(b => b + 1)
+    const newTotal = adjustedBids.reduce((a, b) => a + b, 0)
+    setBids(adjustedBids)
+    setForcedPlayMode('bawah')
+    setShowBid13Modal(false)
+    setInputPhase('won')
+    broadcastState({ 
+      bids: adjustedBids, 
+      forcedPlayMode: 'bawah', 
+      inputPhase: 'won' 
+    })
+    try {
+      hapticsService.medium()
+      soundService.playCardFlip()
+    } catch {}
+    addLog(`Aturan Bid 13: Memilih Main Bawah. Seluruh bid ditambah 1 (Total Bid: ${newTotal}).`, 'play_mode')
   }
 
   const isMainAtas = forcedPlayMode ? forcedPlayMode === 'atas' : totalBid > 13
@@ -1060,6 +1102,18 @@ export default function TrufPlay({
                     </React.Fragment>
                   )
                 })}
+                {hasInitialScores && (
+                  <th style={{
+                    padding: '8px 6px',
+                    minWidth: '70px',
+                    background: 'rgba(255,255,255,0.03)',
+                    borderRadius: '6px',
+                    color: 'var(--text-muted)'
+                  }}>
+                    <div style={{ fontSize: '0.8rem', fontWeight: 800 }}>{t('truf.initial_score_col')}</div>
+                    <div style={{ fontSize: '0.65rem', color: 'var(--text-dim)' }}>Modal</div>
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -1148,6 +1202,18 @@ export default function TrufPlay({
                         </React.Fragment>
                       )
                     })}
+                    {hasInitialScores && (
+                      <td style={{
+                        padding: '8px 4px',
+                        background: 'rgba(255,255,255,0.02)',
+                        borderRadius: '6px',
+                        fontWeight: 700,
+                        fontSize: '0.9rem',
+                        color: initialScores[idx] >= 0 ? 'var(--text-muted)' : '#F87171'
+                      }}>
+                        {initialScores[idx] > 0 ? `+${initialScores[idx]}` : initialScores[idx]}
+                      </td>
+                    )}
                   </tr>
                 )
               })}
@@ -1306,37 +1372,60 @@ export default function TrufPlay({
       {/* Bid 13 Modal */}
       {showBid13Modal && (
         <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: '420px', textAlign: 'center' }}>
-            <h3 style={{ fontSize: '1.3rem', fontWeight: 800, marginBottom: '10px', color: '#F59E0B' }}>
+          <div className="modal-content" style={{ maxWidth: '460px', textAlign: 'center' }}>
+            <h3 style={{ fontSize: '1.3rem', fontWeight: 800, marginBottom: '8px', color: '#F59E0B' }}>
               ⚠️ {t('truf.bid13_modal_title')}
             </h3>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '20px' }}>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.86rem', marginBottom: '16px', lineHeight: 1.4 }}>
               {t('truf.bid13_modal_desc', { name: playerNames[dealerIndex] })}
             </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' }}>
+              {/* Main Atas Option */}
               <button 
+                type="button"
                 className="btn btn-primary btn-block"
-                onClick={() => {
-                  setForcedPlayMode('atas')
-                  setShowBid13Modal(false)
-                  setInputPhase('won')
-                  broadcastState({ forcedPlayMode: 'atas', inputPhase: 'won' })
-                }}
+                style={{ padding: '12px 14px', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '4px' }}
+                onClick={handleBid13ChooseAtas}
               >
-                🔥 {t('truf.force_atas')}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                  <span style={{ fontWeight: 800, fontSize: '0.95rem' }}>🔥 {t('truf.force_atas')}</span>
+                  <span style={{ fontSize: '0.72rem', background: 'rgba(255,255,255,0.22)', padding: '2px 8px', borderRadius: '4px', fontWeight: 800 }}>
+                    Semua Bid -1
+                  </span>
+                </div>
+                <div style={{ fontSize: '0.74rem', opacity: 0.92, lineHeight: 1.3 }}>
+                  {playerNames.map((n, i) => `${n}: ${bids[i]}➔${Math.max(0, bids[i] - 1)}`).join(' • ')} (Total: {bids.reduce((s, b) => s + Math.max(0, b - 1), 0)})
+                </div>
               </button>
+
+              {/* Main Bawah Option */}
               <button 
+                type="button"
                 className="btn btn-secondary btn-block"
-                onClick={() => {
-                  setForcedPlayMode('bawah')
-                  setShowBid13Modal(false)
-                  setInputPhase('won')
-                  broadcastState({ forcedPlayMode: 'bawah', inputPhase: 'won' })
-                }}
+                style={{ padding: '12px 14px', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '4px', borderColor: 'rgba(249, 115, 22, 0.45)' }}
+                onClick={handleBid13ChooseBawah}
               >
-                🛡️ {t('truf.force_bawah')}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                  <span style={{ fontWeight: 800, fontSize: '0.95rem', color: '#FB923C' }}>🛡️ {t('truf.force_bawah')}</span>
+                  <span style={{ fontSize: '0.72rem', background: 'rgba(249, 115, 22, 0.2)', color: '#FB923C', padding: '2px 8px', borderRadius: '4px', fontWeight: 800 }}>
+                    Semua Bid +1
+                  </span>
+                </div>
+                <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', lineHeight: 1.3 }}>
+                  {playerNames.map((n, i) => `${n}: ${bids[i]}➔${bids[i] + 1}`).join(' • ')} (Total: {bids.reduce((s, b) => s + (b + 1), 0)})
+                </div>
               </button>
             </div>
+
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => setShowBid13Modal(false)}
+              style={{ fontSize: '0.78rem', color: 'var(--text-dim)' }}
+            >
+              ✕ {t('common.cancel') || 'Kembali & Edit Bid'}
+            </button>
           </div>
         </div>
       )}

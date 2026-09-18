@@ -8,20 +8,22 @@ export default function SessionRecapModal({ isOpen, onClose, session, onShareSto
   const rounds = session.game_rounds || session.rounds || []
 
   // Compute final scores
+  const initialScores = session.settings?.initialScores || session.initial_scores || []
   const finalScores = playerNames.map((_, idx) => {
-    if (rounds.length === 0) return 0
+    const startScore = Number(initialScores[idx]) || 0
+    if (rounds.length === 0) return startScore
     const lastRound = rounds[rounds.length - 1]
     const lastScores = lastRound.player_scores || lastRound.playerScores || []
     const ps = lastScores.find(p => (p.player_index ?? p.playerIndex) === idx)
     if (ps && (ps.score_cumulative !== undefined || ps.scoreCumulative !== undefined)) {
       return ps.score_cumulative ?? ps.scoreCumulative ?? 0
     }
-    // Fallback: calculate sum of score_change across rounds
+    // Fallback: calculate sum of score_change across rounds starting with initial score
     return rounds.reduce((sum, r) => {
       const pScores = r.player_scores || r.playerScores || []
       const p = pScores.find(item => (item.player_index ?? item.playerIndex) === idx)
       return sum + (p?.score_change ?? p?.scoreChange ?? 0)
-    }, 0)
+    }, startScore)
   })
 
   // Determine winner (highest score for truf, lowest penalty for remi, lowest omben for omben)

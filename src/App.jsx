@@ -539,7 +539,12 @@ function MainApp() {
       : (sessionRounds.length > 0 ? sessionRounds : (activeSession.game_rounds || []))
 
     const isLowestWins = activeSession.game_type === 'remi' || activeSession.game_type === 'omben'
+    const initialScores = activeSession.settings?.initialScores || activeSession.initial_scores || []
     const scores = Array(activeSession.player_names?.length || 4).fill(0)
+    initialScores.forEach((s, idx) => {
+      if (scores[idx] !== undefined) scores[idx] = Number(s) || 0
+    })
+
     roundsToUse.forEach(r => {
       const pScores = r.player_scores || r.playerScores || []
       pScores.forEach(ps => {
@@ -580,7 +585,12 @@ function MainApp() {
 
     // Calculate final rankings (lowest score wins for remi/omben, highest for truf)
     const isLowestWins = activeSession.game_type === 'remi' || activeSession.game_type === 'omben'
+    const initialScores = activeSession.settings?.initialScores || activeSession.initial_scores || []
     const scores = Array(activeSession.player_names?.length || 4).fill(0)
+    initialScores.forEach((s, idx) => {
+      if (scores[idx] !== undefined) scores[idx] = Number(s) || 0
+    })
+
     roundsToUse.forEach(r => {
       const pScores = r.player_scores || r.playerScores || []
       pScores.forEach(ps => {
@@ -623,7 +633,12 @@ function MainApp() {
   const handleShareSession = (session) => {
     const rounds = session.game_rounds || session.rounds || []
     const isLowestWins = session.game_type === 'remi' || session.game_type === 'omben'
+    const initialScores = session.settings?.initialScores || session.initial_scores || []
     const scores = Array(session.player_names?.length || 4).fill(0)
+    initialScores.forEach((s, idx) => {
+      if (scores[idx] !== undefined) scores[idx] = Number(s) || 0
+    })
+
     rounds.forEach(r => {
       r.player_scores?.forEach(ps => {
         scores[ps.player_index] += (ps.score_change || 0)

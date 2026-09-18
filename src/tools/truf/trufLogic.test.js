@@ -86,18 +86,42 @@ describe('Truf Round Scoring Engine (calculateTrufRoundScores)', () => {
     assert.deepEqual(scores, [40, -20, -10, -20])
   })
 
+  it('Standard Bid 0: awards highest bid of that round when 0 tricks won', () => {
+    // Bids: A: 3, B: 5, C: 0, D: 6 (Total: 14 -> Main Atas, maxBid = 6)
+    const bids = [3, 5, 0, 6]
+    const wons = [3, 4, 0, 6] // sum = 13 (C gets 0 tricks, B is under by 1)
+    const scores = calculateTrufRoundScores(bids, wons, defaultSettings, 14)
+    // P0 (bid 3, won 3) -> +3
+    // P1 (bid 5, won 4) -> under by 1 -> 1 * -2 = -2
+    // P2 (bid 0, won 0) -> awards highest bid (6) -> +6!
+    // P3 (bid 6, won 6) -> +6
+    assert.deepEqual(scores, [3, -2, 6, 6])
+  })
+
+  it('Standard Bid 0 in Main Bawah: awards highest bid when 0 tricks won', () => {
+    // Bids: A: 2, B: 3, C: 0, D: 4 (Total: 9 -> Main Bawah, maxBid = 4)
+    const bids = [2, 3, 0, 4]
+    const wons = [2, 3, 0, 8] // sum = 13 (D is over by 4 in Main Bawah)
+    const scores = calculateTrufRoundScores(bids, wons, defaultSettings, 9)
+    // P0: 2 -> +2
+    // P1: 3 -> +3
+    // P2: bid 0, won 0 -> +4 (matching highest bid 4)
+    // P3: won 8 > bid 4 -> over by 4 in Main Bawah -> 4 * -2 = -8
+    assert.deepEqual(scores, [2, 3, 4, -8])
+  })
+
   it('Bid 0 success and failure handling with custom bonus', () => {
-    const settingsWithBonus = { ...defaultSettings, bid0Bonus: 10 }
+    const settingsWithBonus = { ...defaultSettings, bid0Bonus: 50 }
     const bids = [0, 4, 5, 5] // sum = 14
     const wons = [0, 4, 5, 4] // sum = 13
-    // P0: bid 0, won 0 -> bonus 10
+    // P0: bid 0, won 0 -> custom bonus 50
     const scores = calculateTrufRoundScores(bids, wons, settingsWithBonus, 14)
-    assert.equal(scores[0], 10)
+    assert.equal(scores[0], 50)
 
-    // P0: bid 0, won 2 tricks (failed bid 0) -> 2 * -2 = -4
+    // P0: bid 0, won 2 tricks (failed bid 0 in Main Atas) -> 2 * -1 = -2
     const failedWons = [2, 3, 4, 4]
     const failedScores = calculateTrufRoundScores(bids, failedWons, settingsWithBonus, 14)
-    assert.equal(failedScores[0], -4)
+    assert.equal(failedScores[0], -2)
   })
 
   it('handles missing/empty settings object with safe defaults', () => {
@@ -229,6 +253,23 @@ describe('Truf Dealer Determination Logic', () => {
     ]
     // Player 0 has lowest score (-5)
     assert.equal(determineNextDealer(rounds, 0), 0)
+  })
+
+  it('supports initialScores in fallback score calculation', () => {
+    const initialScores = [10, -5, 20, 0]
+    const rounds = [
+      {
+        roundNumber: 1,
+        dealerIndex: 0,
+        playerScores: [
+          { playerIndex: 0, scoreChange: -2 }, // total: 10 - 2 = 8
+          { playerIndex: 1, scoreChange: 3 },  // total: -5 + 3 = -2 (lowest)
+          { playerIndex: 2, scoreChange: 4 },  // total: 20 + 4 = 24
+          { playerIndex: 3, scoreChange: 1 }   // total: 0 + 1 = 1
+        ]
+      }
+    ]
+    assert.equal(determineNextDealer(rounds, 0, initialScores), 1)
   })
 })
 

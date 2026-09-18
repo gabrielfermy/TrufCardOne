@@ -10,6 +10,8 @@ export default function TrufSetup({ onStartGame, onBack }) {
   const [bid0Bonus, setBid0Bonus] = useState(0)
   const [bid13Decision, setBid13Decision] = useState(true)
   const [showAdvanced, setShowAdvanced] = useState(false)
+  const [useInitialScores, setUseInitialScores] = useState(false)
+  const [initialScores, setInitialScores] = useState([0, 0, 0, 0])
   const [roomMode, setRoomMode] = useState('multiplayer') // 'multiplayer' | 'offline'
   const [isRulesOpen, setIsRulesOpen] = useState(false)
 
@@ -17,6 +19,19 @@ export default function TrufSetup({ onStartGame, onBack }) {
     const updated = [...playerNames]
     updated[index] = value
     setPlayerNames(updated)
+  }
+
+  const handleInitialScoreChange = (index, value) => {
+    const updated = [...initialScores]
+    const parsed = parseInt(value, 10)
+    updated[index] = isNaN(parsed) ? 0 : parsed
+    setInitialScores(updated)
+  }
+
+  const handleInitialScoreStep = (index, delta) => {
+    const updated = [...initialScores]
+    updated[index] = (updated[index] || 0) + delta
+    setInitialScores(updated)
   }
 
   const handleStart = (e) => {
@@ -29,6 +44,7 @@ export default function TrufSetup({ onStartGame, onBack }) {
         multiplier,
         bid0Bonus,
         bid13Decision,
+        initialScores: useInitialScores ? initialScores.map(Number) : [0, 0, 0, 0],
         atasLackMult: -2,
         atasExcessMult: -1,
         bawahLackMult: -1,
@@ -134,6 +150,77 @@ export default function TrufSetup({ onStartGame, onBack }) {
           </select>
         </div>
 
+        {/* Initial Scores (Handicap / Resume Lost Game) */}
+        <div style={{
+          background: useInitialScores ? 'rgba(139, 92, 246, 0.12)' : 'var(--bg-glass)',
+          border: `1px solid ${useInitialScores ? 'rgba(139, 92, 246, 0.4)' : 'var(--border-glass)'}`,
+          borderRadius: '12px',
+          padding: '14px 16px',
+          marginBottom: '18px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }} onClick={() => setUseInitialScores(!useInitialScores)}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <input 
+                type="checkbox" 
+                id="initialScoresCheck"
+                checked={useInitialScores} 
+                onChange={e => setUseInitialScores(e.target.checked)}
+                onClick={e => e.stopPropagation()}
+                style={{ width: '18px', height: '18px', accentColor: 'var(--primary)' }}
+              />
+              <label htmlFor="initialScoresCheck" style={{ fontSize: '0.9rem', fontWeight: 700, cursor: 'pointer', margin: 0 }}>
+                ➕ {t('truf.initial_scores_toggle')}
+              </label>
+            </div>
+            <span style={{ fontSize: '0.75rem', color: useInitialScores ? '#C084FC' : 'var(--text-muted)' }}>
+              {useInitialScores ? 'Aktif' : 'Nonaktif'}
+            </span>
+          </div>
+
+          <p style={{ fontSize: '0.74rem', color: 'var(--text-muted)', margin: '6px 0 0 28px', lineHeight: 1.3 }}>
+            {t('truf.initial_scores_desc')}
+          </p>
+
+          {useInitialScores && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px', marginTop: '12px' }}>
+              {playerNames.map((name, idx) => (
+                <div key={idx} style={{ background: 'rgba(0,0,0,0.25)', padding: '10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  <div style={{ fontSize: '0.76rem', fontWeight: 700, color: '#CBD5E1', marginBottom: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {name}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <button 
+                      type="button" 
+                      className="btn btn-secondary btn-sm" 
+                      onClick={() => handleInitialScoreStep(idx, -5)}
+                      style={{ padding: '2px 6px', fontSize: '0.72rem' }}
+                      title="-5"
+                    >
+                      -5
+                    </button>
+                    <input 
+                      type="number" 
+                      className="form-input"
+                      value={initialScores[idx]}
+                      onChange={e => handleInitialScoreChange(idx, e.target.value)}
+                      style={{ padding: '4px 6px', textAlign: 'center', fontWeight: 800, fontSize: '0.95rem' }}
+                    />
+                    <button 
+                      type="button" 
+                      className="btn btn-secondary btn-sm" 
+                      onClick={() => handleInitialScoreStep(idx, 5)}
+                      style={{ padding: '2px 6px', fontSize: '0.72rem' }}
+                      title="+5"
+                    >
+                      +5
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         <div style={{ margin: '16px 0' }}>
           <button 
             type="button" 
@@ -141,7 +228,7 @@ export default function TrufSetup({ onStartGame, onBack }) {
             onClick={() => setShowAdvanced(!showAdvanced)}
             style={{ width: '100%' }}
           >
-            ⚙️ {showAdvanced ? 'Sembunyikan Pengaturan Aturan' : 'Pengaturan Aturan & Multiplier'}
+            ⚙️ {showAdvanced ? 'Sembunyikan Pengaturan Lanjutan' : 'Pengaturan Aturan & Multiplier'}
           </button>
         </div>
 
@@ -158,9 +245,9 @@ export default function TrufSetup({ onStartGame, onBack }) {
             <div className="form-group">
               <label className="form-label">{t('truf.bid0_bonus')}</label>
               <select className="form-select" value={bid0Bonus} onChange={e => setBid0Bonus(Number(e.target.value))}>
-                <option value={0}>0 Poin (Standar)</option>
-                <option value={10}>+10 Poin</option>
-                <option value={50}>+50 Poin</option>
+                <option value={0}>Sesuai Bid Tertinggi Ronde (Standar Truf)</option>
+                <option value={10}>+10 Poin Tetap</option>
+                <option value={50}>+50 Poin Tetap</option>
               </select>
             </div>
 
