@@ -32,9 +32,9 @@ export default defineConfig({
   },
   server: {
     host: true, // Listen on all network addresses (0.0.0.0)
-    port: 5173,
-    strictPort: false,
-    allowedHosts: true, // Allow subdomains like admin.localhost
+    port: process.env.PORT ? parseInt(process.env.PORT) : 80,
+    strictPort: false, // If port 80 is in use, seamlessly falls back to 5173
+    allowedHosts: true, // Allow subdomains like admin.localhost, kancasela.test, admin.kancasela.test
     watch: {
       usePolling: true, // Essential for real-time change detection on Windows drives
       interval: 100, // Poll every 100ms for instant hot reload

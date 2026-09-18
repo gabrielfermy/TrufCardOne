@@ -33,3 +33,5 @@ dist-ssr
 
 # Supabase local config
 supabase/.temp/
+.vercel
+.env*
