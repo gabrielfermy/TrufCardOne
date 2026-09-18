@@ -167,9 +167,11 @@ additional_redirect_urls = [
   "http://127.0.0.1:5173",
   "https://koncoselo.my.id",
   "https://admin.koncoselo.my.id",
+  "https://koncoselo.pages.dev",
   "https://kancasela.my.id",
   "https://www.kancasela.my.id",
-  "https://admin.kancasela.my.id"
+  "https://admin.kancasela.my.id",
+  "https://kancasela.pages.dev"
 ]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
@@ -342,6 +344,14 @@ url = ""
 # If enabled, the nonce check will be skipped. Required for local sign in with Google auth.
 skip_nonce_check = false
 # If enabled, it will allow the user to successfully authenticate when the provider does not return an email address.
+email_optional = false
+
+[auth.external.google]
+enabled = true
+client_id = "833136604965-vhbj0lutqsqc7vraquadp3bcjatis4cf.apps.googleusercontent.com"
+# DO NOT commit your OAuth provider secret to git. Use environment variable substitution instead:
+secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET)"
+skip_nonce_check = false
 email_optional = false
 
 # Allow Solana wallet holders to sign in to your project via the Sign in with Solana (SIWS, EIP-4361) standard.
