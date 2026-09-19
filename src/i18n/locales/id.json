@@ -46,6 +46,7 @@
     "timers_scores": "Pengatur Waktu & Skor",
     "truf_desc": "Pencatat skor kartu Truf 4 pemain dengan aturan Main Atas/Bawah & Bid 13",
     "remi_desc": "Hitung denda kartu Remi 7-kartu dengan keypad nilai kartu & Tutup Murni",
+    "remi_jawa_desc": "Kalkulator skor Remi Jawa, aturan seri/tris, bonus tutup & streak CHOLOKOPOK",
     "omben_desc": "Game buang kartu Cangkulan: catat urutan selesai & hitung akumulasi Omben",
     "chess_desc": "Jam catur split-screen putar 180° dengan Bullet, Blitz, Rapid & Fischer Increment",
     "scoreboard_desc": "Papan skor universal 2–8 pemain dengan tombol stepper cepat & podium live",
@@ -206,6 +207,19 @@
     "save_round": "Simpan Ronde Remi",
     "game_over": "Permainan Selesai! {{name}} Tereliminasi",
     "lowest_penalty_wins": "Pemain dengan denda terkecil adalah {{name}} 🏆"
+  },
+  "remi_jawa": {
+    "name": "Remi Jawa",
+    "setup_title": "Konfigurasi Remi Jawa",
+    "player_count": "Jumlah Pemain (2 - 4 Orang)",
+    "player_names_and_dealer": "Nama Pemain & Dealer Pertama",
+    "end_game_rules": "Aturan Akhir Permainan (End Game)",
+    "target_win_score": "Target Poin Kemenangan",
+    "dealer_streak_rule": "Batas Streak Dealer Berturut-turut",
+    "start_game": "Mulai Score Card Remi Jawa",
+    "round": "Ronde {{num}}",
+    "who_closed": "Status Penutup Meja (Closing)",
+    "save_round": "Simpan Ronde Remi Jawa"
   },
   "omben": {
     "name": "Omben (Cangkulan)",
@@ -435,6 +449,7 @@
     "subtitle": "Referensi resmi cara bermain, mekanisme putaran, dan rumus hitungan skor",
     "tab_truf": "🃏 Truf (Trup)",
     "tab_remi": "🎴 Remi (7-Card)",
+    "tab_remi_jawa": "🎴 Remi Jawa",
     "tab_omben": "🍺 Omben (Cangkulan)",
     "tab_chess": "♟️ Jam Catur",
     "tab_scoreboard": "🔢 Papan Skor",

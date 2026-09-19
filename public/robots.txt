@@ -1,0 +1,75 @@
+# Robots.txt for KancaSela (https://kancasela.my.id)
+
+# General Bot Configuration
+User-agent: *
+Allow: /
+Allow: /truf$
+Allow: /remi$
+Allow: /remijawa$
+Allow: /omben$
+Allow: /chess$
+Allow: /scoreboard$
+Allow: /utilities$
+Allow: /privacy.html
+Allow: /terms.html
+
+# Disallow Private & Internal Paths
+Disallow: /api/
+Disallow: /admin
+Disallow: /admin/*
+Disallow: /version.json
+Disallow: /*?*room=*
+Disallow: /*?room=*
+
+# AI Search & Assistants (ChatGPT, Claude, Perplexity, Gemini, etc.)
+User-agent: GPTBot
+Allow: /
+Disallow: /api/
+Disallow: /admin
+Disallow: /admin/*
+Disallow: /*?*room=*
+
+User-agent: ChatGPT-User
+Allow: /
+Disallow: /api/
+Disallow: /admin
+Disallow: /admin/*
+Disallow: /*?*room=*
+
+User-agent: ClaudeBot
+Allow: /
+Disallow: /api/
+Disallow: /admin
+Disallow: /admin/*
+Disallow: /*?*room=*
+
+User-agent: Claude-Web
+Allow: /
+Disallow: /api/
+Disallow: /admin
+Disallow: /admin/*
+Disallow: /*?*room=*
+
+User-agent: PerplexityBot
+Allow: /
+Disallow: /api/
+Disallow: /admin
+Disallow: /admin/*
+Disallow: /*?*room=*
+
+User-agent: Applebot-Extended
+Allow: /
+Disallow: /api/
+Disallow: /admin
+Disallow: /admin/*
+Disallow: /*?*room=*
+
+User-agent: Google-Extended
+Allow: /
+Disallow: /api/
+Disallow: /admin
+Disallow: /admin/*
+Disallow: /*?*room=*
+
+# Sitemap
+Sitemap: https://kancasela.my.id/sitemap.xml

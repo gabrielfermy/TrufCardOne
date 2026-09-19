@@ -60,6 +60,15 @@ export default function HubDashboard({
       glow: 'rgba(245, 158, 11, 0.4)'
     },
     {
+      id: 'remijawa',
+      title: t('remi_jawa.name') || 'Remi Jawa',
+      desc: t('hub.remi_jawa_desc') || 'Kalkulator skor Remi Jawa, aturan seri/tris, bonus tutup & streak CHOLOKOPOK',
+      icon: '🎴',
+      badge: t('hub.badge_2_4_players') || '2 - 4 Pemain',
+      color: '#EAB308',
+      glow: 'rgba(234, 179, 8, 0.4)'
+    },
+    {
       id: 'omben',
       title: t('omben.name'),
       desc: t('hub.omben_desc'),

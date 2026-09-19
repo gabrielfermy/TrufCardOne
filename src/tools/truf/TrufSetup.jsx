@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { useTranslation } from '../../i18n/I18nContext'
 import CardGameRulesModal from '../../components/common/CardGameRulesModal'
+import { DEFAULT_DEALER_WORD } from './trufLogic'
 
 export default function TrufSetup({ onStartGame, onBack }) {
   const { t } = useTranslation()
@@ -13,6 +14,9 @@ export default function TrufSetup({ onStartGame, onBack }) {
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [useInitialScores, setUseInitialScores] = useState(false)
   const [initialScores, setInitialScores] = useState([0, 0, 0, 0])
+  const [streakLimit, setStreakLimit] = useState(10)
+  const [streakWord, setStreakWord] = useState(DEFAULT_DEALER_WORD)
+  const [streakDisplayMode, setStreakDisplayMode] = useState('word') // 'word' | 'numbers'
   const [roomMode, setRoomMode] = useState('multiplayer') // 'multiplayer' | 'offline'
   const [isRulesOpen, setIsRulesOpen] = useState(false)
 
@@ -68,6 +72,9 @@ export default function TrufSetup({ onStartGame, onBack }) {
         bid0Bonus,
         bid13Decision,
         totalTricks,
+        streakLimit: Number(streakLimit),
+        streakWord: (streakWord || DEFAULT_DEALER_WORD).trim().toUpperCase(),
+        streakDisplayMode,
         initialScores: useInitialScores ? initialScores.map(Number) : Array(playerCount).fill(0),
         atasLackMult: -2,
         atasExcessMult: -1,
@@ -291,6 +298,71 @@ export default function TrufSetup({ onStartGame, onBack }) {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+        </div>
+
+        {/* Dealer Streak Limit & CHOLOKOPOK Word */}
+        <div style={{
+          background: 'var(--bg-glass)',
+          border: '1px solid var(--border-glass)',
+          borderRadius: '12px',
+          padding: '14px 16px',
+          marginBottom: '18px'
+        }}>
+          <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span>👑</span>
+            <span>Batas Streak Dealer Berturut-turut</span>
+          </label>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px', marginBottom: '10px' }}>
+            {[
+              { label: '10x (CHOLOKOPOK)', val: 10 },
+              { label: '7x Streak', val: 7 },
+              { label: '5x Streak', val: 5 },
+              { label: 'Nonaktif', val: 0 }
+            ].map(opt => (
+              <button
+                key={opt.val}
+                type="button"
+                className={`btn btn-sm ${streakLimit === opt.val ? 'btn-primary' : 'btn-secondary'}`}
+                onClick={() => setStreakLimit(opt.val)}
+                style={{ fontSize: '0.72rem', fontWeight: 700, padding: '8px 2px' }}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+
+          {streakLimit > 0 && (
+            <div style={{ background: 'rgba(0,0,0,0.2)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-glass)' }}>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '8px' }}>
+                <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)', flexShrink: 0 }}>Teks Pelacak:</label>
+                <input
+                  type="text"
+                  className="form-input form-input-sm"
+                  value={streakWord}
+                  onChange={e => setStreakWord(e.target.value.toUpperCase())}
+                  placeholder="CHOLOKOPOK"
+                  maxLength={15}
+                  style={{ textTransform: 'uppercase', letterSpacing: '2px', fontWeight: 800 }}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => setStreakDisplayMode('word')}
+                  className={`btn btn-xs ${streakDisplayMode === 'word' ? 'btn-primary' : 'btn-secondary'}`}
+                >
+                  🔤 Tampilkan Huruf
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStreakDisplayMode('numbers')}
+                  className={`btn btn-xs ${streakDisplayMode === 'numbers' ? 'btn-primary' : 'btn-secondary'}`}
+                >
+                  🔢 Tampilkan Angka (1/10)
+                </button>
+              </div>
             </div>
           )}
         </div>

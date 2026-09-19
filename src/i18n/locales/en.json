@@ -46,6 +46,7 @@
     "timers_scores": "Timers & Scoreboards",
     "truf_desc": "4-Player Truf trick-taking tracker with High/Low Bid & Bid 13 decision rules",
     "remi_desc": "Indonesian 7-Card Rummy tracker with rapid penalty keypad & Pure Close",
+    "remi_jawa_desc": "Javanese Rummy scorecard: meld/deadwood points, closing bonuses & CHOLOKOPOK dealer streak",
     "omben_desc": "Cangkulan card-shedding: track finishing ranks & cumulative Omben losses",
     "chess_desc": "Dual split-screen 180° clock with Bullet, Blitz, Rapid & Fischer Increments",
     "scoreboard_desc": "Universal 2–8 player scoreboard with quick point steppers & live podium",
@@ -206,6 +207,19 @@
     "save_round": "Save Remi Round",
     "game_over": "Game Over! {{name}} is Eliminated",
     "lowest_penalty_wins": "The winner with the lowest penalty is {{name}} 🏆"
+  },
+  "remi_jawa": {
+    "name": "Remi Jawa",
+    "setup_title": "Remi Jawa Setup",
+    "player_count": "Number of Players (2–4)",
+    "player_names_and_dealer": "Player Names & First Dealer",
+    "end_game_rules": "End Game Rules",
+    "target_win_score": "Target Win Score",
+    "dealer_streak_rule": "Consecutive Dealer Streak Limit",
+    "start_game": "Start Remi Jawa Scorecard",
+    "round": "Round {{num}}",
+    "who_closed": "Round Closer",
+    "save_round": "Save Remi Jawa Round"
   },
   "omben": {
     "name": "Omben (Cangkulan)",
@@ -435,6 +449,7 @@
     "subtitle": "Official guide for gameplay flow, card mechanics, and mathematical scoring formulas",
     "tab_truf": "🃏 Truf (Trump)",
     "tab_remi": "🎴 Remi (Rummy)",
+    "tab_remi_jawa": "🎴 Remi Jawa",
     "tab_omben": "🍺 Omben (Cangkulan)",
     "tab_chess": "♟️ Chess Clock",
     "tab_scoreboard": "🔢 Scoreboard",

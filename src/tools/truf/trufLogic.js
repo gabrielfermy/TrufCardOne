@@ -137,6 +137,8 @@ export function determineNextDealer(roundsList, firstDealer = 0, initialScores =
   return lowestScorers[0]
 }
 
+export const DEFAULT_DEALER_WORD = 'CHOLOKOPOK'
+
 /**
  * Calculates consecutive dealer streak from recorded rounds
  */
@@ -153,4 +155,26 @@ export function getDealerConsecutiveStreak(roundsList, targetDealer, firstDealer
     }
   }
   return count
+}
+
+/**
+ * Formats dealer streak as letter badges or numeric progress
+ */
+export function formatDealerStreakStatus(streakCount, word = DEFAULT_DEALER_WORD, displayMode = 'word') {
+  const sanitizedWord = (word && word.trim().length > 0 ? word.trim().toUpperCase() : DEFAULT_DEALER_WORD)
+  const letters = sanitizedWord.split('')
+  const maxLimit = letters.length
+  const activeCount = Math.min(streakCount, maxLimit)
+
+  return {
+    streakCount,
+    maxLimit,
+    word: sanitizedWord,
+    letters,
+    activeCount,
+    isLimitReached: streakCount >= maxLimit,
+    displayMode,
+    progressText: `${activeCount}/${maxLimit}`,
+    activeLetters: letters.slice(0, activeCount).join('-')
+  }
 }

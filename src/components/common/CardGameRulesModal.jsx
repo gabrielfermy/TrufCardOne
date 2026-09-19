@@ -128,6 +128,14 @@ export default function CardGameRulesModal({ isOpen, onClose, initialGame = 'tru
               activeText: '#F472B6' 
             },
             { 
+              key: 'remi_jawa', 
+              icon: '🎴', 
+              label: t('rules_modal.tab_remi_jawa') || 'Remi Jawa', 
+              activeBg: 'rgba(245, 158, 11, 0.16)', 
+              activeBorder: 'rgba(245, 158, 11, 0.45)', 
+              activeText: '#F59E0B' 
+            },
+            { 
               key: 'omben', 
               icon: '🍺', 
               label: t('rules_modal.tab_omben').replace(/^🍺\s*/, '') || 'Omben (Cangkulan)', 
@@ -466,6 +474,151 @@ export default function CardGameRulesModal({ isOpen, onClose, initialGame = 'tru
                   <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', background: 'var(--bg-card)', border: '1px solid var(--border-glass)', padding: '8px 12px', borderRadius: '8px', lineHeight: 1.4 }}>
                     🏆 {t('rules_modal.remi.elimination_desc')}
                   </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB: REMI JAWA */}
+          {activeTab === 'remi_jawa' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+              {/* Summary Card */}
+              <div style={{
+                background: 'rgba(245, 158, 11, 0.12)',
+                border: '1px solid rgba(245, 158, 11, 0.4)',
+                borderRadius: '14px',
+                padding: '14px 16px'
+              }}>
+                <div style={{ fontWeight: 800, color: 'var(--accent-gold)', fontSize: '0.9rem', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>🎴</span> Ringkasan Remi Jawa (2 - 4 Pemain)
+                </div>
+                <p style={{ fontSize: '0.84rem', color: 'var(--text-main)', lineHeight: 1.5, margin: 0 }}>
+                  Variasi kartu remi khas Jawa dengan sistem poin individual (angka +1, gambar +2, As +3), syarat pengambilan sampah dengan 2 kartu seri awal, serta sistem pergantian Dealer otomatis ke pemain dengan nilai terendah dan tracking dealer 10x berturut-turut (CHOLOKOPOK).
+                </p>
+              </div>
+
+              {/* Aturan Kartu Jadi & Seri/Tris */}
+              <div style={{
+                background: 'var(--bg-glass)',
+                border: '1px solid var(--border-glass)',
+                borderRadius: '14px',
+                padding: '14px 16px'
+              }}>
+                <div style={{ fontWeight: 800, fontSize: '0.88rem', marginBottom: '10px', color: 'var(--text-main)' }}>
+                  🃏 Aturan Kartu Jadi (Seri & Tris)
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.78rem', color: 'var(--text-main)' }}>
+                  <div style={{ padding: '8px 10px', background: 'var(--bg-card)', border: '1px solid var(--border-glass)', borderRadius: '8px' }}>
+                    <strong>1. Kartu Seri (Urut Motif Sama)</strong>: Minimal 3 kartu dengan motif sama (cth: 2♠, 3♠, 4♠ atau 6♥, 7♥, 8♥, 9♥, 10♥).
+                    <div style={{ color: 'var(--accent-red)', marginTop: '4px', fontSize: '0.74rem' }}>
+                      ⚠️ As tidak bisa digabung dengan 2-3 atau Q-K. Kartu Gambar (J-Q-K) tidak bisa disambung dengan angka 10 (10-J-Q tidak sah).
+                    </div>
+                  </div>
+                  <div style={{ padding: '8px 10px', background: 'var(--bg-card)', border: '1px solid var(--border-glass)', borderRadius: '8px' }}>
+                    <strong>2. Kartu Tris / Paralel</strong>: Set angka atau gambar sama dari motif berbeda (minimal 3 kartu, cth: 7♣, 7♥, 7♠).
+                  </div>
+                  <div style={{ padding: '8px 10px', background: 'var(--bg-card)', border: '1px solid var(--border-glass)', borderRadius: '8px' }}>
+                    <strong>3. Batas Kartu di Tangan</strong>: Pada akhir giliran pemain, kartu di tangan harus berjumlah maksimal 7 kartu.
+                  </div>
+                </div>
+              </div>
+
+              {/* Aturan Ambil Buangan (Sampah) */}
+              <div style={{
+                background: 'var(--bg-glass)',
+                border: '1px solid var(--border-glass)',
+                borderRadius: '14px',
+                padding: '14px 16px'
+              }}>
+                <div style={{ fontWeight: 800, fontSize: '0.88rem', marginBottom: '10px', color: 'var(--text-main)' }}>
+                  🗑️ Syarat Pengambilan Kartu Buangan (Sampah)
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.78rem', color: 'var(--text-main)' }}>
+                  <div style={{ padding: '8px 10px', background: 'var(--bg-card)', border: '1px solid var(--border-glass)', borderRadius: '8px' }}>
+                    <strong>Pengambilan Pertama</strong>: Harus sudah memiliki 2 kartu awalan seri di tangan (bukan kartu tengah, bukan tris). Pemain harus membuka/menjatuhkan kartu seri modal terlebih dahulu sebelum mengambil sampah.
+                  </div>
+                  <div style={{ padding: '8px 10px', background: 'var(--bg-card)', border: '1px solid var(--border-glass)', borderRadius: '8px' }}>
+                    <strong>Pengambilan Berikutnya</strong>: Jatuhkan minimal 2 kartu awalannya lalu ambil kartu yang dituju beserta semua kartu di bawahnya (kartu di tangan di akhir giliran tetap maks 7).
+                  </div>
+                </div>
+              </div>
+
+              {/* Aturan Tutup & Bonus */}
+              <div style={{
+                background: 'var(--bg-glass)',
+                border: '1px solid var(--border-glass)',
+                borderRadius: '14px',
+                padding: '14px 16px'
+              }}>
+                <div style={{ fontWeight: 800, fontSize: '0.88rem', marginBottom: '10px', color: 'var(--text-main)' }}>
+                  🏆 Aturan Tutup (Closing) & Bonus Poin
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                  <div style={{ padding: '10px', background: 'var(--badge-green-bg)', border: '1px solid var(--badge-green-border)', borderRadius: '8px' }}>
+                    <div style={{ fontWeight: 800, fontSize: '0.85rem', color: 'var(--badge-green-text)' }}>🎴 Tutup Atas (+10 Poin)</div>
+                    <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '2px' }}>Tutup dari kartu sisa/deck tertutup.</div>
+                  </div>
+                  <div style={{ padding: '10px', background: 'var(--badge-purple-bg)', border: '1px solid var(--badge-purple-border)', borderRadius: '8px' }}>
+                    <div style={{ fontWeight: 800, fontSize: '0.85rem', color: 'var(--badge-purple-text)' }}>🗑️ Tutup Bawah (+25 Poin)</div>
+                    <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '2px' }}>Tutup dari kartu tumpukan buangan/sampah.</div>
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '8px' }}>
+                  <div style={{ padding: '8px 10px', background: 'var(--bg-card)', border: '1px solid var(--border-glass)', borderRadius: '8px', fontSize: '0.76rem' }}>
+                    🅰️ <strong>Tutup Pakai As</strong>: Tambahan <strong>+5 Poin</strong>
+                  </div>
+                  <div style={{ padding: '8px 10px', background: 'var(--bg-card)', border: '1px solid var(--border-glass)', borderRadius: '8px', fontSize: '0.76rem' }}>
+                    🃏 <strong>Tutup Pakai Joker</strong>: Tambahan <strong>+15 Poin</strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* Tabel Nilai Kartu Jadi vs Mati */}
+              <div style={{
+                background: 'var(--bg-glass)',
+                border: '1px solid var(--border-glass)',
+                borderRadius: '14px',
+                padding: '14px 16px'
+              }}>
+                <div style={{ fontWeight: 800, fontSize: '0.88rem', marginBottom: '10px', color: 'var(--text-main)' }}>
+                  📊 Nilai Kartu per Lembar
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', textAlign: 'center' }}>
+                  <div style={{ padding: '8px', background: 'var(--bg-card)', borderRadius: '8px', border: '1px solid var(--border-glass)' }}>
+                    <div style={{ fontSize: '0.75rem', fontWeight: 800 }}>Angka 2-10</div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--accent-green)', fontWeight: 700 }}>+1 Jadi</div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--accent-red)', fontWeight: 700 }}>-1 Mati</div>
+                  </div>
+                  <div style={{ padding: '8px', background: 'var(--bg-card)', borderRadius: '8px', border: '1px solid var(--border-glass)' }}>
+                    <div style={{ fontSize: '0.75rem', fontWeight: 800 }}>Gambar JQK</div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--accent-green)', fontWeight: 700 }}>+2 Jadi</div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--accent-red)', fontWeight: 700 }}>-2 Mati</div>
+                  </div>
+                  <div style={{ padding: '8px', background: 'var(--bg-card)', borderRadius: '8px', border: '1px solid var(--border-glass)' }}>
+                    <div style={{ fontSize: '0.75rem', fontWeight: 800 }}>Kartu As</div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--accent-green)', fontWeight: 700 }}>+3 Jadi</div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--accent-red)', fontWeight: 700 }}>-3 Mati</div>
+                  </div>
+                  <div style={{ padding: '8px', background: 'var(--bg-card)', borderRadius: '8px', border: '1px solid var(--border-glass)' }}>
+                    <div style={{ fontSize: '0.75rem', fontWeight: 800 }}>Joker</div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--accent-green)', fontWeight: 700 }}>Sesuai Jadi</div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--accent-red)', fontWeight: 700 }}>-10 Mati</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Aturan Dealer & CHOLOKOPOK */}
+              <div style={{
+                background: 'rgba(245, 158, 11, 0.08)',
+                border: '1px solid rgba(245, 158, 11, 0.3)',
+                borderRadius: '14px',
+                padding: '14px 16px'
+              }}>
+                <div style={{ fontWeight: 800, fontSize: '0.88rem', marginBottom: '6px', color: 'var(--accent-gold)' }}>
+                  👑 Aturan Dealer & Batas Streak 10x (CHOLOKOPOK)
+                </div>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-main)', lineHeight: 1.4 }}>
+                  Pemain dengan <strong>nilai ronde paling rendah</strong> otomatis menjadi dealer untuk mengocok kartu di ronde berikutnya. Jika pemain menjadi dealer selama <strong>10 kali berturut-turut</strong> tanpa tergantikan (lengkap 10 huruf <code>C-H-O-L-O-K-O-P-O-K</code>), permainan dinyatakan selesai / game over.
                 </div>
               </div>
             </div>

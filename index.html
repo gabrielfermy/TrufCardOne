@@ -8,12 +8,64 @@
     <title>KancaSela - Teman Meja Main Serba Bisa</title>
     <meta name="description" content="KancaSela (Konco Selo) - Teman meja main all-in-one untuk Truf, Remi 7-Card, Omben (Cangkulan), Jam Catur, dan Papan Skor dengan dukungan offline dan multi-bahasa." />
     <link rel="manifest" href="/manifest.json" />
+
+    <!-- Open Graph / Facebook / WhatsApp -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://kancasela.my.id/" />
+    <meta property="og:title" content="KancaSela - Teman Meja Main Serba Bisa" />
+    <meta property="og:description" content="Aplikasi teman meja main all-in-one: Kalkulator Skor Truf, Remi 7-Card, Omben (Cangkulan), Jam Catur Digital, Papan Skor Serbaguna, dan Utilitas Dadu & Koin." />
+    <meta property="og:image" content="https://kancasela.my.id/logo.png" />
+
+    <!-- Twitter Cards -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="https://kancasela.my.id/" />
+    <meta name="twitter:title" content="KancaSela - Teman Meja Main Serba Bisa" />
+    <meta name="twitter:description" content="Aplikasi teman meja main all-in-one: Kalkulator Skor Truf, Remi 7-Card, Omben (Cangkulan), Jam Catur Digital, Papan Skor Serbaguna, dan Utilitas Dadu & Koin." />
+    <meta name="twitter:image" content="https://kancasela.my.id/logo.png" />
+
+    <!-- JSON-LD Structured Data for AI & Search Engines -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "KancaSela",
+      "url": "https://kancasela.my.id",
+      "description": "Teman meja main all-in-one untuk Truf, Remi 7-Card, Omben (Cangkulan), Jam Catur, dan Papan Skor dengan sinkronisasi multiplayer dan dukungan offline.",
+      "applicationCategory": "GameApplication, UtilityApplication",
+      "operatingSystem": "All",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "IDR"
+      }
+    }
+    </script>
+
     <!-- Google Identity Services (GIS) for Clean 1-Tap Login -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <!-- Google AdSense Site Verification & Web Ads -->
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5832618604638694" crossorigin="anonymous"></script>
   </head>
   <body>
+    <noscript>
+      <header>
+        <h1>KancaSela - Teman Meja Main Serba Bisa</h1>
+        <p>Aplikasi web & mobile pendamping main kartu, catur, dan aneka permainan meja.</p>
+      </header>
+      <main>
+        <section>
+          <h2>Fitur & Modul Permainan</h2>
+          <ul>
+            <li><strong>Kartu Truf</strong>: Kalkulator skor otomatis, tracking kontrak/bid, dan multiplayer room.</li>
+            <li><strong>Remi 7-Card</strong>: Pencatat poin kombinasi kartu remi tradisional.</li>
+            <li><strong>Omben (Cangkulan)</strong>: Sistem pencatatan skor babak dan hukuman sisa kartu.</li>
+            <li><strong>Jam Catur Digital (Chess Clock)</strong>: Timer catur presisi dengan pilihan preset Blitz, Rapid, dan Custom increment (Fischer/Delay).</li>
+            <li><strong>Papan Skor Universal (Scoreboard)</strong>: Pencatat poin fleksibel untuk futsal, badminton, pingpong, dan board game.</li>
+            <li><strong>Utilitas</strong>: Lempar dadu digital (3D Dices) dan lempar koin (Coin Flip).</li>
+          </ul>
+        </section>
+      </main>
+    </noscript>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

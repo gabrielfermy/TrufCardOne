@@ -21,6 +21,8 @@ import TrufSetup from './tools/truf/TrufSetup'
 import TrufPlay from './tools/truf/TrufPlay'
 import RemiSetup from './tools/remi/RemiSetup'
 import RemiPlay from './tools/remi/RemiPlay'
+import RemiJawaSetup from './tools/remijawa/RemiJawaSetup'
+import RemiJawaPlay from './tools/remijawa/RemiJawaPlay'
 import OmbenSetup from './tools/omben/OmbenSetup'
 import OmbenPlay from './tools/omben/OmbenPlay'
 import ChessClock from './tools/chess-clock/ChessClock'
@@ -41,7 +43,7 @@ import './App.css'
 
 function getViewFromPath(pathname) {
   const cleanPath = pathname.replace(/^\//, '').toLowerCase().split('/')[0]
-  const validViews = ['truf', 'remi', 'omben', 'chess', 'scoreboard', 'utilities', 'admin']
+  const validViews = ['truf', 'remi', 'remijawa', 'omben', 'chess', 'scoreboard', 'utilities', 'admin']
   if (validViews.includes(cleanPath)) {
     return cleanPath
   }
@@ -712,7 +714,9 @@ function MainApp() {
         onOpenProfile={() => setIsProfileModalOpen(true)}
         onOpenPricing={() => setIsPricingModalOpen(true)}
         onOpenRules={() => {
-          const matchedGame = ['truf', 'remi', 'omben', 'chess'].includes(currentView) ? currentView : 'truf'
+          const matchedGame = ['truf', 'remi', 'remijawa', 'omben', 'chess'].includes(currentView) 
+            ? (currentView === 'remijawa' ? 'remi_jawa' : currentView) 
+            : 'truf'
           setGlobalRulesGame(matchedGame)
           setIsGlobalRulesOpen(true)
         }}
@@ -842,6 +846,41 @@ function MainApp() {
         )}
         {currentView === 'remi' && gameMode === 'play' && activeSession && (
           <RemiPlay
+            session={activeSession}
+            rounds={sessionRounds}
+            onSaveRound={handleSaveRound}
+            onUndoRound={handleUndoRound}
+            onFinalizeGame={handleFinalizeGame}
+            onOpenShareModal={handleShareCurrentSession}
+            onBackToLobby={handleBackToLobby}
+            user={user}
+            onClaimSeat={handleClaimSeat}
+          />
+        )}
+
+        {/* Remi Jawa Views */}
+        {currentView === 'remijawa' && gameMode === 'lobby' && (
+          <GameLobby
+            gameType="remijawa"
+            sessions={recentSessions}
+            onStartNewGame={() => handleStartSetup('remijawa')}
+            onOpenSession={handleOpenSession}
+            onCompleteSession={handleCompleteSession}
+            onDeleteSession={handleDeleteSession}
+            onShareSession={handleShareSession}
+            onRematch={handleRematch}
+            onViewRecap={handleViewRecap}
+            onBack={() => setCurrentView('hub')}
+          />
+        )}
+        {currentView === 'remijawa' && gameMode === 'setup' && (
+          <RemiJawaSetup
+            onStartGame={setup => handleStartGame('remijawa', setup)}
+            onBack={() => setGameMode('lobby')}
+          />
+        )}
+        {currentView === 'remijawa' && gameMode === 'play' && activeSession && (
+          <RemiJawaPlay
             session={activeSession}
             rounds={sessionRounds}
             onSaveRound={handleSaveRound}

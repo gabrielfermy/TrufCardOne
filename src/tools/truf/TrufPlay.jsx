@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { SUITS, calculateTrufRoundScores, determineNextDealer, getDealerConsecutiveStreak } from './trufLogic'
+import { SUITS, calculateTrufRoundScores, determineNextDealer, getDealerConsecutiveStreak, formatDealerStreakStatus, DEFAULT_DEALER_WORD } from './trufLogic'
 import { soundService } from '../../services/soundService'
 import { hapticsService } from '../../services/hapticsService'
 import { gameService } from '../../services/gameService'
@@ -124,8 +124,11 @@ export default function TrufPlay({
   }
 
   const firstDealer = session?.first_dealer ?? session?.settings?.first_dealer ?? session?.settings?.firstDealer ?? 0
+  const streakWord = session?.settings?.streakWord || DEFAULT_DEALER_WORD
+  const streakDisplayMode = session?.settings?.streakDisplayMode || 'word'
   const dealerIndex = determineNextDealer(localRounds, firstDealer, initialScores, playerCount)
   const dealerConsecutiveStreak = getDealerConsecutiveStreak(localRounds, dealerIndex, firstDealer) + 1
+  const streakStatus = formatDealerStreakStatus(dealerConsecutiveStreak, streakWord, streakDisplayMode)
   const currentRoundNumber = localRounds.length + 1
 
   // Input states for current round
@@ -732,12 +735,47 @@ export default function TrufPlay({
                   background: dealerConsecutiveStreak >= 7 ? 'var(--accent-red)' : 'var(--accent-gold)',
                   color: '#FFF'
                 }}>
-                  {dealerConsecutiveStreak}x
+                  {streakStatus.progressText}
                 </span>
               )}
             </div>
           </div>
         </div>
+
+        {/* CHOLOKOPOK Streak Badges in Truf */}
+        {dealerConsecutiveStreak > 1 && streakStatus.displayMode === 'word' && (
+          <div style={{ display: 'flex', gap: '4px', justifyContent: 'center', flexWrap: 'wrap', marginTop: '10px' }}>
+            {streakStatus.letters.map((char, idx) => {
+              const isLit = idx < streakStatus.activeCount
+              return (
+                <div
+                  key={idx}
+                  style={{
+                    width: '24px',
+                    height: '28px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRadius: '5px',
+                    fontWeight: 900,
+                    fontSize: '0.8rem',
+                    border: isLit 
+                      ? '1.5px solid rgba(245, 158, 11, 0.9)' 
+                      : '1px dashed var(--border-glass)',
+                    background: isLit 
+                      ? 'linear-gradient(135deg, #F59E0B, #D97706)' 
+                      : 'rgba(255, 255, 255, 0.03)',
+                    color: isLit ? '#000' : 'var(--text-dim)',
+                    boxShadow: isLit ? '0 0 8px rgba(245, 158, 11, 0.35)' : 'none',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  {char}
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       {/* Dealer Streak Warning Banner */}
@@ -758,12 +796,12 @@ export default function TrufPlay({
             <span style={{ fontSize: '1.4rem' }}>{dealerConsecutiveStreak >= 10 ? '🚨' : '⚠️'}</span>
             <div>
               <div style={{ fontWeight: 700, color: dealerConsecutiveStreak >= 10 ? '#FCA5A5' : '#FCD34D', fontSize: '0.88rem' }}>
-                {t('truf.dealer_streak_warning', { name: playerNames[dealerIndex], count: dealerConsecutiveStreak })}
+                {t('truf.dealer_streak_warning', { name: playerNames[dealerIndex], count: dealerConsecutiveStreak })} ({streakStatus.progressText})
               </div>
               <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', marginTop: '2px' }}>
                 {dealerConsecutiveStreak >= 10
-                  ? 'Pemain telah mencapai batas 10 ronde berturut-turut. Permainan akan otomatis selesai setelah ronde ini disimpan.'
-                  : 'Game akan otomatis berakhir jika mencapai 10x berturut-turut tanpa pergantian dealer.'}
+                  ? `Pemain telah mencapai batas 10 ronde berturut-turut (${streakWord}). Permainan akan otomatis selesai setelah ronde ini disimpan.`
+                  : `Game akan otomatis berakhir jika mencapai 10x berturut-turut (${streakWord}) tanpa pergantian dealer.`}
               </div>
             </div>
           </div>
