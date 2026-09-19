@@ -69,6 +69,24 @@ export default function HubDashboard({
       glow: 'rgba(234, 179, 8, 0.4)'
     },
     {
+      id: 'capsa',
+      title: t('capsa.name') || 'Capsa',
+      desc: t('hub.capsa_desc') || 'Capsa Susun (Head-to-Head 3 baris & Tembus) & Capsa Banting (Big Two)',
+      icon: '🎴',
+      badge: t('hub.badge_2_4_players') || '2–4 Pemain',
+      color: '#06B6D4',
+      glow: 'rgba(6, 182, 212, 0.4)'
+    },
+    {
+      id: 'domino',
+      title: t('domino.name') || 'Domino Gaple',
+      desc: t('hub.domino_desc') || 'Domino Gaple (Individu / Pasangan 2v2 & Denda Balak) & Domino QiuQiu',
+      icon: '🀄',
+      badge: t('hub.badge_2_4_players') || '2–4 Pemain',
+      color: '#38BDF8',
+      glow: 'rgba(56, 189, 248, 0.4)'
+    },
+    {
       id: 'omben',
       title: t('omben.name'),
       desc: t('hub.omben_desc'),

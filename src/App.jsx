@@ -23,6 +23,12 @@ import RemiSetup from './tools/remi/RemiSetup'
 import RemiPlay from './tools/remi/RemiPlay'
 import RemiJawaSetup from './tools/remijawa/RemiJawaSetup'
 import RemiJawaPlay from './tools/remijawa/RemiJawaPlay'
+import CapsaSetup from './tools/capsa/CapsaSetup'
+import CapsaSusunPlay from './tools/capsa/CapsaSusunPlay'
+import CapsaBantingPlay from './tools/capsa/CapsaBantingPlay'
+import DominoSetup from './tools/domino/DominoSetup'
+import GaplePlay from './tools/domino/GaplePlay'
+import QiuQiuPlay from './tools/domino/QiuQiuPlay'
 import OmbenSetup from './tools/omben/OmbenSetup'
 import OmbenPlay from './tools/omben/OmbenPlay'
 import ChessClock from './tools/chess-clock/ChessClock'
@@ -43,7 +49,7 @@ import './App.css'
 
 function getViewFromPath(pathname) {
   const cleanPath = pathname.replace(/^\//, '').toLowerCase().split('/')[0]
-  const validViews = ['truf', 'remi', 'remijawa', 'omben', 'chess', 'scoreboard', 'utilities', 'admin']
+  const validViews = ['truf', 'remi', 'remijawa', 'capsa', 'domino', 'omben', 'chess', 'scoreboard', 'utilities', 'admin']
   if (validViews.includes(cleanPath)) {
     return cleanPath
   }
@@ -585,8 +591,8 @@ function MainApp() {
       ? customRounds
       : (sessionRounds.length > 0 ? sessionRounds : (activeSession.game_rounds || []))
 
-    // Calculate final rankings (lowest score wins for remi/omben, highest for truf)
-    const isLowestWins = activeSession.game_type === 'remi' || activeSession.game_type === 'omben'
+    // Calculate final rankings (lowest score wins for remi/omben/gaple, highest for truf/remijawa/capsa/qiuqiu)
+    const isLowestWins = activeSession.game_type === 'remi' || activeSession.game_type === 'omben' || (activeSession.game_type === 'domino' && activeSession.settings?.dominoMode !== 'qiuqiu')
     const initialScores = activeSession.settings?.initialScores || activeSession.initial_scores || []
     const scores = Array(activeSession.player_names?.length || 4).fill(0)
     initialScores.forEach((s, idx) => {
@@ -594,12 +600,28 @@ function MainApp() {
     })
 
     roundsToUse.forEach(r => {
-      const pScores = r.player_scores || r.playerScores || []
-      pScores.forEach(ps => {
-        const pIdx = ps.player_index ?? 0
-        const change = ps.score_change ?? 0
-        scores[pIdx] += change
-      })
+      if (r.player_scores || r.playerScores) {
+        const pScores = r.player_scores || r.playerScores || []
+        pScores.forEach(ps => {
+          const pIdx = ps.player_index ?? 0
+          const change = ps.score_change ?? 0
+          scores[pIdx] += change
+        })
+      } else if (r.deltas) {
+        Object.entries(r.deltas).forEach(([pKey, change]) => {
+          const pIdx = parseInt(pKey.replace('p', ''), 10)
+          if (!isNaN(pIdx) && scores[pIdx] !== undefined) {
+            scores[pIdx] += Number(change) || 0
+          }
+        })
+      } else if (r.penalties) {
+        Object.entries(r.penalties).forEach(([pKey, pen]) => {
+          const pIdx = parseInt(pKey.replace('p', ''), 10)
+          if (!isNaN(pIdx) && scores[pIdx] !== undefined) {
+            scores[pIdx] += Number(pen) || 0
+          }
+        })
+      }
     })
 
     const playersWithScores = (activeSession.player_names || []).map((name, idx) => ({
@@ -634,7 +656,7 @@ function MainApp() {
   // 7. Open Share Modal for Past Session
   const handleShareSession = (session) => {
     const rounds = session.game_rounds || session.rounds || []
-    const isLowestWins = session.game_type === 'remi' || session.game_type === 'omben'
+    const isLowestWins = session.game_type === 'remi' || session.game_type === 'omben' || (session.game_type === 'domino' && session.settings?.dominoMode !== 'qiuqiu')
     const initialScores = session.settings?.initialScores || session.initial_scores || []
     const scores = Array(session.player_names?.length || 4).fill(0)
     initialScores.forEach((s, idx) => {
@@ -642,9 +664,26 @@ function MainApp() {
     })
 
     rounds.forEach(r => {
-      r.player_scores?.forEach(ps => {
-        scores[ps.player_index] += (ps.score_change || 0)
-      })
+      if (r.player_scores || r.playerScores) {
+        const pScores = r.player_scores || r.playerScores || []
+        pScores.forEach(ps => {
+          scores[ps.player_index] += (ps.score_change || 0)
+        })
+      } else if (r.deltas) {
+        Object.entries(r.deltas).forEach(([pKey, change]) => {
+          const pIdx = parseInt(pKey.replace('p', ''), 10)
+          if (!isNaN(pIdx) && scores[pIdx] !== undefined) {
+            scores[pIdx] += Number(change) || 0
+          }
+        })
+      } else if (r.penalties) {
+        Object.entries(r.penalties).forEach(([pKey, pen]) => {
+          const pIdx = parseInt(pKey.replace('p', ''), 10)
+          if (!isNaN(pIdx) && scores[pIdx] !== undefined) {
+            scores[pIdx] += Number(pen) || 0
+          }
+        })
+      }
     })
 
     const playersWithScores = (session.player_names || []).map((name, idx) => ({
@@ -891,6 +930,92 @@ function MainApp() {
             user={user}
             onClaimSeat={handleClaimSeat}
           />
+        )}
+
+        {/* Capsa Views */}
+        {currentView === 'capsa' && gameMode === 'lobby' && (
+          <GameLobby
+            gameType="capsa"
+            sessions={recentSessions}
+            onStartNewGame={() => handleStartSetup('capsa')}
+            onOpenSession={handleOpenSession}
+            onCompleteSession={handleCompleteSession}
+            onDeleteSession={handleDeleteSession}
+            onShareSession={handleShareSession}
+            onRematch={handleRematch}
+            onViewRecap={handleViewRecap}
+            onBack={() => setCurrentView('hub')}
+          />
+        )}
+        {currentView === 'capsa' && gameMode === 'setup' && (
+          <CapsaSetup
+            onStartGame={setup => handleStartGame('capsa', setup)}
+            onBack={() => setGameMode('lobby')}
+          />
+        )}
+        {currentView === 'capsa' && gameMode === 'play' && activeSession && (
+          activeSession.settings?.capsaMode === 'banting' ? (
+            <CapsaBantingPlay
+              session={activeSession}
+              onSaveRound={handleSaveRound}
+              onUndoRound={handleUndoRound}
+              onFinishGame={handleFinalizeGame}
+              onShareStory={handleShareCurrentSession}
+              onBackToHub={handleBackToLobby}
+            />
+          ) : (
+            <CapsaSusunPlay
+              session={activeSession}
+              onSaveRound={handleSaveRound}
+              onUndoRound={handleUndoRound}
+              onFinishGame={handleFinalizeGame}
+              onShareStory={handleShareCurrentSession}
+              onBackToHub={handleBackToLobby}
+            />
+          )
+        )}
+
+        {/* Domino Views */}
+        {currentView === 'domino' && gameMode === 'lobby' && (
+          <GameLobby
+            gameType="domino"
+            sessions={recentSessions}
+            onStartNewGame={() => handleStartSetup('domino')}
+            onOpenSession={handleOpenSession}
+            onCompleteSession={handleCompleteSession}
+            onDeleteSession={handleDeleteSession}
+            onShareSession={handleShareSession}
+            onRematch={handleRematch}
+            onViewRecap={handleViewRecap}
+            onBack={() => setCurrentView('hub')}
+          />
+        )}
+        {currentView === 'domino' && gameMode === 'setup' && (
+          <DominoSetup
+            onStartGame={setup => handleStartGame('domino', setup)}
+            onBack={() => setGameMode('lobby')}
+          />
+        )}
+        {currentView === 'domino' && gameMode === 'play' && activeSession && (
+          activeSession.settings?.dominoMode === 'qiuqiu' ? (
+            <QiuQiuPlay
+              session={activeSession}
+              onSaveRound={handleSaveRound}
+              onUndoRound={handleUndoRound}
+              onFinishGame={handleFinalizeGame}
+              onShareStory={handleShareCurrentSession}
+              onBackToHub={handleBackToLobby}
+            />
+          ) : (
+            <GaplePlay
+              session={activeSession}
+              onSaveRound={handleSaveRound}
+              onUndoRound={handleUndoRound}
+              onFinishGame={handleFinalizeGame}
+              onShareStory={handleShareCurrentSession}
+              onBackToHub={handleBackToLobby}
+            />
+          )
         )}
 
         {/* Omben Views */}

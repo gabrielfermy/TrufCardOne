@@ -136,6 +136,22 @@ export default function CardGameRulesModal({ isOpen, onClose, initialGame = 'tru
               activeText: '#F59E0B' 
             },
             { 
+              key: 'capsa', 
+              icon: '🎴', 
+              label: t('rules_modal.tab_capsa') || 'Capsa', 
+              activeBg: 'rgba(6, 182, 212, 0.16)', 
+              activeBorder: 'rgba(6, 182, 212, 0.45)', 
+              activeText: '#06B6D4' 
+            },
+            { 
+              key: 'domino', 
+              icon: '🀄', 
+              label: t('rules_modal.tab_domino') || 'Domino Gaple', 
+              activeBg: 'rgba(56, 189, 248, 0.16)', 
+              activeBorder: 'rgba(56, 189, 248, 0.45)', 
+              activeText: '#38BDF8' 
+            },
+            { 
               key: 'omben', 
               icon: '🍺', 
               label: t('rules_modal.tab_omben').replace(/^🍺\s*/, '') || 'Omben (Cangkulan)', 
@@ -690,6 +706,151 @@ export default function CardGameRulesModal({ isOpen, onClose, initialGame = 'tru
                   </div>
                   <div style={{ marginTop: '6px', fontSize: '0.76rem', color: 'var(--text-muted)', background: 'var(--bg-card)', border: '1px solid var(--border-glass)', padding: '8px 12px', borderRadius: '8px', lineHeight: 1.4 }}>
                     🍺 {t('rules_modal.omben.tally_desc')}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB: CAPSA (SUSUN & BANTING) */}
+          {activeTab === 'capsa' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+              <div style={{
+                background: 'rgba(6, 182, 212, 0.12)',
+                border: '1px solid rgba(6, 182, 212, 0.4)',
+                borderRadius: '14px',
+                padding: '14px 16px'
+              }}>
+                <div style={{ fontWeight: 800, color: '#06B6D4', fontSize: '0.9rem', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>🎴</span> Panduan Lengkap Permainan Capsa (Susun & Banting)
+                </div>
+                <p style={{ fontSize: '0.84rem', color: 'var(--text-main)', lineHeight: 1.5, margin: 0 }}>
+                  Dimainkan 2–4 pemain dengan dek standar 52 kartu (13 kartu per orang). KancaSela mendukung mode <strong>Capsa Susun</strong> (Chinese Poker 3 baris) dan <strong>Capsa Banting</strong> (Big Two).
+                </p>
+              </div>
+
+              {/* Capsa Susun */}
+              <div style={{
+                background: 'var(--bg-glass)',
+                border: '1px solid var(--border-glass)',
+                borderRadius: '14px',
+                padding: '14px 16px'
+              }}>
+                <div style={{ fontWeight: 800, fontSize: '0.88rem', marginBottom: '10px', color: '#38BDF8' }}>
+                  🃏 1. Aturan Capsa Susun (13 Kartu / Chinese Poker)
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.78rem', color: 'var(--text-main)' }}>
+                  <div style={{ padding: '8px 10px', background: 'var(--bg-card)', border: '1px solid var(--border-glass)', borderRadius: '8px' }}>
+                    <strong>Susunan 3 Tingkat</strong>: Kartu dibagi menjadi <strong>Bawah (5 kartu)</strong>, <strong>Tengah (5 kartu)</strong>, dan <strong>Atas (3 kartu)</strong>.
+                  </div>
+                  <div style={{ padding: '8px 10px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '8px', color: '#FCA5A5' }}>
+                    <strong>⚠️ Aturan Sah / Pao (Salah Susun)</strong>: Kekuatan baris WAJIB berurutan: <code>Bawah ≥ Tengah ≥ Atas</code>. Jika baris atas lebih kuat dari tengah/bawah, dianggap <em>Pao / Salah Susun</em> dan terkena denda penalti penuh (-9 poin ke setiap lawan).
+                  </div>
+                  <div style={{ padding: '8px 10px', background: 'var(--bg-card)', border: '1px solid var(--border-glass)', borderRadius: '8px' }}>
+                    <strong>Sistem Poin Head-to-Head</strong>: Setiap pasangan pemain membandingkan kartu per baris (+1 / -1 poin per baris).
+                  </div>
+                  <div style={{ padding: '8px 10px', background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: '8px', color: '#FCD34D' }}>
+                    <strong>🔥 Bonus Tembus (Sweep)</strong>: Menang 3 baris sekaligus dari 1 lawan = Poin digandakan 2x (+6 poin). <strong>Tembus Keliling (Super Sweep)</strong> = Menang 3 baris dari seluruh pemain di meja.
+                  </div>
+                </div>
+              </div>
+
+              {/* Capsa Banting */}
+              <div style={{
+                background: 'var(--bg-glass)',
+                border: '1px solid var(--border-glass)',
+                borderRadius: '14px',
+                padding: '14px 16px'
+              }}>
+                <div style={{ fontWeight: 800, fontSize: '0.88rem', marginBottom: '10px', color: '#FB923C' }}>
+                  💥 2. Aturan Capsa Banting (Big Two)
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.78rem', color: 'var(--text-main)' }}>
+                  <div style={{ padding: '8px 10px', background: 'var(--bg-card)', border: '1px solid var(--border-glass)', borderRadius: '8px' }}>
+                    <strong>Tujuan</strong>: Pemain pertama yang menghabiskan seluruh 13 kartu di tangan dinyatakan sebagai Juara ronde (0 denda).
+                  </div>
+                  <div style={{ padding: '8px 10px', background: 'var(--bg-card)', border: '1px solid var(--border-glass)', borderRadius: '8px' }}>
+                    <strong>Perhitungan Denda Sisa Kartu</strong>:
+                    <ul style={{ margin: '4px 0 0 16px', padding: 0, lineHeight: 1.5 }}>
+                      <li>1–9 kartu sisa: Denda 1x (1 poin per lembar).</li>
+                      <li>10–12 kartu sisa: <strong>Denda Ganda 2x</strong> (misal 10 kartu = 20 poin).</li>
+                      <li>13 kartu sisa (Hang / Belum Jalan): <strong>Denda 3x Lipat</strong> (39 poin).</li>
+                      <li>Sisa kartu angka 2: Denda ekstra +2 poin per lembar.</li>
+                      <li>Sisa Bom (Four of a Kind): Denda ekstra +5 poin.</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB: DOMINO (GAPLE & QIUQIU) */}
+          {activeTab === 'domino' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+              <div style={{
+                background: 'rgba(56, 189, 248, 0.12)',
+                border: '1px solid rgba(56, 189, 248, 0.4)',
+                borderRadius: '14px',
+                padding: '14px 16px'
+              }}>
+                <div style={{ fontWeight: 800, color: '#38BDF8', fontSize: '0.9rem', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>🀄</span> Panduan Resmi Domino (Gaple & QiuQiu)
+                </div>
+                <p style={{ fontSize: '0.84rem', color: 'var(--text-main)', lineHeight: 1.5, margin: 0 }}>
+                  Set domino standar 28 kartu balak (0-0 s/d 6-6). KancaSela mendukung mode <strong>Gaple Tradisional (Individu / Pasangan 2v2)</strong> dan <strong>Domino QiuQiu (9-9 / Ceme)</strong>.
+                </p>
+              </div>
+
+              {/* Gaple */}
+              <div style={{
+                background: 'var(--bg-glass)',
+                border: '1px solid var(--border-glass)',
+                borderRadius: '14px',
+                padding: '14px 16px'
+              }}>
+                <div style={{ fontWeight: 800, fontSize: '0.88rem', marginBottom: '10px', color: '#38BDF8' }}>
+                  🀄 1. Gaple Tradisional & Aturan Buntu (Deadlock)
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.78rem', color: 'var(--text-main)' }}>
+                  <div style={{ padding: '8px 10px', background: 'var(--bg-card)', border: '1px solid var(--border-glass)', borderRadius: '8px' }}>
+                    <strong>Menang Normal (Out)</strong>: Pemain yang pertama kali menghabiskan kartu di tangan mendapat 0 denda. Seluruh lawan menjumlahkan total titik kartu yang tersisa di tangan.
+                  </div>
+                  <div style={{ padding: '8px 10px', background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: '8px', color: '#FCD34D' }}>
+                    <strong>🔒 Kondisi Gaple (Macet / Buntu)</strong>: Jika kedua ujung meja tertutup dan tidak ada pemain yang bisa jalan, seluruh pemain membuka kartu di tangan:
+                    <ul style={{ margin: '4px 0 0 16px', padding: 0, lineHeight: 1.5 }}>
+                      <li><strong>Aturan Titik Terendah</strong>: Pemain dengan total titik terkecil menang (0 denda), pemain lain dikenakan denda sesuai titik masing-masing.</li>
+                      <li><strong>Aturan Pembuat Buntu Dihukum</strong>: Jika pemain yang meletakkan kartu penutup buntu tidak memiliki titik terkecil, ia menanggung total seluruh titik meja!</li>
+                    </ul>
+                  </div>
+                  <div style={{ padding: '8px 10px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '8px', color: '#FCA5A5' }}>
+                    <strong>⚠️ Denda Balak Mati</strong>: Balak 0-0 mati dikenakan denda +10 titik, Balak 6-6 mati dikenakan denda +12 titik.
+                  </div>
+                </div>
+              </div>
+
+              {/* QiuQiu */}
+              <div style={{
+                background: 'var(--bg-glass)',
+                border: '1px solid var(--border-glass)',
+                borderRadius: '14px',
+                padding: '14px 16px'
+              }}>
+                <div style={{ fontWeight: 800, fontSize: '0.88rem', marginBottom: '10px', color: '#34D399' }}>
+                  🎲 2. Domino QiuQiu (9-9 / Ceme)
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.78rem', color: 'var(--text-main)' }}>
+                  <div style={{ padding: '8px 10px', background: 'var(--bg-card)', border: '1px solid var(--border-glass)', borderRadius: '8px' }}>
+                    <strong>Nilai Kombinasi (Modulo 10)</strong>: 4 kartu dibagi menjadi 2 pasang (Kiri & Kanan). Jumlah titik tiap pasang diambil digit satuannya (target 9-9).
+                  </div>
+                  <div style={{ padding: '8px 10px', background: 'rgba(234, 179, 8, 0.1)', border: '1px solid rgba(234, 179, 8, 0.3)', borderRadius: '8px', color: '#FCD34D' }}>
+                    <strong>Hierarki Kartu Spesial (Dewa)</strong>:
+                    <ol style={{ margin: '4px 0 0 16px', padding: 0, lineHeight: 1.5 }}>
+                      <li><strong>6 Dewa (Six Devils)</strong>: Keempat kartu masing-masing bernilai tepat 6 titik (Kasta Tertinggi).</li>
+                      <li><strong>4 Balak (4 Doubles)</strong>: Keempat kartu semuanya adalah kartu kembar (balak).</li>
+                      <li><strong>Murni Kecil</strong>: Total titik seluruh 4 kartu ≤ 9.</li>
+                      <li><strong>Murni Besar</strong>: Total titik seluruh 4 kartu ≥ 39.</li>
+                      <li><strong>Qiu Qiu</strong>: Kombinasi seimbang 9 - 9.</li>
+                    </ol>
                   </div>
                 </div>
               </div>
