@@ -51,6 +51,24 @@ export default function HubDashboard({
       glow: 'rgba(139, 92, 246, 0.4)'
     },
     {
+      id: 'bridge',
+      title: t('bridge.name') || 'Contract Bridge',
+      desc: t('hub.bridge_desc') || 'Contract Bridge resmi WBF (Duplicate / Chicago), kalkulator kontrak & slam',
+      icon: '🃏',
+      badge: t('hub.badge_4_players') || '4 Pemain',
+      color: '#818CF8',
+      glow: 'rgba(129, 140, 248, 0.4)'
+    },
+    {
+      id: 'spades',
+      title: t('spades.name') || 'Spades',
+      desc: t('hub.spades_desc') || 'Scorecard Spades partnership 2v2 & Solo, Nil bonus, dan 10-bag penalty meter',
+      icon: '♠️',
+      badge: t('hub.badge_4_players') || '4 Pemain',
+      color: '#A855F7',
+      glow: 'rgba(168, 85, 247, 0.4)'
+    },
+    {
       id: 'remi',
       title: t('remi.name'),
       desc: t('hub.remi_desc'),

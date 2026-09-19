@@ -25,6 +25,8 @@
   "nav": {
     "home": "Home",
     "truf": "Truf",
+    "bridge": "Bridge",
+    "spades": "Spades",
     "remi": "Remi",
     "remijawa": "Remi Jawa",
     "capsa": "Capsa",
@@ -48,6 +50,8 @@
     "card_games": "Card Games",
     "timers_scores": "Timers & Scoreboards",
     "truf_desc": "4-Player Truf trick-taking tracker with High/Low Bid & Bid 13 decision rules",
+    "bridge_desc": "Official WBF Contract Bridge (Duplicate / Chicago), contract scoring & slams",
+    "spades_desc": "2v2 Partnership / Solo Spades, Nil/Blind Nil bidding & sandbag counter",
     "remi_desc": "Indonesian 7-Card Rummy tracker with rapid penalty keypad & Pure Close",
     "remi_jawa_desc": "Javanese Rummy scorecard: meld/deadwood points, closing bonuses & CHOLOKOPOK dealer streak",
     "capsa_desc": "Capsa Susun (13-card Chinese Poker head-to-head & sweeps) & Capsa Banting (Big Two)",
@@ -197,6 +201,21 @@
     "you_are_scorer": "You are the Scorer",
     "scorer_transferred": "Scorer role transferred to {{name}}",
     "scorer_only_suit": "Can only be set by the Scorer"
+  },
+  "bridge": {
+    "name": "Contract Bridge",
+    "setup_title": "Contract Bridge Setup",
+    "scoring_format": "Scoring Format",
+    "start_game": "Start Bridge Scorecard",
+    "round": "Board #{{num}}",
+    "save_round": "Save Bridge Board"
+  },
+  "spades": {
+    "name": "Spades",
+    "setup_title": "Spades Game Setup",
+    "start_game": "Start Spades Scorecard",
+    "round": "Round {{num}}",
+    "save_round": "Save Spades Round"
   },
   "remi": {
     "name": "Remi (7-Card)",
@@ -484,6 +503,8 @@
     "title": "Game Rules & Reference Guide",
     "subtitle": "Official guide for gameplay flow, card mechanics, and mathematical scoring formulas",
     "tab_truf": "🃏 Truf (Trump)",
+    "tab_bridge": "🃏 Contract Bridge",
+    "tab_spades": "♠️ Spades",
     "tab_remi": "🎴 Remi (Rummy)",
     "tab_remi_jawa": "🎴 Remi Jawa",
     "tab_capsa": "🎴 Capsa (Susun & Big Two)",

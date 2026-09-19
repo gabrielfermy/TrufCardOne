@@ -19,6 +19,10 @@ import CheckInModal from './components/common/CheckInModal'
 // Game Modules
 import TrufSetup from './tools/truf/TrufSetup'
 import TrufPlay from './tools/truf/TrufPlay'
+import BridgeSetup from './tools/bridge/BridgeSetup'
+import BridgePlay from './tools/bridge/BridgePlay'
+import SpadesSetup from './tools/spades/SpadesSetup'
+import SpadesPlay from './tools/spades/SpadesPlay'
 import RemiSetup from './tools/remi/RemiSetup'
 import RemiPlay from './tools/remi/RemiPlay'
 import RemiJawaSetup from './tools/remijawa/RemiJawaSetup'
@@ -49,7 +53,7 @@ import './App.css'
 
 function getViewFromPath(pathname) {
   const cleanPath = pathname.replace(/^\//, '').toLowerCase().split('/')[0]
-  const validViews = ['truf', 'remi', 'remijawa', 'capsa', 'domino', 'omben', 'chess', 'scoreboard', 'utilities', 'admin']
+  const validViews = ['truf', 'bridge', 'spades', 'remi', 'remijawa', 'capsa', 'domino', 'omben', 'chess', 'scoreboard', 'utilities', 'admin']
   if (validViews.includes(cleanPath)) {
     return cleanPath
   }
@@ -859,6 +863,70 @@ function MainApp() {
             onBackToLobby={handleBackToLobby}
             user={user}
             onClaimSeat={handleClaimSeat}
+          />
+        )}
+
+        {/* Bridge Views */}
+        {currentView === 'bridge' && gameMode === 'lobby' && (
+          <GameLobby
+            gameType="bridge"
+            sessions={recentSessions}
+            onStartNewGame={() => handleStartSetup('bridge')}
+            onOpenSession={handleOpenSession}
+            onCompleteSession={handleCompleteSession}
+            onDeleteSession={handleDeleteSession}
+            onShareSession={handleShareSession}
+            onRematch={handleRematch}
+            onViewRecap={handleViewRecap}
+            onBack={() => setCurrentView('hub')}
+          />
+        )}
+        {currentView === 'bridge' && gameMode === 'setup' && (
+          <BridgeSetup
+            onStartGame={setup => handleStartGame('bridge', setup)}
+            onBack={() => setGameMode('lobby')}
+          />
+        )}
+        {currentView === 'bridge' && gameMode === 'play' && activeSession && (
+          <BridgePlay
+            session={activeSession}
+            onSaveRound={handleSaveRound}
+            onUndoRound={handleUndoRound}
+            onFinishGame={handleFinalizeGame}
+            onShareStory={handleShareCurrentSession}
+            onBackToHub={handleBackToLobby}
+          />
+        )}
+
+        {/* Spades Views */}
+        {currentView === 'spades' && gameMode === 'lobby' && (
+          <GameLobby
+            gameType="spades"
+            sessions={recentSessions}
+            onStartNewGame={() => handleStartSetup('spades')}
+            onOpenSession={handleOpenSession}
+            onCompleteSession={handleCompleteSession}
+            onDeleteSession={handleDeleteSession}
+            onShareSession={handleShareSession}
+            onRematch={handleRematch}
+            onViewRecap={handleViewRecap}
+            onBack={() => setCurrentView('hub')}
+          />
+        )}
+        {currentView === 'spades' && gameMode === 'setup' && (
+          <SpadesSetup
+            onStartGame={setup => handleStartGame('spades', setup)}
+            onBack={() => setGameMode('lobby')}
+          />
+        )}
+        {currentView === 'spades' && gameMode === 'play' && activeSession && (
+          <SpadesPlay
+            session={activeSession}
+            onSaveRound={handleSaveRound}
+            onUndoRound={handleUndoRound}
+            onFinishGame={handleFinalizeGame}
+            onShareStory={handleShareCurrentSession}
+            onBackToHub={handleBackToLobby}
           />
         )}
 

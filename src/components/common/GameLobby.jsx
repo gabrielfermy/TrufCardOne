@@ -23,7 +23,12 @@ export default function GameLobby({
 
   const meta = {
     truf: { title: 'Truf Scorekeeper', icon: '🃏', color: '#8B5CF6', desc: 'Game kartu trik 4 pemain dengan fase bid, truf suit, & main atas/bawah.' },
+    bridge: { title: 'Contract Bridge Scorekeeper', icon: '🃏', color: '#818CF8', desc: 'Duplicate / Chicago bridge scoring, contract builder, slam bonuses, & vulnerability.' },
+    spades: { title: 'Spades Scorekeeper', icon: '♠️', color: '#A855F7', desc: 'Partnership 2v2 / Solo, Nil bonuses, overtrick bags, & 10-bag penalty system.' },
     remi: { title: 'Remi 7-Card Scorekeeper', icon: '🎴', color: '#F59E0B', desc: 'Kalkulator denda kartu remi, minus kartu tertinggal, & kartu penutup.' },
+    remijawa: { title: 'Remi Jawa Scorekeeper', icon: '🎴', color: '#EAB308', desc: 'Remi Jawa tradisi lokal, kombinasi seri/tris, bonus tutup & denda kartu.' },
+    capsa: { title: 'Capsa Scorekeeper', icon: '🎴', color: '#06B6D4', desc: 'Capsa Susun (Chinese Poker) & Capsa Banting (Big Two) dengan kalkulator skor otomatis.' },
+    domino: { title: 'Domino Scorekeeper', icon: '🀄', color: '#38BDF8', desc: 'Domino Gaple tradisional (Individu & Pasangan) serta Domino QiuQiu 9-9.' },
     omben: { title: 'Omben (Cangkulan)', icon: '🍺', color: '#F97316', desc: 'Pencatat hukuman omben/cangkulan & ranking pemain per ronde.' }
   }[gameType] || { title: 'Game Lobby', icon: '🎮', color: '#8B5CF6', desc: '' }
 

@@ -120,6 +120,22 @@ export default function CardGameRulesModal({ isOpen, onClose, initialGame = 'tru
               activeText: 'var(--badge-purple-text)' 
             },
             { 
+              key: 'bridge', 
+              icon: '🃏', 
+              label: t('rules_modal.tab_bridge') || 'Bridge', 
+              activeBg: 'rgba(129, 140, 248, 0.16)', 
+              activeBorder: 'rgba(129, 140, 248, 0.45)', 
+              activeText: '#818CF8' 
+            },
+            { 
+              key: 'spades', 
+              icon: '♠️', 
+              label: t('rules_modal.tab_spades') || 'Spades', 
+              activeBg: 'rgba(168, 85, 247, 0.16)', 
+              activeBorder: 'rgba(168, 85, 247, 0.45)', 
+              activeText: '#A855F7' 
+            },
+            { 
               key: 'remi', 
               icon: '🎴', 
               label: t('rules_modal.tab_remi').replace(/^🎴\s*/, '') || 'Remi (7-Card)', 
@@ -377,6 +393,191 @@ export default function CardGameRulesModal({ isOpen, onClose, initialGame = 'tru
 
                 <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', background: 'var(--bg-glass)', border: '1px solid var(--border-glass)', padding: '8px 12px', borderRadius: '8px', lineHeight: 1.4 }}>
                   ⚠️ {t('rules_modal.truf.dealer_streak_rule')}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB: BRIDGE */}
+          {activeTab === 'bridge' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+              {/* Summary Card */}
+              <div style={{
+                background: 'rgba(129, 140, 248, 0.12)',
+                border: '1px solid rgba(129, 140, 248, 0.4)',
+                borderRadius: '14px',
+                padding: '14px 16px'
+              }}>
+                <div style={{ fontWeight: 800, color: '#818CF8', fontSize: '0.9rem', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>🃏</span> Panduan Resmi Contract Bridge (WBF / ACBL)
+                </div>
+                <p style={{ fontSize: '0.84rem', color: 'var(--text-main)', lineHeight: 1.5, margin: 0 }}>
+                  Permainan trick-taking 4 pemain dalam kemitraan 2v2 (North-South vs East-West). Menggunakan 52 kartu (13 kartu per pemain). KancaSela mendukung mode <strong>Duplicate Bridge</strong> dan <strong>Chicago (4-Deal)</strong> dengan kalkulator poin kontrak, overtrick, slam, dan undertrick otomatis.
+                </p>
+              </div>
+
+              {/* Kontrak & Hierarki Kembang */}
+              <div style={{
+                background: 'var(--bg-glass)',
+                border: '1px solid var(--border-glass)',
+                borderRadius: '14px',
+                padding: '14px 16px'
+              }}>
+                <div style={{ fontWeight: 800, fontSize: '0.88rem', marginBottom: '10px', color: '#818CF8' }}>
+                  👑 1. Level Kontrak & Nilai Trik Dasar
+                </div>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '10px' }}>
+                  Target trik yang wajib dimenangkan adalah <code>6 + Level Kontrak</code> (Level 1 = 7 trik, Level 7 = 13 trik / Grand Slam).
+                </p>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px', marginBottom: '10px' }}>
+                  <div style={{ padding: '8px 10px', background: 'rgba(56, 189, 248, 0.1)', borderRadius: '8px', border: '1px solid rgba(56, 189, 248, 0.3)', fontSize: '0.8rem', color: '#38BDF8' }}>
+                    <strong>Minor (♣ & ♦)</strong>: 20 poin / trik
+                  </div>
+                  <div style={{ padding: '8px 10px', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '8px', border: '1px solid rgba(239, 68, 68, 0.3)', fontSize: '0.8rem', color: '#F87171' }}>
+                    <strong>Major (♥ & ♠)</strong>: 30 poin / trik
+                  </div>
+                  <div style={{ padding: '8px 10px', background: 'rgba(168, 85, 247, 0.1)', borderRadius: '8px', border: '1px solid rgba(168, 85, 247, 0.3)', fontSize: '0.8rem', color: '#C084FC' }}>
+                    <strong>No Trump (NT)</strong>: 40 (ke-1), lalu 30 poin
+                  </div>
+                </div>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-dim)', lineHeight: 1.4 }}>
+                  • <strong>Doubled (X)</strong>: Nilai trik dikalikan 2.<br/>
+                  • <strong>Redoubled (XX)</strong>: Nilai trik dikalikan 4.
+                </div>
+              </div>
+
+              {/* Bonus Game & Slam */}
+              <div style={{
+                background: 'var(--bg-glass)',
+                border: '1px solid var(--border-glass)',
+                borderRadius: '14px',
+                padding: '14px 16px'
+              }}>
+                <div style={{ fontWeight: 800, fontSize: '0.88rem', marginBottom: '10px', color: '#FCD34D' }}>
+                  🏆 2. Bonus Game & Slam
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.78rem' }}>
+                  <div style={{ padding: '8px 10px', background: 'var(--bg-card)', borderRadius: '8px', border: '1px solid var(--border-glass)' }}>
+                    <strong>Part-score (&lt; 100 Poin Trik)</strong>: +50 poin bonus.
+                  </div>
+                  <div style={{ padding: '8px 10px', background: 'rgba(34, 197, 94, 0.1)', border: '1px solid rgba(34, 197, 94, 0.3)', borderRadius: '8px', color: '#4ADE80' }}>
+                    <strong>Game (&ge; 100 Poin Trik)</strong>: Non-Vulnerable <strong>+300</strong> poin | Vulnerable <strong>+500</strong> poin.
+                  </div>
+                  <div style={{ padding: '8px 10px', background: 'rgba(234, 179, 8, 0.1)', border: '1px solid rgba(234, 179, 8, 0.3)', borderRadius: '8px', color: '#FCD34D' }}>
+                    <strong>Small Slam (Level 6 / 12 Trik)</strong>: Non-Vulnerable <strong>+500</strong> | Vulnerable <strong>+750</strong> poin.
+                  </div>
+                  <div style={{ padding: '8px 10px', background: 'rgba(244, 63, 94, 0.1)', border: '1px solid rgba(244, 63, 94, 0.3)', borderRadius: '8px', color: '#FB7185' }}>
+                    <strong>Grand Slam (Level 7 / 13 Trik)</strong>: Non-Vulnerable <strong>+1000</strong> | Vulnerable <strong>+1500</strong> poin.
+                  </div>
+                  <div style={{ padding: '8px 10px', background: 'var(--bg-card)', borderRadius: '8px', border: '1px solid var(--border-glass)' }}>
+                    <strong>Insult Bonus</strong>: Kontrak Doubled Berhasil +50 poin | Redoubled +100 poin.
+                  </div>
+                </div>
+              </div>
+
+              {/* Denda Undertrick */}
+              <div style={{
+                background: 'var(--bg-glass)',
+                border: '1px solid var(--border-glass)',
+                borderRadius: '14px',
+                padding: '14px 16px'
+              }}>
+                <div style={{ fontWeight: 800, fontSize: '0.88rem', marginBottom: '10px', color: '#F87171' }}>
+                  ⚠️ 3. Denda Undertrick (Gagal Kontrak)
+                </div>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-main)', lineHeight: 1.5 }}>
+                  Jika Declarer gagal memenuhi target trik (Down), tim bertahan (Defenders) mendapat poin denda:
+                  <ul style={{ margin: '6px 0 0 16px', padding: 0 }}>
+                    <li><strong>Undoubled NV</strong>: -50 poin per trik yang kurang.</li>
+                    <li><strong>Undoubled V</strong>: -100 poin per trik yang kurang.</li>
+                    <li><strong>Doubled NV</strong>: -100 (trik ke-1), -200 (trik ke-2 & ke-3), -300 (trik ke-4+).</li>
+                    <li><strong>Doubled V</strong>: -200 (trik ke-1), -300 (trik berikutnya).</li>
+                    <li><strong>Redoubled</strong>: 2x lipat total denda Doubled.</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB: SPADES */}
+          {activeTab === 'spades' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+              {/* Summary Card */}
+              <div style={{
+                background: 'rgba(168, 85, 247, 0.12)',
+                border: '1px solid rgba(168, 85, 247, 0.4)',
+                borderRadius: '14px',
+                padding: '14px 16px'
+              }}>
+                <div style={{ fontWeight: 800, color: '#A855F7', fontSize: '0.9rem', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>♠️</span> Panduan Resmi Permainan Spades
+                </div>
+                <p style={{ fontSize: '0.84rem', color: 'var(--text-main)', lineHeight: 1.5, margin: 0 }}>
+                  Permainan trick-taking 4 pemain dengan kembang <strong>Sekop (Spades ♠)</strong> sebagai truf permanen. KancaSela mendukung mode <strong>Partnership 2v2</strong> dan <strong>Solo Cutthroat</strong> dengan penawaran Nil, Blind Nil, dan sistem penalti Sandbag otomatis.
+                </p>
+              </div>
+
+              {/* Aturan Dasar & Truf Sekop */}
+              <div style={{
+                background: 'var(--bg-glass)',
+                border: '1px solid var(--border-glass)',
+                borderRadius: '14px',
+                padding: '14px 16px'
+              }}>
+                <div style={{ fontWeight: 800, fontSize: '0.88rem', marginBottom: '10px', color: '#A855F7' }}>
+                  ♠️ 1. Aturan Dasar & "Spades Broken"
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.78rem', color: 'var(--text-main)' }}>
+                  <div style={{ padding: '8px 10px', background: 'var(--bg-card)', border: '1px solid var(--border-glass)', borderRadius: '8px' }}>
+                    <strong>Wajib Mengikuti Kembang (Follow Suit)</strong>: Pemain wajib mengeluarkan kartu dengan kembang yang sama dengan kartu pembuka jika memilikinya.
+                  </div>
+                  <div style={{ padding: '8px 10px', background: 'rgba(168, 85, 247, 0.1)', border: '1px solid rgba(168, 85, 247, 0.3)', borderRadius: '8px', color: '#D8B4FE' }}>
+                    <strong>Spades Broken</strong>: Kartu Sekop ♠ tidak boleh dijadikan kartu pembuka (lead) pertama kali di awal permainan sampai ada pemain yang tidak memiliki kembang pembuka lalu memotong dengan Sekop (Spades Broken).
+                  </div>
+                </div>
+              </div>
+
+              {/* Penawaran Tim & Nil Bidding */}
+              <div style={{
+                background: 'var(--bg-glass)',
+                border: '1px solid var(--border-glass)',
+                borderRadius: '14px',
+                padding: '14px 16px'
+              }}>
+                <div style={{ fontWeight: 800, fontSize: '0.88rem', marginBottom: '10px', color: '#38BDF8' }}>
+                  🎯 2. Penawaran Kontrak, Nil, & Blind Nil
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.78rem' }}>
+                  <div style={{ padding: '8px 10px', background: 'rgba(34, 197, 94, 0.1)', border: '1px solid rgba(34, 197, 94, 0.3)', borderRadius: '8px', color: '#4ADE80' }}>
+                    <strong>Kontrak Tim Tercapai</strong>: Tim mendapat <code>10 × Target Bid</code> + <code>1 poin per overtrick (Bag)</code>.
+                  </div>
+                  <div style={{ padding: '8px 10px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '8px', color: '#F87171' }}>
+                    <strong>Gagal Kontrak (Set)</strong>: Jika trik yang didapat &lt; target bid, tim kehilangan <code>10 × Target Bid</code> (poin minus).
+                  </div>
+                  <div style={{ padding: '8px 10px', background: 'rgba(234, 179, 8, 0.1)', border: '1px solid rgba(234, 179, 8, 0.3)', borderRadius: '8px', color: '#FCD34D' }}>
+                    <strong>Nil Bid (Tawar 0 Trik)</strong>: Berhasil (0 trik) = <strong>+100 poin</strong> | Gagal (&ge; 1 trik) = <strong>-100 poin</strong>.
+                  </div>
+                  <div style={{ padding: '8px 10px', background: 'rgba(236, 72, 153, 0.1)', border: '1px solid rgba(236, 72, 153, 0.3)', borderRadius: '8px', color: '#F472B6' }}>
+                    <strong>Blind Nil (Tawar Tanpa Lihat Kartu)</strong>: Berhasil = <strong>+200 poin</strong> | Gagal = <strong>-200 poin</strong>.
+                  </div>
+                </div>
+              </div>
+
+              {/* Sandbag Penalty */}
+              <div style={{
+                background: 'var(--bg-glass)',
+                border: '1px solid var(--border-glass)',
+                borderRadius: '14px',
+                padding: '14px 16px'
+              }}>
+                <div style={{ fontWeight: 800, fontSize: '0.88rem', marginBottom: '10px', color: '#FB923C' }}>
+                  🎒 3. Denda Sandbag (10 Bags = -100 Poin)
+                </div>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-main)', lineHeight: 1.5 }}>
+                  Setiap trik tambahan di atas target kontrak dicatat sebagai <strong>"Bag"</strong>. Untuk mencegah strategi sengaja mengambil banyak trik cadangan:
+                  <div style={{ marginTop: '6px', padding: '8px 10px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '8px', color: '#FCA5A5' }}>
+                    Setiap kali akumulasi Sandbag mencapai kelipatan 10 (10, 20, 30...), tim otomatis dikenakan <strong>Denda Sandbag -100 poin</strong> dan penghitung bag kembali ke 0.
+                  </div>
                 </div>
               </div>
             </div>

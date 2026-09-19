@@ -25,6 +25,8 @@
   "nav": {
     "home": "Beranda",
     "truf": "Truf",
+    "bridge": "Bridge",
+    "spades": "Spades",
     "remi": "Remi",
     "remijawa": "Remi Jawa",
     "capsa": "Capsa",
@@ -48,6 +50,8 @@
     "card_games": "Permainan Kartu",
     "timers_scores": "Pengatur Waktu & Skor",
     "truf_desc": "Pencatat skor kartu Truf 4 pemain dengan aturan Main Atas/Bawah & Bid 13",
+    "bridge_desc": "Contract Bridge resmi WBF (Duplicate / Chicago), kalkulator kontrak & slam",
+    "spades_desc": "Spades 2v2 Partnership / Solo, penawaran Nil/Blind Nil & meteran sandbag",
     "remi_desc": "Hitung denda kartu Remi 7-kartu dengan keypad nilai kartu & Tutup Murni",
     "remi_jawa_desc": "Kalkulator skor Remi Jawa, aturan seri/tris, bonus tutup & streak CHOLOKOPOK",
     "capsa_desc": "Capsa Susun (Head-to-Head 3 baris & Tembus) & Capsa Banting (Big Two)",
@@ -197,6 +201,21 @@
     "you_are_scorer": "Anda adalah Pencatat Skor",
     "scorer_transferred": "Peran Pencatat Skor dialihkan ke {{name}}",
     "scorer_only_suit": "Hanya dapat diatur oleh Pencatat Skor"
+  },
+  "bridge": {
+    "name": "Contract Bridge",
+    "setup_title": "Konfigurasi Contract Bridge",
+    "scoring_format": "Format Penilaian",
+    "start_game": "Mulai Score Card Bridge",
+    "round": "Board #{{num}}",
+    "save_round": "Simpan Board Bridge"
+  },
+  "spades": {
+    "name": "Spades",
+    "setup_title": "Konfigurasi Permainan Spades",
+    "start_game": "Mulai Score Card Spades",
+    "round": "Ronde {{num}}",
+    "save_round": "Simpan Ronde Spades"
   },
   "remi": {
     "name": "Remi (7-Card)",
@@ -484,6 +503,8 @@
     "title": "Panduan & Aturan Permainan",
     "subtitle": "Referensi resmi cara bermain, mekanisme putaran, dan rumus hitungan skor",
     "tab_truf": "🃏 Truf (Trup)",
+    "tab_bridge": "🃏 Contract Bridge",
+    "tab_spades": "♠️ Spades",
     "tab_remi": "🎴 Remi (7-Card)",
     "tab_remi_jawa": "🎴 Remi Jawa",
     "tab_capsa": "🎴 Capsa (Susun & Banting)",
