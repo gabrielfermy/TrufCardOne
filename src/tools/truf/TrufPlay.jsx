@@ -243,17 +243,16 @@ export default function TrufPlay({
             text: isRelease ? `Berdiri (Lepas Kursi ${seatPayload.playerIndex + 1})` : `Check-in ke Kursi ${seatPayload.playerIndex + 1} (${pName})`
           }])
 
-          let updatedIds = []
-          setLivePlayerUserIds(prev => {
-            updatedIds = [...(prev || Array(playerNames.length).fill(null))]
-            if (isRelease) {
-              updatedIds[seatPayload.playerIndex] = null
-            } else if (seatPayload.clientId) {
-              updatedIds[seatPayload.playerIndex] = seatPayload.clientId
-            }
-            if (session) session.player_user_ids = updatedIds
-            return updatedIds
-          })
+          const currentArr = [...(session?.player_user_ids || livePlayerUserIds || Array(playerNames.length).fill(null))]
+          const updatedIds = [...currentArr]
+          if (isRelease) {
+            updatedIds[seatPayload.playerIndex] = null
+          } else if (seatPayload.clientId) {
+            updatedIds[seatPayload.playerIndex] = seatPayload.clientId
+          }
+
+          setLivePlayerUserIds(updatedIds)
+          if (session) session.player_user_ids = updatedIds
 
           // Automatic Scorer Failover:
           // If the scorer stood up or went offline, reassign scorer automatically:

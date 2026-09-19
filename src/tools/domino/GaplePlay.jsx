@@ -92,25 +92,18 @@ export default function GaplePlay({
       onSeatClaim: (seatPayload) => {
         if (seatPayload?.playerIndex !== undefined) {
           const isRelease = !!seatPayload.isRelease
-          setLivePlayerUserIds(prev => {
-            const next = [...(prev || Array(players.length).fill(null))]
-            if (isRelease) {
-              next[seatPayload.playerIndex] = null
-            } else if (seatPayload.clientId) {
-              next[seatPayload.playerIndex] = seatPayload.clientId
-            }
-            if (session) session.player_user_ids = next
-            return next
-          })
+          const currentArr = [...(session?.player_user_ids || livePlayerUserIds || Array(players.length).fill(null))]
+          const updated = [...currentArr]
+          if (isRelease) {
+            updated[seatPayload.playerIndex] = null
+          } else if (seatPayload.clientId) {
+            updated[seatPayload.playerIndex] = seatPayload.clientId
+          }
 
-          if (isHost && session.id) {
-            const currentArr = session?.player_user_ids || Array(players.length).fill(null)
-            const updated = [...currentArr]
-            if (isRelease) {
-              updated[seatPayload.playerIndex] = null
-            } else if (seatPayload.clientId) {
-              updated[seatPayload.playerIndex] = seatPayload.clientId
-            }
+          setLivePlayerUserIds(updated)
+          if (session) session.player_user_ids = updated
+
+          if (isHost && session?.id) {
             gameService.updateSessionPlayerUserIds(session.id, updated)
           }
         }

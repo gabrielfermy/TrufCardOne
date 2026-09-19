@@ -685,16 +685,25 @@ export const gameService = {
 
   // Helper to reliably broadcast seat claim / release across WebSocket
   _broadcastSeatClaimOverChannel(sessionId, payload) {
+    if (!sessionId) return
     try {
-      if (!this._activeChannels) this._activeChannels = new Map()
-      const existingChannel = this._activeChannels.get(sessionId)
+      if (!this._roomChannels) this._roomChannels = new Map()
+      const room = this._roomChannels.get(sessionId)
 
-      if (existingChannel && existingChannel.state === 'joined') {
-        this.broadcastSeatClaim(existingChannel, payload)
+      // 1. Immediately invoke local in-memory listeners
+      if (room?.listeners) {
+        for (const h of room.listeners) {
+          try { if (h.onSeatClaim) h.onSeatClaim(payload) } catch (err) {}
+        }
+      }
+
+      // 2. Broadcast to peers over WebSocket
+      if (room && room.channel) {
+        this.broadcastSeatClaim(room.channel, payload)
       } else {
         const topic = `live-room:${sessionId}`
-        const ch = existingChannel || supabase.channel(topic, {
-          config: { broadcast: { ack: false, self: false } }
+        const ch = supabase.channel(topic, {
+          config: { broadcast: { ack: false, self: true } }
         })
         ch.subscribe((status) => {
           if (status === 'SUBSCRIBED') {
@@ -709,7 +718,7 @@ export const gameService = {
 
   // 7b. Authoritative Update of Player User IDs (Used by Host to persist table seats to Supabase)
   async updateSessionPlayerUserIds(sessionId, playerUserIds) {
-    if (!sessionId || !Array.isArray(playerUserIds)) return false
+    if (!sessionId || !Array.isArray(playerUserIds) || playerUserIds.length === 0) return false
     try {
       // Update local storage
       const localSessions = getLocalSessions()
@@ -818,97 +827,105 @@ export const gameService = {
     return true
   },
 
-  // 8. Subscribe to Live Realtime Room Changes (Postgres Changes + Instant Broadcast)
-  subscribeToLiveRoom(sessionId, handlers) {
-    if (!sessionId || sessionId.startsWith('guest-session')) return null
+  // 8. Subscribe to Live Realtime Room Changes (Postgres Changes + Multi-Listener Broadcast Hub)
+  subscribeToLiveRoom(sessionId, handlers = {}) {
+    if (!sessionId || sessionId.startsWith('guest-session') || sessionId.startsWith('local-session')) return null
 
     try {
-      if (!this._activeChannels) this._activeChannels = new Map()
+      if (!this._roomChannels) this._roomChannels = new Map()
       const topic = `live-room:${sessionId}`
 
-      // Clean up previous channel for this session if existing
-      const existing = this._activeChannels.get(sessionId)
-      if (existing) {
-        try {
-          supabase.removeChannel(existing)
-        } catch (e) {}
-        this._activeChannels.delete(sessionId)
-      }
-
-      if (typeof supabase.getChannels === 'function') {
-        const existingChannels = supabase.getChannels() || []
-        const match = existingChannels.find(ch => ch.topic === `realtime:${topic}` || ch.topic === topic)
-        if (match) {
-          supabase.removeChannel(match)
+      let room = this._roomChannels.get(sessionId)
+      if (!room) {
+        // Clean up any stale channels with this topic in Supabase client first
+        if (typeof supabase.getChannels === 'function') {
+          const existingChannels = supabase.getChannels() || []
+          const match = existingChannels.find(ch => ch.topic === `realtime:${topic}` || ch.topic === topic)
+          if (match) {
+            try { supabase.removeChannel(match) } catch (e) {}
+          }
         }
-      }
 
-      const onDbUpdate = typeof handlers === 'function' ? handlers : handlers?.onDbUpdate
-      const onLiveState = typeof handlers === 'object' ? handlers?.onLiveState : null
-      const onRoundAdvance = typeof handlers === 'object' ? handlers?.onRoundAdvance : null
-      const onSeatClaim = typeof handlers === 'object' ? handlers?.onSeatClaim : null
-      const onActivityLog = typeof handlers === 'object' ? handlers?.onActivityLog : null
+        const channel = supabase.channel(topic, {
+          config: {
+            broadcast: { ack: false, self: true }
+          }
+        })
 
-      const channel = supabase.channel(topic, {
-        config: {
-          broadcast: { ack: false, self: false }
+        const listeners = new Set()
+        room = {
+          channel,
+          refCount: 0,
+          listeners,
+          status: 'CONNECTING'
         }
-      })
 
-      if (onDbUpdate) {
-        // Listen to game rounds created, updated, or deleted
+        // Attach centralized multiplexed dispatchers
+        channel.on('broadcast', { event: 'seat_claim' }, ({ payload }) => {
+          for (const h of listeners) {
+            try { if (h.onSeatClaim) h.onSeatClaim(payload) } catch (err) { console.warn('onSeatClaim dispatch error:', err) }
+          }
+        })
+
+        channel.on('broadcast', { event: 'live_state' }, ({ payload }) => {
+          for (const h of listeners) {
+            try { if (h.onLiveState) h.onLiveState(payload) } catch (err) { console.warn('onLiveState dispatch error:', err) }
+          }
+        })
+
+        channel.on('broadcast', { event: 'round_advance' }, ({ payload }) => {
+          for (const h of listeners) {
+            try { if (h.onRoundAdvance) h.onRoundAdvance(payload) } catch (err) { console.warn('onRoundAdvance dispatch error:', err) }
+          }
+        })
+
+        channel.on('broadcast', { event: 'activity_log' }, ({ payload }) => {
+          for (const h of listeners) {
+            try { if (h.onActivityLog) h.onActivityLog(payload) } catch (err) { console.warn('onActivityLog dispatch error:', err) }
+          }
+        })
+
         channel.on('postgres_changes', {
           event: '*',
           schema: 'public',
           table: 'game_rounds',
           filter: `session_id=eq.${sessionId}`
         }, (payload) => {
-          onDbUpdate(payload)
+          for (const h of listeners) {
+            try { if (h.onDbUpdate) h.onDbUpdate(payload) } catch (err) { console.warn('onDbUpdate dispatch error:', err) }
+          }
         })
 
-        // Listen to session modifications (e.g. seats claimed, scorerIndex transferred, completed)
         channel.on('postgres_changes', {
           event: '*',
           schema: 'public',
           table: 'game_sessions',
           filter: `id=eq.${sessionId}`
         }, (payload) => {
-          onDbUpdate(payload)
+          for (const h of listeners) {
+            try { if (h.onDbUpdate) h.onDbUpdate(payload) } catch (err) { console.warn('onDbUpdate dispatch error:', err) }
+          }
         })
+
+        channel.subscribe((status) => {
+          room.status = status
+          if (status === 'SUBSCRIBED') {
+            console.log(`🔌 Connected to Realtime Live Room: ${sessionId}`)
+          }
+        })
+
+        this._roomChannels.set(sessionId, room)
       }
 
-      if (onLiveState) {
-        channel.on('broadcast', { event: 'live_state' }, ({ payload }) => {
-          onLiveState(payload)
-        })
+      const handlerObj = typeof handlers === 'function' ? { onDbUpdate: handlers } : handlers
+      room.listeners.add(handlerObj)
+      room.refCount += 1
+
+      return {
+        channel: room.channel,
+        sessionId,
+        handlerObj
       }
-
-      if (onRoundAdvance) {
-        channel.on('broadcast', { event: 'round_advance' }, ({ payload }) => {
-          onRoundAdvance(payload)
-        })
-      }
-
-      if (onSeatClaim) {
-        channel.on('broadcast', { event: 'seat_claim' }, ({ payload }) => {
-          onSeatClaim(payload)
-        })
-      }
-
-      if (onActivityLog) {
-        channel.on('broadcast', { event: 'activity_log' }, ({ payload }) => {
-          onActivityLog(payload)
-        })
-      }
-
-      channel.subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          console.log(`🔌 Connected to Realtime Live Room: ${sessionId}`)
-        }
-      })
-
-      this._activeChannels.set(sessionId, channel)
-      return channel
     } catch (err) {
       console.warn('Realtime subscribe safe error catch:', err)
       return null
@@ -916,7 +933,8 @@ export const gameService = {
   },
 
   // 9. Broadcast Live Input State to Tabletop Peers
-  broadcastLiveState(channel, statePayload) {
+  broadcastLiveState(channelOrToken, statePayload) {
+    const channel = channelOrToken?.channel || channelOrToken
     if (!channel) return
     try {
       channel.send({
@@ -930,7 +948,8 @@ export const gameService = {
   },
 
   // 10. Broadcast Round Advance to Tabletop Peers
-  broadcastRoundAdvance(channel, roundPayload) {
+  broadcastRoundAdvance(channelOrToken, roundPayload) {
+    const channel = channelOrToken?.channel || channelOrToken
     if (!channel) return
     try {
       channel.send({
@@ -944,7 +963,8 @@ export const gameService = {
   },
 
   // 11. Broadcast Seat Claim to Tabletop Peers
-  broadcastSeatClaim(channel, seatPayload) {
+  broadcastSeatClaim(channelOrToken, seatPayload) {
+    const channel = channelOrToken?.channel || channelOrToken
     if (!channel) return
     try {
       channel.send({
@@ -958,7 +978,8 @@ export const gameService = {
   },
 
   // 12. Broadcast Activity Log to Tabletop Peers
-  broadcastActivityLog(channel, logPayload) {
+  broadcastActivityLog(channelOrToken, logPayload) {
+    const channel = channelOrToken?.channel || channelOrToken
     if (!channel) return
     try {
       channel.send({
@@ -971,26 +992,41 @@ export const gameService = {
     }
   },
 
-  // 13. Unsubscribe Live Room
-  unsubscribeLiveRoom(channel, sessionId) {
-    if (this._activeChannels && sessionId) {
-      this._activeChannels.delete(sessionId)
-    }
-    if (channel) {
-      try {
-        if (this._activeChannels) {
-          for (const [sId, ch] of this._activeChannels.entries()) {
-            if (ch === channel) {
-              this._activeChannels.delete(sId)
-            }
-          }
+  // 13. Unsubscribe Live Room (Ref-counted tear down)
+  unsubscribeLiveRoom(handleOrChannel, sessionId) {
+    let sId = sessionId || handleOrChannel?.sessionId
+    if (!this._roomChannels) return
+
+    if (!sId && handleOrChannel) {
+      for (const [id, room] of this._roomChannels.entries()) {
+        if (room.channel === handleOrChannel || room.channel === handleOrChannel?.channel) {
+          sId = id
+          break
         }
-        supabase.removeChannel(channel)
+      }
+    }
+    if (!sId) return
+
+    const room = this._roomChannels.get(sId)
+    if (!room) return
+
+    if (handleOrChannel?.handlerObj) {
+      room.listeners.delete(handleOrChannel.handlerObj)
+    } else if (typeof handleOrChannel === 'object') {
+      room.listeners.delete(handleOrChannel)
+    }
+    room.refCount = Math.max(0, room.refCount - 1)
+
+    // Only remove channel when all listeners have unsubscribed
+    if (room.refCount === 0 || room.listeners.size === 0) {
+      try {
+        supabase.removeChannel(room.channel)
       } catch (e) {}
+      this._roomChannels.delete(sId)
     }
   },
 
-  unsubscribeFromLiveRoom(channel, sessionId) {
-    return this.unsubscribeLiveRoom(channel, sessionId)
+  unsubscribeFromLiveRoom(handleOrChannel, sessionId) {
+    return this.unsubscribeLiveRoom(handleOrChannel, sessionId)
   }
 }

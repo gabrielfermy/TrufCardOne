@@ -230,17 +230,16 @@ export default function RemiJawaPlay({
       onSeatClaim: (seatPayload) => {
         if (seatPayload?.playerIndex !== undefined) {
           const isRelease = !!seatPayload.isRelease
-          let updatedIds = []
-          setLivePlayerUserIds(prev => {
-            updatedIds = [...(prev || Array(playerNames.length).fill(null))]
-            if (isRelease) {
-              updatedIds[seatPayload.playerIndex] = null
-            } else if (seatPayload.clientId) {
-              updatedIds[seatPayload.playerIndex] = seatPayload.clientId
-            }
-            if (session) session.player_user_ids = updatedIds
-            return updatedIds
-          })
+          const currentArr = [...(session?.player_user_ids || livePlayerUserIds || Array(playerNames.length).fill(null))]
+          const updatedIds = [...currentArr]
+          if (isRelease) {
+            updatedIds[seatPayload.playerIndex] = null
+          } else if (seatPayload.clientId) {
+            updatedIds[seatPayload.playerIndex] = seatPayload.clientId
+          }
+
+          setLivePlayerUserIds(updatedIds)
+          if (session) session.player_user_ids = updatedIds
 
           if (isRelease && seatPayload.playerIndex === scorerIndex) {
             const fallbackIdx = computeFallbackScorer(updatedIds, scorerIndex)

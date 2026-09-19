@@ -90,25 +90,18 @@ export default function OmbenPlay({
       onSeatClaim: (seatPayload) => {
         if (seatPayload?.playerIndex !== undefined) {
           const isRelease = !!seatPayload.isRelease
-          setLivePlayerUserIds(prev => {
-            const next = [...(prev || Array(playerNames.length).fill(null))]
-            if (isRelease) {
-              next[seatPayload.playerIndex] = null
-            } else if (seatPayload.clientId) {
-              next[seatPayload.playerIndex] = seatPayload.clientId
-            }
-            if (session) session.player_user_ids = next
-            return next
-          })
+          const currentArr = [...(session?.player_user_ids || livePlayerUserIds || Array(playerNames.length).fill(null))]
+          const updated = [...currentArr]
+          if (isRelease) {
+            updated[seatPayload.playerIndex] = null
+          } else if (seatPayload.clientId) {
+            updated[seatPayload.playerIndex] = seatPayload.clientId
+          }
+
+          setLivePlayerUserIds(updated)
+          if (session) session.player_user_ids = updated
 
           if (isHost && session.id) {
-            const currentArr = session?.player_user_ids || Array(playerNames.length).fill(null)
-            const updated = [...currentArr]
-            if (isRelease) {
-              updated[seatPayload.playerIndex] = null
-            } else if (seatPayload.clientId) {
-              updated[seatPayload.playerIndex] = seatPayload.clientId
-            }
             gameService.updateSessionPlayerUserIds(session.id, updated)
           }
         }
