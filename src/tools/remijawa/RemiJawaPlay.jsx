@@ -312,8 +312,14 @@ export default function RemiJawaPlay({
       try {
         const refreshed = await gameService.getSession(session.id)
         if (refreshed?.player_user_ids) {
-          session.player_user_ids = refreshed.player_user_ids
-          setLivePlayerUserIds(refreshed.player_user_ids)
+          setLivePlayerUserIds(prev => {
+            const merged = [...(prev || Array(playerNames.length).fill(null))]
+            refreshed.player_user_ids.forEach((id, idx) => {
+              if (id) merged[idx] = id
+            })
+            if (session) session.player_user_ids = merged
+            return merged
+          })
           if (!refreshed.player_user_ids[scorerIndex] && !isLocalOrOffline) {
             const fallbackIdx = computeFallbackScorer(refreshed.player_user_ids, scorerIndex)
             if (fallbackIdx !== scorerIndex) {
@@ -339,6 +345,13 @@ export default function RemiJawaPlay({
       if (channel) gameService.unsubscribeLiveRoom(channel, session.id)
     }
   }, [session?.id])
+
+  // Announce seat presence on mount / seat claim to ensure immediate tabletop sync
+  useEffect(() => {
+    if (myPlayerIndex !== null && session?.id && !isLocalOrOffline) {
+      gameService.claimSeat(session.id, myPlayerIndex, currentClientId, playerNames[myPlayerIndex])
+    }
+  }, [session?.id, myPlayerIndex, isLocalOrOffline])
 
   // Stepper Modifier Helper
   const handleCounterChange = (pIdx, field, delta) => {

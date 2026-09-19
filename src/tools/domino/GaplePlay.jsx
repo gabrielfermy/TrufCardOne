@@ -121,19 +121,32 @@ export default function GaplePlay({
       try {
         const refreshed = await gameService.getSession(session.id)
         if (refreshed?.player_user_ids) {
-          setLivePlayerUserIds(refreshed.player_user_ids)
-          if (session) session.player_user_ids = refreshed.player_user_ids
+          setLivePlayerUserIds(prev => {
+            const merged = [...(prev || Array(players.length).fill(null))]
+            refreshed.player_user_ids.forEach((id, idx) => {
+              if (id) merged[idx] = id
+            })
+            if (session) session.player_user_ids = merged
+            return merged
+          })
         }
       } catch (err) {
         // silent catch
       }
-    }, 4000)
+    }, 2500)
 
     return () => {
       clearInterval(pollInterval)
       gameService.unsubscribeFromLiveRoom(channel, session.id)
     }
   }, [session?.id, isHost, players.length])
+
+  // Announce seat presence on mount / seat claim to ensure immediate tabletop sync
+  useEffect(() => {
+    if (myPlayerIndex !== null && session?.id && !isLocalOrOffline) {
+      gameService.claimSeat(session.id, myPlayerIndex, currentClientId, players[myPlayerIndex])
+    }
+  }, [session?.id, myPlayerIndex, isLocalOrOffline])
 
   const [endType, setEndType] = useState(GAPLE_END_TYPES.OUT) // 'out' | 'deadlock'
   const [winnerId, setWinnerId] = useState('p0')

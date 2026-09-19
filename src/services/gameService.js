@@ -697,9 +697,19 @@ export const gameService = {
         }
       }
 
-      // 2. Broadcast to peers over WebSocket
+      // 2. Broadcast to peers over WebSocket with retries for connecting channels
+      const doSend = (channel) => {
+        if (!channel) return
+        this.broadcastSeatClaim(channel, payload)
+      }
+
       if (room && room.channel) {
-        this.broadcastSeatClaim(room.channel, payload)
+        doSend(room.channel)
+        if (room.status !== 'SUBSCRIBED') {
+          setTimeout(() => doSend(room.channel), 250)
+          setTimeout(() => doSend(room.channel), 750)
+          setTimeout(() => doSend(room.channel), 1500)
+        }
       } else {
         const topic = `live-room:${sessionId}`
         const ch = supabase.channel(topic, {
@@ -707,7 +717,7 @@ export const gameService = {
         })
         ch.subscribe((status) => {
           if (status === 'SUBSCRIBED') {
-            this.broadcastSeatClaim(ch, payload)
+            doSend(ch)
           }
         })
       }
@@ -967,11 +977,14 @@ export const gameService = {
     const channel = channelOrToken?.channel || channelOrToken
     if (!channel) return
     try {
-      channel.send({
+      const p = channel.send({
         type: 'broadcast',
         event: 'seat_claim',
         payload: seatPayload
       })
+      if (p && typeof p.catch === 'function') {
+        p.catch(err => console.warn('broadcastSeatClaim send warning:', err))
+      }
     } catch (e) {
       console.warn('broadcastSeatClaim error:', e)
     }

@@ -256,6 +256,11 @@ function MainApp() {
     deviceService.setSessionSeat(pendingJoinSession.id, playerIndex)
 
     const refreshed = await gameService.getSession(pendingJoinSession.id) || pendingJoinSession
+    if (refreshed) {
+      const userIds = [...(refreshed.player_user_ids || Array(refreshed.player_names?.length || 4).fill(null))]
+      userIds[playerIndex] = currentClientId
+      refreshed.player_user_ids = userIds
+    }
     setActiveSession(refreshed)
     setSessionRounds(refreshed.game_rounds || refreshed.rounds || [])
     setCurrentView(refreshed.game_type)
@@ -291,8 +296,11 @@ function MainApp() {
     const pName = latest.player_names?.[playerIndex] || user?.profile?.display_name || user?.email || `Pemain ${playerIndex + 1}`
     await gameService.claimSeat(activeSession.id, playerIndex, currentClientId, pName)
     deviceService.setSessionSeat(activeSession.id, playerIndex)
-    const refreshed = await gameService.getSession(activeSession.id)
+    const refreshed = await gameService.getSession(activeSession.id) || activeSession
     if (refreshed) {
+      const userIds = [...(refreshed.player_user_ids || Array(refreshed.player_names?.length || 4).fill(null))]
+      userIds[playerIndex] = currentClientId
+      refreshed.player_user_ids = userIds
       setActiveSession(refreshed)
       setSessionRounds(refreshed.game_rounds || refreshed.rounds || [])
     }
