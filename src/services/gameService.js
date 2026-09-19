@@ -640,6 +640,11 @@ export const gameService = {
       const local = localSessions.find(s => s.id === sessionId)
       if (local) {
         const userIds = [...(local.player_user_ids || Array(local.player_names?.length || 4).fill(null))]
+        for (let i = 0; i < userIds.length; i++) {
+          if (i !== playerIndex && userIds[i] === clientId) {
+            userIds[i] = null
+          }
+        }
         userIds[playerIndex] = clientId
         local.player_user_ids = userIds
         saveLocalSession(local)
@@ -666,6 +671,11 @@ export const gameService = {
 
       if (session && !fetchErr) {
         const userIds = [...(session.player_user_ids || Array(session.player_names?.length || 4).fill(null))]
+        for (let i = 0; i < userIds.length; i++) {
+          if (i !== playerIndex && userIds[i] === clientId) {
+            userIds[i] = null
+          }
+        }
         userIds[playerIndex] = clientId
         const { error } = await supabase
           .from('game_sessions')

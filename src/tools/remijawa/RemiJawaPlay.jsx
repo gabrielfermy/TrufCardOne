@@ -65,29 +65,28 @@ export default function RemiJawaPlay({
   const isLocalOrOffline = !session?.room_code || session?.settings?.isOfflineLocal || !session?.id || session.id.startsWith('guest-session') || session.id.startsWith('local-session')
   const isHost = isLocalOrOffline ||
                  session?.user_id === user?.id || 
-                 livePlayerUserIds?.[0] === currentClientId || 
-                 propMyPlayerIndex === 0 ||
                  (session?.id?.startsWith('guest-session') && deviceService.getSessionSeat(session.id) === 0)
 
   let effectiveSeat = propMyPlayerIndex !== undefined ? propMyPlayerIndex : null
   if (effectiveSeat === null) {
-    const seatInSession = livePlayerUserIds?.findIndex(id => id && (id === currentClientId || (user?.id && id === user.id)))
-    if (seatInSession !== -1 && seatInSession !== undefined) {
-      effectiveSeat = seatInSession
+    const localSeat = deviceService.getSessionSeat(session?.id)
+    if (localSeat !== null && localSeat !== undefined) {
+      effectiveSeat = localSeat
     } else {
-      const localSeat = deviceService.getSessionSeat(session?.id)
-      if (localSeat !== null) effectiveSeat = localSeat
-      else if (isHost) effectiveSeat = 0
+      const seatInSession = livePlayerUserIds?.findIndex(id => id && (id === currentClientId || (user?.id && id === user.id)))
+      if (seatInSession !== -1 && seatInSession !== undefined) {
+        effectiveSeat = seatInSession
+      }
     }
   }
 
   const myPlayerIndex = effectiveSeat
-  const isSpectator = myPlayerIndex === null && !isHost
+  const isSpectator = myPlayerIndex === null
 
   // Scorer role state (defaults to Player 0 / Host)
   const [scorerIndex, setScorerIndex] = useState(session?.settings?.scorerIndex ?? 0)
   const [showTransferScorerModal, setShowTransferScorerModal] = useState(false)
-  const isScorer = isLocalOrOffline || myPlayerIndex === scorerIndex
+  const isScorer = isLocalOrOffline || isHost || myPlayerIndex === scorerIndex
   const canChangeScorer = isLocalOrOffline || isHost || myPlayerIndex === scorerIndex
   const canEditPlayer = (idx) => isScorer || myPlayerIndex === idx || (isHost && !livePlayerUserIds?.[idx])
 
@@ -235,20 +234,16 @@ export default function RemiJawaPlay({
           if (isRelease) {
             updatedIds[seatPayload.playerIndex] = null
           } else if (seatPayload.clientId) {
+            for (let i = 0; i < updatedIds.length; i++) {
+              if (i !== seatPayload.playerIndex && updatedIds[i] === seatPayload.clientId) {
+                updatedIds[i] = null
+              }
+            }
             updatedIds[seatPayload.playerIndex] = seatPayload.clientId
           }
 
           setLivePlayerUserIds(updatedIds)
           if (session) session.player_user_ids = updatedIds
-
-          if (isRelease && seatPayload.playerIndex === scorerIndex) {
-            const fallbackIdx = computeFallbackScorer(updatedIds, scorerIndex)
-            setScorerIndex(fallbackIdx)
-            if (isHost && session.id) {
-              broadcastState({ scorerIndex: fallbackIdx })
-              gameService.updateSessionSettings(session.id, { ...(session.settings || {}), scorerIndex: fallbackIdx })
-            }
-          }
 
           if (isHost && session.id) {
             gameService.updateSessionPlayerUserIds(session.id, updatedIds)

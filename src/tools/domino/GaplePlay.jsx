@@ -49,40 +49,29 @@ export default function GaplePlay({
   const isLocalOrOffline = !session?.room_code || session?.settings?.isOfflineLocal || !session?.id || session.id.startsWith('guest-session') || session.id.startsWith('local-session')
   const isHost = isLocalOrOffline ||
                  session?.user_id === user?.id || 
-                 livePlayerUserIds?.[0] === currentClientId || 
-                 propMyPlayerIndex === 0 ||
                  (session?.id?.startsWith('guest-session') && deviceService.getSessionSeat(session.id) === 0)
 
   let effectiveSeat = propMyPlayerIndex !== undefined ? propMyPlayerIndex : null
   if (effectiveSeat === null) {
-    const seatInSession = livePlayerUserIds?.findIndex(id => id && (id === currentClientId || (user?.id && id === user.id)))
-    if (seatInSession !== -1 && seatInSession !== undefined) {
-      effectiveSeat = seatInSession
+    const localSeat = deviceService.getSessionSeat(session?.id)
+    if (localSeat !== null && localSeat !== undefined) {
+      effectiveSeat = localSeat
     } else {
-      const localSeat = deviceService.getSessionSeat(session?.id)
-      if (localSeat !== null) effectiveSeat = localSeat
-      else if (isHost) effectiveSeat = 0
+      const seatInSession = livePlayerUserIds?.findIndex(id => id && (id === currentClientId || (user?.id && id === user.id)))
+      if (seatInSession !== -1 && seatInSession !== undefined) {
+        effectiveSeat = seatInSession
+      }
     }
   }
 
   const myPlayerIndex = effectiveSeat
-  const isSpectator = myPlayerIndex === null && !isHost
+  const isSpectator = myPlayerIndex === null
 
   // Scorer role state (defaults to Player 0 / Host)
   const [scorerIndex, setScorerIndex] = useState(session?.settings?.scorerIndex ?? 0)
 
-  // Helper to determine automatic Scorer fallback if current scorer goes offline / stands up
-  const computeFallbackScorer = (currentScorer, liveIds) => {
-    if (liveIds && liveIds[currentScorer]) return currentScorer
-    if (liveIds && liveIds[0]) return 0
-    const firstOnline = liveIds ? liveIds.findIndex(id => Boolean(id)) : -1
-    if (firstOnline !== -1) return firstOnline
-    return 0
-  }
-
-  const effectiveScorerIndex = isLocalOrOffline ? scorerIndex : computeFallbackScorer(scorerIndex, livePlayerUserIds)
-  const isScorer = isLocalOrOffline || myPlayerIndex === effectiveScorerIndex || (isHost && effectiveScorerIndex === null)
-  const canChangeScorer = isLocalOrOffline || isHost || myPlayerIndex === effectiveScorerIndex
+  const isScorer = isLocalOrOffline || isHost || myPlayerIndex === scorerIndex
+  const canChangeScorer = isLocalOrOffline || isHost || myPlayerIndex === scorerIndex
 
   // Realtime Live Room listener
   useEffect(() => {
@@ -97,6 +86,11 @@ export default function GaplePlay({
           if (isRelease) {
             updated[seatPayload.playerIndex] = null
           } else if (seatPayload.clientId) {
+            for (let i = 0; i < updated.length; i++) {
+              if (i !== seatPayload.playerIndex && updated[i] === seatPayload.clientId) {
+                updated[i] = null
+              }
+            }
             updated[seatPayload.playerIndex] = seatPayload.clientId
           }
 

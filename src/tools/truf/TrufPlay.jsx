@@ -43,29 +43,28 @@ export default function TrufPlay({
   const isLocalOrOffline = !session?.room_code || session?.settings?.isOfflineLocal || !session?.id || session.id.startsWith('guest-session') || session.id.startsWith('local-session')
   const isHost = isLocalOrOffline ||
                  session?.user_id === user?.id || 
-                 livePlayerUserIds?.[0] === currentClientId || 
-                 propMyPlayerIndex === 0 ||
                  (session?.id?.startsWith('guest-session') && deviceService.getSessionSeat(session.id) === 0)
 
   let effectiveSeat = propMyPlayerIndex !== undefined ? propMyPlayerIndex : null
   if (effectiveSeat === null) {
-    const seatInSession = livePlayerUserIds?.findIndex(id => id && (id === currentClientId || (user?.id && id === user.id)))
-    if (seatInSession !== -1 && seatInSession !== undefined) {
-      effectiveSeat = seatInSession
+    const localSeat = deviceService.getSessionSeat(session?.id)
+    if (localSeat !== null && localSeat !== undefined) {
+      effectiveSeat = localSeat
     } else {
-      const localSeat = deviceService.getSessionSeat(session?.id)
-      if (localSeat !== null) effectiveSeat = localSeat
-      else if (isHost) effectiveSeat = 0
+      const seatInSession = livePlayerUserIds?.findIndex(id => id && (id === currentClientId || (user?.id && id === user.id)))
+      if (seatInSession !== -1 && seatInSession !== undefined) {
+        effectiveSeat = seatInSession
+      }
     }
   }
 
   const myPlayerIndex = effectiveSeat
-  const isSpectator = myPlayerIndex === null && !isHost
+  const isSpectator = myPlayerIndex === null
 
   // Scorer role state (defaults to Player 0 / Host)
   const [scorerIndex, setScorerIndex] = useState(session?.settings?.scorerIndex ?? 0)
   const [showTransferScorerModal, setShowTransferScorerModal] = useState(false)
-  const isScorer = isLocalOrOffline || myPlayerIndex === scorerIndex
+  const isScorer = isLocalOrOffline || isHost || myPlayerIndex === scorerIndex
   // Strict permission: Only the Host OR the current active Scorer can change the Scorer
   const canChangeScorer = isLocalOrOffline || isHost || myPlayerIndex === scorerIndex
   // Only the active Scorer can edit all players. If a player is Offline / Stood Up, Host or Scorer can edit to keep game moving!
@@ -248,25 +247,16 @@ export default function TrufPlay({
           if (isRelease) {
             updatedIds[seatPayload.playerIndex] = null
           } else if (seatPayload.clientId) {
+            for (let i = 0; i < updatedIds.length; i++) {
+              if (i !== seatPayload.playerIndex && updatedIds[i] === seatPayload.clientId) {
+                updatedIds[i] = null
+              }
+            }
             updatedIds[seatPayload.playerIndex] = seatPayload.clientId
           }
 
           setLivePlayerUserIds(updatedIds)
           if (session) session.player_user_ids = updatedIds
-
-          // Automatic Scorer Failover:
-          // If the scorer stood up or went offline, reassign scorer automatically:
-          // 1. Host (seat 0) if online -> 2. First online player in roster -> 3. Player 0
-          if (isRelease && seatPayload.playerIndex === scorerIndex) {
-            const fallbackIdx = computeFallbackScorer(updatedIds, scorerIndex)
-            setScorerIndex(fallbackIdx)
-            const fallbackName = playerNames[fallbackIdx] || `Pemain ${fallbackIdx + 1}`
-            addLog(`Pencatat Skor offline/stand up, otomatis dialihkan ke ${fallbackName}`, 'role')
-            if (isHost && session.id) {
-              broadcastState({ scorerIndex: fallbackIdx })
-              gameService.updateSessionSettings(session.id, { ...(session.settings || {}), scorerIndex: fallbackIdx })
-            }
-          }
 
           // Host (with auth write permission) saves the seat occupancy to Supabase game_sessions
           if (isHost && session.id) {
