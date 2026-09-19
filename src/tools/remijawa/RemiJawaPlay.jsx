@@ -37,6 +37,7 @@ export default function RemiJawaPlay({
   onBackToLobby,
   user,
   onClaimSeat,
+  onReleaseSeat,
   myPlayerIndex: propMyPlayerIndex
 }) {
   const { t } = useTranslation()
@@ -146,6 +147,24 @@ export default function RemiJawaPlay({
           if (Array.isArray(payload.playersInput)) setPlayersInput(payload.playersInput)
         }
       },
+      onSeatClaim: (seatPayload) => {
+        if (seatPayload?.playerIndex !== undefined) {
+          const isRelease = !!seatPayload.isRelease
+          if (session) {
+            const updatedIds = [...(session?.player_user_ids || Array(playerNames.length).fill(null))]
+            if (isRelease) {
+              updatedIds[seatPayload.playerIndex] = null
+            } else if (seatPayload.clientId) {
+              updatedIds[seatPayload.playerIndex] = seatPayload.clientId
+            }
+            session.player_user_ids = updatedIds
+
+            if (isHost && session.id) {
+              gameService.updateSessionPlayerUserIds(session.id, updatedIds)
+            }
+          }
+        }
+      },
       onRoundSaved: (payload) => {
         if (payload?.round) {
           setLocalRounds(prev => {
@@ -155,6 +174,15 @@ export default function RemiJawaPlay({
             return nextList
           })
           setPlayersInput(Array.from({ length: playerNames.length }, createInitialPlayerData))
+        }
+      },
+      onDbUpdate: async () => {
+        const refreshed = await gameService.getSession(session.id)
+        if (refreshed?.player_user_ids) {
+          session.player_user_ids = refreshed.player_user_ids
+        }
+        if (refreshed?.game_rounds && refreshed.game_rounds.length >= localRounds.length) {
+          setLocalRounds(refreshed.game_rounds)
         }
       }
     })
@@ -849,8 +877,10 @@ export default function RemiJawaPlay({
       <RoomInviteModal
         isOpen={isInviteModalOpen}
         onClose={() => setIsInviteModalOpen(false)}
-        roomCode={session?.room_code}
-        gameName="Remi Jawa"
+        session={session}
+        user={user}
+        onClaimSeat={onClaimSeat}
+        onReleaseSeat={onReleaseSeat}
       />
 
       <CardGameRulesModal

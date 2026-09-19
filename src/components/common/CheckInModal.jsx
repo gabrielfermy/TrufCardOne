@@ -1,29 +1,104 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { useTranslation } from '../../i18n/I18nContext'
 import { soundService } from '../../services/soundService'
 import { hapticsService } from '../../services/hapticsService'
+import { deviceService } from '../../services/deviceService'
+import { gameService } from '../../services/gameService'
 
 export default function CheckInModal({
   isOpen,
   session,
   onSelectSeat,
-  onEnterAsSpectator
+  onEnterAsSpectator,
+  user
 }) {
   const { t } = useTranslation()
+  const [liveSession, setLiveSession] = useState(session)
 
-  if (!isOpen || !session) return null
+  useEffect(() => {
+    setLiveSession(session)
+  }, [session])
 
-  const playerNames = session.player_names || []
-  const playerUserIds = session.player_user_ids || []
+  // Live real-time room listener and active polling while modal is open
+  useEffect(() => {
+    if (!isOpen || !session?.id) return
+
+    // 1. WebSocket Realtime listener for instant seat claims & releases from other devices
+    const channel = gameService.subscribeToLiveRoom(session.id, {
+      onSeatClaim: (seatPayload) => {
+        if (seatPayload?.playerIndex !== undefined) {
+          setLiveSession(prev => {
+            if (!prev) return prev
+            const userIds = [...(prev.player_user_ids || Array(prev.player_names?.length || 4).fill(null))]
+            userIds[seatPayload.playerIndex] = seatPayload.isRelease ? null : (seatPayload.clientId || null)
+            return {
+              ...prev,
+              player_user_ids: userIds
+            }
+          })
+        }
+      }
+    })
+
+    // 2. Polling every 1.5s to ensure synchronized fresh state
+    const pollInterval = setInterval(async () => {
+      try {
+        const fresh = await gameService.getSession(session.id)
+        if (fresh && fresh.player_user_ids) {
+          setLiveSession(prev => ({
+            ...prev,
+            ...fresh,
+            player_user_ids: fresh.player_user_ids
+          }))
+        }
+      } catch (e) {}
+    }, 1500)
+
+    return () => {
+      clearInterval(pollInterval)
+      if (channel) gameService.unsubscribeLiveRoom(channel)
+    }
+  }, [isOpen, session?.id])
+
+  if (!isOpen || !liveSession) return null
+
+  const currentClientId = deviceService.getClientIdentifier(user)
+  const playerNames = liveSession.player_names || []
+  const playerUserIds = liveSession.player_user_ids || []
   const allSeatsFilled = playerNames.length > 0 && playerUserIds.filter(Boolean).length >= playerNames.length
-  const gameType = (session.game_type || 'Truf').toUpperCase()
+  const gameType = (liveSession.game_type || 'Truf').toUpperCase()
 
   const handleClaim = (index) => {
+    // Prevent claiming if already occupied by another device
+    const occupantId = playerUserIds[index]
+    if (occupantId && occupantId !== currentClientId && !(user?.id && occupantId === user.id)) {
+      alert(t('room.seat_already_taken') || 'Kursi ini telah dipilih oleh pemain lain. Silakan pilih kursi lain yang masih kosong.')
+      return
+    }
+
     try {
       hapticsService.medium()
       soundService.playClick()
     } catch {}
     onSelectSeat(index)
+  }
+
+  const handleReleaseSeat = async (index) => {
+    try {
+      hapticsService.medium()
+      soundService.playClick()
+    } catch {}
+    await gameService.releaseSeat(liveSession.id, index, currentClientId)
+    deviceService.clearSessionSeat(liveSession.id)
+    setLiveSession(prev => {
+      if (!prev) return prev
+      const userIds = [...(prev.player_user_ids || Array(playerNames.length).fill(null))]
+      userIds[index] = null
+      return {
+        ...prev,
+        player_user_ids: userIds
+      }
+    })
   }
 
   const handleSpectator = () => {
@@ -48,7 +123,7 @@ export default function CheckInModal({
             padding: '3px 10px',
             borderRadius: '20px'
           }}>
-            {gameType} ROOM • {session.room_code || 'ROOM'}
+            {gameType} ROOM • {liveSession.room_code || 'ROOM'}
           </span>
           <h2 style={{ fontSize: '1.4rem', fontWeight: 900, marginTop: '10px', marginBottom: '6px' }}>
             {allSeatsFilled ? `👀 ${t('room.spectator_title')}` : `🪑 ${t('room.choose_seat_title')}`}
@@ -63,7 +138,9 @@ export default function CheckInModal({
         {!allSeatsFilled ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
             {playerNames.map((name, idx) => {
-              const isOccupied = !!playerUserIds[idx]
+              const occupantId = playerUserIds[idx]
+              const isOccupiedByMe = Boolean(occupantId && (occupantId === currentClientId || (user?.id && occupantId === user.id)))
+              const isOccupiedByOther = Boolean(occupantId && !isOccupiedByMe)
 
               return (
                 <div 
@@ -74,9 +151,13 @@ export default function CheckInModal({
                     justifyContent: 'space-between',
                     padding: '12px 16px',
                     borderRadius: '12px',
-                    background: isOccupied ? 'rgba(255, 255, 255, 0.02)' : 'rgba(255, 255, 255, 0.06)',
-                    border: isOccupied ? '1px solid rgba(255, 255, 255, 0.05)' : '1px solid rgba(139, 92, 246, 0.35)',
-                    opacity: isOccupied ? 0.65 : 1
+                    background: isOccupiedByMe 
+                      ? 'rgba(16, 185, 129, 0.1)' 
+                      : (isOccupiedByOther ? 'rgba(255, 255, 255, 0.02)' : 'rgba(255, 255, 255, 0.06)'),
+                    border: isOccupiedByMe
+                      ? '1px solid rgba(16, 185, 129, 0.4)'
+                      : (isOccupiedByOther ? '1px solid rgba(255, 255, 255, 0.05)' : '1px solid rgba(139, 92, 246, 0.35)'),
+                    opacity: isOccupiedByOther ? 0.6 : 1
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -84,7 +165,9 @@ export default function CheckInModal({
                       width: '28px', 
                       height: '28px', 
                       borderRadius: '50%', 
-                      background: isOccupied ? 'rgba(255, 255, 255, 0.1)' : 'var(--primary)',
+                      background: isOccupiedByMe 
+                        ? '#10B981' 
+                        : (isOccupiedByOther ? 'rgba(255, 255, 255, 0.1)' : 'var(--primary)'),
                       color: '#FFF',
                       fontSize: '0.82rem',
                       fontWeight: 800,
@@ -96,13 +179,39 @@ export default function CheckInModal({
                     </span>
                     <div style={{ textAlign: 'left' }}>
                       <div style={{ fontWeight: 800, fontSize: '0.95rem' }}>{name}</div>
-                      <div style={{ fontSize: '0.72rem', color: isOccupied ? '#34D399' : 'var(--text-dim)' }}>
-                        {isOccupied ? `✓ ${t('room.occupied_other')}` : t('room.empty_seat')}
+                      <div style={{ 
+                        fontSize: '0.72rem', 
+                        color: isOccupiedByMe ? '#10B981' : (isOccupiedByOther ? '#F87171' : 'var(--text-dim)'),
+                        fontWeight: 600
+                      }}>
+                        {isOccupiedByMe 
+                          ? '✓ Kursi Anda' 
+                          : (isOccupiedByOther ? `🔒 ${t('room.occupied_other') || 'Terisi Pemain Lain'}` : t('room.empty_seat'))}
                       </div>
                     </div>
                   </div>
 
-                  {!isOccupied ? (
+                  {isOccupiedByMe ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <button 
+                        type="button"
+                        className="btn btn-sm btn-success"
+                        style={{ fontWeight: 800, padding: '6px 12px', fontSize: '0.8rem' }}
+                        onClick={() => handleClaim(idx)}
+                      >
+                        Masuk Meja
+                      </button>
+                      <button 
+                        type="button"
+                        className="btn btn-sm btn-secondary"
+                        style={{ fontWeight: 700, padding: '6px 10px', fontSize: '0.78rem', color: '#F87171', borderColor: 'rgba(248, 113, 113, 0.4)' }}
+                        onClick={() => handleReleaseSeat(idx)}
+                        title="Lepas kursi ini (Stand Up)"
+                      >
+                        Stand Up
+                      </button>
+                    </div>
+                  ) : !isOccupiedByOther ? (
                     <button 
                       type="button"
                       className="btn btn-sm btn-primary"
@@ -112,8 +221,8 @@ export default function CheckInModal({
                       {t('room.claim_this_seat')}
                     </button>
                   ) : (
-                    <span style={{ fontSize: '0.78rem', color: 'var(--text-dim)', fontStyle: 'italic' }}>
-                      {t('room.occupied_other')}
+                    <span style={{ fontSize: '0.78rem', color: '#F87171', fontStyle: 'italic', fontWeight: 600 }}>
+                      🔒 Terisi
                     </span>
                   )}
                 </div>

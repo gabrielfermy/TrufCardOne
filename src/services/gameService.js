@@ -631,10 +631,39 @@ export const gameService = {
   },
 
   // 7. Claim Seat (Guest or Logged-In User)
-  async claimSeat(sessionId, playerIndex, clientId) {
+  async claimSeat(sessionId, playerIndex, clientId, playerName) {
     if (!sessionId || playerIndex === undefined || playerIndex === null) return false
 
-    // 2. Handle Supabase Cloud session
+    // 1. Update local storage session if exists
+    try {
+      const localSessions = getLocalSessions()
+      const local = localSessions.find(s => s.id === sessionId)
+      if (local) {
+        const userIds = [...(local.player_user_ids || Array(local.player_names?.length || 4).fill(null))]
+        userIds[playerIndex] = clientId
+        local.player_user_ids = userIds
+        saveLocalSession(local)
+      }
+    } catch {}
+
+    // 2. Broadcast immediately over Realtime channel
+    try {
+      const channel = supabase.channel(`live-room:${sessionId}`)
+      channel.send({
+        type: 'broadcast',
+        event: 'seat_claim',
+        payload: {
+          sessionId,
+          playerIndex,
+          clientId,
+          playerName: playerName || `Pemain ${playerIndex + 1}`
+        }
+      })
+    } catch (e) {
+      console.warn('claimSeat broadcast error:', e)
+    }
+
+    // 3. Handle Supabase Cloud session update
     try {
       const { data: session, error: fetchErr } = await supabase
         .from('game_sessions')
@@ -651,15 +680,132 @@ export const gameService = {
           .eq('id', sessionId)
 
         if (error) {
-          console.error('Supabase claimSeat error:', error)
-          return false
+          console.warn('Supabase claimSeat cloud update warning:', error.message)
         }
         return userIds
       }
     } catch (err) {
       console.warn('claimSeat exception:', err)
     }
-    return false
+    return true
+  },
+
+  // 7b. Authoritative Update of Player User IDs (Used by Host to persist table seats to Supabase)
+  async updateSessionPlayerUserIds(sessionId, playerUserIds) {
+    if (!sessionId || !Array.isArray(playerUserIds)) return false
+    try {
+      // Update local storage
+      const localSessions = getLocalSessions()
+      const local = localSessions.find(s => s.id === sessionId)
+      if (local) {
+        local.player_user_ids = playerUserIds
+        saveLocalSession(local)
+      }
+
+      // Update Supabase Cloud
+      const { error } = await supabase
+        .from('game_sessions')
+        .update({ player_user_ids: playerUserIds })
+        .eq('id', sessionId)
+
+      if (error) {
+        console.warn('updateSessionPlayerUserIds error:', error.message)
+        return false
+      }
+      return true
+    } catch (e) {
+      console.warn('updateSessionPlayerUserIds exception:', e)
+      return false
+    }
+  },
+
+  // 7d. Authoritative Update of Session Settings (Used for scorerIndex & match rules)
+  async updateSessionSettings(sessionId, settings) {
+    if (!sessionId || !settings) return false
+    try {
+      const localSessions = getLocalSessions()
+      const local = localSessions.find(s => s.id === sessionId)
+      if (local) {
+        local.settings = { ...(local.settings || {}), ...settings }
+        saveLocalSession(local)
+      }
+
+      const { error } = await supabase
+        .from('game_sessions')
+        .update({ settings })
+        .eq('id', sessionId)
+
+      if (error) {
+        console.warn('updateSessionSettings error:', error.message)
+        return false
+      }
+      return true
+    } catch (e) {
+      console.warn('updateSessionSettings exception:', e)
+      return false
+    }
+  },
+
+  // 7c. Release / Stand Up from Seat
+  async releaseSeat(sessionId, playerIndex, clientId) {
+    if (!sessionId || playerIndex === undefined || playerIndex === null) return false
+
+    // 1. Update local storage
+    try {
+      const localSessions = getLocalSessions()
+      const local = localSessions.find(s => s.id === sessionId)
+      if (local && Array.isArray(local.player_user_ids)) {
+        if (!clientId || local.player_user_ids[playerIndex] === clientId) {
+          local.player_user_ids[playerIndex] = null
+          saveLocalSession(local)
+        }
+      }
+    } catch {}
+
+    // 2. Broadcast seat release over Realtime
+    try {
+      const channel = supabase.channel(`live-room:${sessionId}`)
+      channel.send({
+        type: 'broadcast',
+        event: 'seat_claim',
+        payload: {
+          sessionId,
+          playerIndex,
+          clientId: null,
+          isRelease: true
+        }
+      })
+    } catch (e) {
+      console.warn('releaseSeat broadcast error:', e)
+    }
+
+    // 3. Update Supabase Cloud
+    try {
+      const { data: session, error: fetchErr } = await supabase
+        .from('game_sessions')
+        .select('player_user_ids')
+        .eq('id', sessionId)
+        .single()
+
+      if (session && !fetchErr && Array.isArray(session.player_user_ids)) {
+        const userIds = [...session.player_user_ids]
+        if (!clientId || userIds[playerIndex] === clientId) {
+          userIds[playerIndex] = null
+          const { error } = await supabase
+            .from('game_sessions')
+            .update({ player_user_ids: userIds })
+            .eq('id', sessionId)
+
+          if (error) {
+            console.warn('Supabase releaseSeat warning:', error.message)
+          }
+          return userIds
+        }
+      }
+    } catch (err) {
+      console.warn('releaseSeat exception:', err)
+    }
+    return true
   },
 
   // 8. Subscribe to Live Realtime Room Changes (Postgres Changes + Instant Broadcast)

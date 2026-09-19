@@ -1,16 +1,61 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useTranslation } from '../../i18n/I18nContext'
 import { soundService } from '../../services/soundService'
 import { hapticsService } from '../../services/hapticsService'
 import { deviceService } from '../../services/deviceService'
+import { gameService } from '../../services/gameService'
 
-export default function RoomInviteModal({ isOpen, onClose, session, user, onClaimSeat }) {
+export default function RoomInviteModal({ isOpen, onClose, session, user, onClaimSeat, onReleaseSeat }) {
   const { t } = useTranslation()
   const [copiedType, setCopiedType] = useState(null) // 'code' | 'link' | null
+  const [liveSession, setLiveSession] = useState(session)
 
-  if (!isOpen || !session) return null
+  useEffect(() => {
+    setLiveSession(session)
+  }, [session])
 
-  const roomCode = session.room_code || 'ROOM'
+  // Real-time synchronization while modal is open
+  useEffect(() => {
+    if (!isOpen || !session?.id) return
+
+    const channel = gameService.subscribeToLiveRoom(session.id, {
+      onSeatClaim: (seatPayload) => {
+        if (seatPayload?.playerIndex !== undefined) {
+          setLiveSession(prev => {
+            if (!prev) return prev
+            const userIds = [...(prev.player_user_ids || Array(prev.player_names?.length || 4).fill(null))]
+            userIds[seatPayload.playerIndex] = seatPayload.isRelease ? null : (seatPayload.clientId || null)
+            return {
+              ...prev,
+              player_user_ids: userIds
+            }
+          })
+        }
+      }
+    })
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const fresh = await gameService.getSession(session.id)
+        if (fresh && fresh.player_user_ids) {
+          setLiveSession(prev => ({
+            ...prev,
+            ...fresh,
+            player_user_ids: fresh.player_user_ids
+          }))
+        }
+      } catch (e) {}
+    }, 1500)
+
+    return () => {
+      clearInterval(pollInterval)
+      if (channel) gameService.unsubscribeLiveRoom(channel)
+    }
+  }, [isOpen, session?.id])
+
+  if (!isOpen || !liveSession) return null
+
+  const roomCode = liveSession.room_code || 'ROOM'
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://kancasela.my.id'
   const inviteUrl = `${origin}/?room=${roomCode}`
   const currentClientId = deviceService.getClientIdentifier(user)
@@ -61,7 +106,7 @@ export default function RoomInviteModal({ isOpen, onClose, session, user, onClai
       soundService.playClick()
     } catch {}
 
-    const gameName = (session.game_type || 'Game').toUpperCase()
+    const gameName = (liveSession.game_type || 'Game').toUpperCase()
     const msg = `🎮 Yuk gabung ke room game KancaSela!\nPermainan: ${gameName}\nKode Room: ${roomCode}\n\nKlik tautan ini untuk langsung check-in ke meja:\n${inviteUrl}`
     const waUrl = `https://wa.me/?text=${encodeURIComponent(msg)}`
     window.open(waUrl, '_blank')
@@ -73,7 +118,7 @@ export default function RoomInviteModal({ isOpen, onClose, session, user, onClai
       soundService.playClick()
     } catch {}
 
-    const gameName = (session.game_type || 'Game').toUpperCase()
+    const gameName = (liveSession.game_type || 'Game').toUpperCase()
     const shareData = {
       title: `Gabung Meja ${gameName} - KancaSela`,
       text: `🎮 Yuk gabung ke meja ${gameName} di KancaSela! Kode Room: ${roomCode}`,
@@ -93,108 +138,104 @@ export default function RoomInviteModal({ isOpen, onClose, session, user, onClai
     }
   }
 
-  const playerNames = session.player_names || []
-  const playerUserIds = session.player_user_ids || []
+  const playerNames = liveSession.player_names || []
+  const playerUserIds = liveSession.player_user_ids || []
   const canNativeShare = typeof navigator !== 'undefined' && !!navigator.share
+  const isHost = liveSession.user_id === user?.id || playerUserIds[0] === currentClientId
+
+  const handleRelease = async (idx) => {
+    try {
+      hapticsService.medium()
+      soundService.playClick()
+    } catch {}
+    const isMe = playerUserIds[idx] === currentClientId || (user?.id && playerUserIds[idx] === user.id)
+    await gameService.releaseSeat(liveSession.id, idx, isMe ? currentClientId : null)
+    if (isMe) {
+      deviceService.clearSessionSeat(liveSession.id)
+    }
+    setLiveSession(prev => {
+      if (!prev) return prev
+      const userIds = [...(prev.player_user_ids || Array(playerNames.length).fill(null))]
+      userIds[idx] = null
+      return {
+        ...prev,
+        player_user_ids: userIds
+      }
+    })
+    if (onReleaseSeat) onReleaseSeat(idx)
+  }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '460px', width: '92%' }}>
-        <div className="modal-header">
-          <div>
-            <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#A78BFA', letterSpacing: '1px', textTransform: 'uppercase' }}>
-              {t('room.lobby_tag')}
-            </span>
-            <h3 className="modal-title" style={{ fontSize: '1.35rem', fontWeight: 900, marginTop: '2px' }}>
-              🔗 {t('room.share_table_title')}
-            </h3>
-          </div>
-          <button className="btn-close" onClick={onClose}>✕</button>
-        </div>
-
-        <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', marginBottom: '18px' }}>
-          {t('room.share_table_desc')}
+    <div className="modal-overlay" style={{ zIndex: 1200 }} onClick={onClose}>
+      <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '440px', width: '90%', textAlign: 'center' }}>
+        <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '6px' }}>
+          📱 {t('room.invite_title')}
+        </h3>
+        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '16px' }}>
+          {t('room.invite_desc')}
         </p>
 
-        {/* Room Code Display */}
+        {/* Room Code Big Display */}
         <div style={{
-          background: 'rgba(0,0,0,0.45)',
-          border: '1px dashed var(--primary)',
+          background: 'rgba(139, 92, 246, 0.15)',
+          border: '1.5px dashed #8B5CF6',
           borderRadius: '16px',
           padding: '16px',
-          textAlign: 'center',
           marginBottom: '16px'
         }}>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 700 }}>
-            {t('app.room_code')}
+          <div style={{ fontSize: '0.75rem', color: '#A78BFA', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>
+            {t('room.room_code')}
           </div>
-          <div style={{ fontSize: '2.2rem', fontWeight: 900, letterSpacing: '4px', color: 'var(--primary)', margin: '4px 0' }}>
+          <div style={{
+            fontSize: '2.2rem',
+            fontWeight: 900,
+            letterSpacing: '4px',
+            color: '#FFF',
+            margin: '6px 0',
+            fontFamily: 'monospace'
+          }}>
             {roomCode}
           </div>
-
-          {/* Action Buttons: Copy Code, Copy Link, WhatsApp, Share */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '12px' }}>
-            <button 
-              type="button"
-              className="btn btn-sm btn-secondary"
-              onClick={() => copyTextToClipboard(roomCode, 'code')}
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-            >
-              <span>{copiedType === 'code' ? '✓' : '🔢'}</span>
-              <span>{copiedType === 'code' ? t('room.copy_code_success') : t('app.copy_code')}</span>
-            </button>
-
-            <button 
-              type="button"
-              className="btn btn-sm btn-primary"
-              onClick={() => copyTextToClipboard(inviteUrl, 'link')}
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-            >
-              <span>{copiedType === 'link' ? '✓' : '🔗'}</span>
-              <span>{copiedType === 'link' ? t('room.copy_link_success') : t('room.copy_link')}</span>
-            </button>
-
-            <button 
-              type="button"
-              className="btn btn-sm"
-              onClick={handleShareWhatsApp}
-              style={{
-                background: '#25D366',
-                color: '#000',
-                fontWeight: 800,
-                border: 'none',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px'
-              }}
-            >
-              <span>💬</span>
-              <span>WhatsApp</span>
-            </button>
-
-            <button 
-              type="button"
-              className="btn btn-sm btn-secondary"
-              onClick={handleNativeShare}
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-            >
-              <span>{canNativeShare ? '📤' : '🌐'}</span>
-              <span>{t('room.share_native')}</span>
-            </button>
-          </div>
+          <button 
+            type="button" 
+            className="btn btn-secondary btn-sm"
+            onClick={() => copyTextToClipboard(roomCode, 'code')}
+            style={{ fontSize: '0.8rem', padding: '4px 12px' }}
+          >
+            {copiedType === 'code' ? `✓ ${t('room.copied')}` : `📋 ${t('room.copy_code')}`}
+          </button>
         </div>
 
-        {/* Player Seats & Realtime Check-in Status */}
-        <div style={{ marginBottom: '18px' }}>
-          <div style={{ fontSize: '0.85rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-muted)' }}>
-            👥 Status Kursi Pemain ({playerUserIds.filter(Boolean).length} / {playerNames.length} Check-in):
+        {/* Share Buttons */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
+          <button 
+            type="button" 
+            className="btn btn-primary"
+            onClick={canNativeShare ? handleNativeShare : handleShareWhatsApp}
+            style={{ fontSize: '0.88rem', padding: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+          >
+            <span>💬</span> WhatsApp
+          </button>
+          <button 
+            type="button" 
+            className="btn btn-secondary"
+            onClick={() => copyTextToClipboard(inviteUrl, 'link')}
+            style={{ fontSize: '0.88rem', padding: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+          >
+            <span>🔗</span> {copiedType === 'link' ? t('room.copied') : t('room.copy_link')}
+          </button>
+        </div>
+
+        {/* Player Status List */}
+        <div style={{ textAlign: 'left', marginBottom: '16px' }}>
+          <div style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase' }}>
+            {t('room.table_seats')}
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             {playerNames.map((name, idx) => {
-              const seatUserId = playerUserIds[idx]
-              const isClaimedByMe = seatUserId === currentClientId || (user && seatUserId === user.id)
-              const isClaimed = !!seatUserId
+              const occupantId = playerUserIds[idx]
+              const isClaimedByMe = Boolean(occupantId && (occupantId === currentClientId || (user?.id && occupantId === user.id)))
+              const isClaimed = Boolean(occupantId)
 
               return (
                 <div 
@@ -216,20 +257,42 @@ export default function RoomInviteModal({ isOpen, onClose, session, user, onClai
                     </span>
                     {isClaimedByMe ? (
                       <span style={{ fontSize: '0.72rem', background: '#8B5CF6', color: '#FFF', padding: '1px 6px', borderRadius: '4px', fontWeight: 800 }}>
-                        Anda
+                        {t('room.you')}
                       </span>
                     ) : isClaimed ? (
                       <span style={{ fontSize: '0.72rem', background: 'rgba(52, 211, 153, 0.2)', color: '#34D399', padding: '1px 6px', borderRadius: '4px', fontWeight: 700 }}>
-                        ✓ Terisi
+                        ✓ {t('room.filled')}
                       </span>
                     ) : (
                       <span style={{ fontSize: '0.72rem', background: 'rgba(255, 255, 255, 0.08)', color: 'var(--text-dim)', padding: '1px 6px', borderRadius: '4px' }}>
-                        Kosong
+                        {t('room.empty')}
                       </span>
                     )}
                   </div>
 
-                  {!isClaimed && onClaimSeat && (
+                  {isClaimedByMe ? (
+                    <button 
+                      type="button"
+                      className="btn btn-sm btn-secondary"
+                      style={{ fontSize: '0.72rem', padding: '3px 8px', color: '#F87171', borderColor: 'rgba(248, 113, 113, 0.4)' }}
+                      onClick={() => handleRelease(idx)}
+                      title="Lepas kursi ini (Stand Up)"
+                    >
+                      Stand Up
+                    </button>
+                  ) : isClaimed ? (
+                    isHost && idx !== 0 ? (
+                      <button 
+                        type="button"
+                        className="btn btn-sm btn-secondary"
+                        style={{ fontSize: '0.7rem', padding: '2px 6px', color: '#F87171' }}
+                        onClick={() => handleRelease(idx)}
+                        title="Host: Kosongkan kursi pemain ini"
+                      >
+                        Kosongkan
+                      </button>
+                    ) : null
+                  ) : onClaimSeat ? (
                     <button 
                       type="button"
                       className="btn btn-sm btn-secondary"
@@ -238,7 +301,7 @@ export default function RoomInviteModal({ isOpen, onClose, session, user, onClai
                     >
                       Pilih Kursi Ini
                     </button>
-                  )}
+                  ) : null}
                 </div>
               )
             })}

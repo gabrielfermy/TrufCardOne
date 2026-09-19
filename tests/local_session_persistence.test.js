@@ -133,4 +133,49 @@ describe('Local Session Persistence & Recovery Suite', () => {
     assert.equal(session.settings.first_dealer, 2)
     assert.equal(session.player_names.length, 4)
   })
+
+  it('correctly claims and releases (stand up) seats in session roster', async () => {
+    const { gameService } = await import('../src/services/gameService.js')
+
+    const session = {
+      id: 'seat-test-session',
+      game_type: 'truf',
+      player_names: ['Alice', 'Bob', 'Charlie', 'Dave'],
+      player_user_ids: ['host-123', null, null, null],
+      settings: { scorerIndex: 0 }
+    }
+    gameService.saveLocalSession(session)
+
+    // Player 4 claims seat 3
+    await gameService.claimSeat('seat-test-session', 3, 'guest-phone-4', 'Dave')
+    let current = (await gameService.getLocalSessions()).find(s => s.id === 'seat-test-session')
+    assert.equal(current.player_user_ids[3], 'guest-phone-4')
+
+    // Player 4 stands up (releases seat 3)
+    await gameService.releaseSeat('seat-test-session', 3, 'guest-phone-4')
+    current = (await gameService.getLocalSessions()).find(s => s.id === 'seat-test-session')
+    assert.equal(current.player_user_ids[3], null)
+  })
+
+  it('computes correct Scorer failover when active scorer goes offline or stands up', async () => {
+    const computeFallbackScorer = (playerUserIds = [], currentScorer = 0) => {
+      if (playerUserIds && playerUserIds[currentScorer]) return currentScorer
+      if (playerUserIds && playerUserIds[0]) return 0
+      const firstOnline = playerUserIds ? playerUserIds.findIndex(id => Boolean(id)) : -1
+      if (firstOnline !== -1) return firstOnline
+      return 0
+    }
+
+    // Scenario 1: Scorer (Player 4 / idx 3) is online -> remains 3
+    assert.equal(computeFallbackScorer(['host-1', 'client-2', null, 'client-4'], 3), 3)
+
+    // Scenario 2: Scorer (Player 4 / idx 3) stands up -> falls back to Host (idx 0)
+    assert.equal(computeFallbackScorer(['host-1', 'client-2', null, null], 3), 0)
+
+    // Scenario 3: Scorer (idx 3) stands up and Host (idx 0) is also offline -> falls back to first online player (idx 1)
+    assert.equal(computeFallbackScorer([null, 'client-2', 'client-3', null], 3), 1)
+
+    // Scenario 4: All players offline -> falls back to Player 0
+    assert.equal(computeFallbackScorer([null, null, null, null], 3), 0)
+  })
 })

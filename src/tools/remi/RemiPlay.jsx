@@ -18,6 +18,7 @@ export default function RemiPlay({
   onBackToLobby,
   user,
   onClaimSeat,
+  onReleaseSeat,
   myPlayerIndex: propMyPlayerIndex
 }) {
   const { t } = useTranslation()
@@ -113,8 +114,29 @@ export default function RemiPlay({
           soundService.playVictory()
         }
       },
+      onSeatClaim: (seatPayload) => {
+        if (seatPayload?.playerIndex !== undefined) {
+          const isRelease = !!seatPayload.isRelease
+          if (session) {
+            const updatedIds = [...(session?.player_user_ids || Array(playerNames.length).fill(null))]
+            if (isRelease) {
+              updatedIds[seatPayload.playerIndex] = null
+            } else if (seatPayload.clientId) {
+              updatedIds[seatPayload.playerIndex] = seatPayload.clientId
+            }
+            session.player_user_ids = updatedIds
+
+            if (isHost && session.id) {
+              gameService.updateSessionPlayerUserIds(session.id, updatedIds)
+            }
+          }
+        }
+      },
       onDbUpdate: async () => {
         const refreshed = await gameService.getSession(session.id)
+        if (refreshed?.player_user_ids) {
+          session.player_user_ids = refreshed.player_user_ids
+        }
         if (refreshed?.game_rounds && refreshed.game_rounds.length >= localRounds.length) {
           setLocalRounds(refreshed.game_rounds)
         }
@@ -587,6 +609,7 @@ export default function RemiPlay({
         session={session}
         user={user}
         onClaimSeat={onClaimSeat}
+        onReleaseSeat={onReleaseSeat}
       />
 
       {/* Card Game Rules Modal */}

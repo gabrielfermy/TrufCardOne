@@ -1,8 +1,9 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { calculateOmbenRoundScores } from './ombenLogic'
 import { soundService } from '../../services/soundService'
 import { hapticsService } from '../../services/hapticsService'
 import { deviceService } from '../../services/deviceService'
+import { gameService } from '../../services/gameService'
 import { useTranslation } from '../../i18n/I18nContext'
 import RoomInviteModal from '../../components/common/RoomInviteModal'
 import CardGameRulesModal from '../../components/common/CardGameRulesModal'
@@ -17,6 +18,7 @@ export default function OmbenPlay({
   onBackToLobby,
   user,
   onClaimSeat,
+  onReleaseSeat,
   myPlayerIndex: propMyPlayerIndex
 }) {
   const { t } = useTranslation()
@@ -51,6 +53,42 @@ export default function OmbenPlay({
   const [cardsLeft, setCardsLeft] = useState(() => Array(playerNames.length).fill(0))
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false)
   const [isRulesModalOpen, setIsRulesModalOpen] = useState(false)
+
+  // Realtime Live Room listener
+  useEffect(() => {
+    if (!session?.id || session.id.startsWith('guest-session')) return
+
+    const channel = gameService.subscribeToLiveRoom(session.id, {
+      onSeatClaim: (seatPayload) => {
+        if (seatPayload?.playerIndex !== undefined) {
+          const isRelease = !!seatPayload.isRelease
+          if (session) {
+            const updatedIds = [...(session?.player_user_ids || Array(playerNames.length).fill(null))]
+            if (isRelease) {
+              updatedIds[seatPayload.playerIndex] = null
+            } else if (seatPayload.clientId) {
+              updatedIds[seatPayload.playerIndex] = seatPayload.clientId
+            }
+            session.player_user_ids = updatedIds
+
+            if (isHost && session.id) {
+              gameService.updateSessionPlayerUserIds(session.id, updatedIds)
+            }
+          }
+        }
+      },
+      onDbUpdate: async () => {
+        const refreshed = await gameService.getSession(session.id)
+        if (refreshed?.player_user_ids) {
+          session.player_user_ids = refreshed.player_user_ids
+        }
+      }
+    })
+
+    return () => {
+      gameService.unsubscribeFromLiveRoom(channel)
+    }
+  }, [session?.id])
 
   // Cumulative Omben Losses & Wins
   const ombenLosses = Array(playerNames.length).fill(0)
@@ -378,6 +416,7 @@ export default function OmbenPlay({
         session={session}
         user={user}
         onClaimSeat={onClaimSeat}
+        onReleaseSeat={onReleaseSeat}
       />
 
       {/* Card Game Rules Modal */}

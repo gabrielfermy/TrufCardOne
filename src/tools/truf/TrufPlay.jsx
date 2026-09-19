@@ -19,6 +19,7 @@ export default function TrufPlay({
   onBackToLobby,
   user,
   onClaimSeat,
+  onReleaseSeat,
   myPlayerIndex: propMyPlayerIndex
 }) {
   const { t } = useTranslation()
@@ -56,8 +57,22 @@ export default function TrufPlay({
   const [scorerIndex, setScorerIndex] = useState(session?.settings?.scorerIndex ?? 0)
   const [showTransferScorerModal, setShowTransferScorerModal] = useState(false)
   const isScorer = isLocalOrOffline || myPlayerIndex === scorerIndex
-  // Only the active Scorer can edit all players. When host is not the scorer, host can only edit their own score!
-  const canEditPlayer = (idx) => isScorer || myPlayerIndex === idx
+  // Strict permission: Only the Host OR the current active Scorer can change the Scorer
+  const canChangeScorer = isLocalOrOffline || isHost || myPlayerIndex === scorerIndex
+  // Only the active Scorer can edit all players. If a player is Offline / Stood Up, Host or Scorer can edit to keep game moving!
+  const canEditPlayer = (idx) => isScorer || myPlayerIndex === idx || (isHost && !session?.player_user_ids?.[idx])
+
+  // Helper to determine automatic Scorer fallback if current scorer goes offline / stands up:
+  // 1. Host (seat 0 or host seat) if online
+  // 2. First online player in roster
+  // 3. Fallback to Player 0
+  const computeFallbackScorer = (playerUserIds = [], currentScorer = 0) => {
+    if (playerUserIds && playerUserIds[currentScorer]) return currentScorer
+    if (playerUserIds && playerUserIds[0]) return 0
+    const firstOnline = playerUserIds ? playerUserIds.findIndex(id => Boolean(id)) : -1
+    if (firstOnline !== -1) return firstOnline
+    return 0
+  }
 
   // Optimistic local state for rounds to guarantee instant Round advancement
   const [localRounds, setLocalRounds] = useState(rounds || [])
@@ -161,6 +176,10 @@ export default function TrufPlay({
 
   // Scorer transfer & takeover handlers
   const handleTransferScorer = (newIdx) => {
+    if (!canChangeScorer) {
+      alert('Hanya Pembuat Game (Host) atau Pencatat Skor aktif yang berwenang mengganti Scorer.')
+      return
+    }
     if (newIdx < 0 || newIdx >= playerCount) return
     try { hapticsService.medium() } catch {}
     setScorerIndex(newIdx)
@@ -168,11 +187,14 @@ export default function TrufPlay({
     setShowTransferScorerModal(false)
     const newName = playerNames[newIdx] || `Pemain ${newIdx + 1}`
     addLog(`Peran Pencatat Skor (Scorer) dialihkan ke ${newName}`, 'role')
+    if (isHost && session?.id) {
+      gameService.updateSessionSettings(session.id, { ...(session.settings || {}), scorerIndex: newIdx })
+    }
   }
 
   const handleTakeOverScorer = () => {
-    if (myPlayerIndex === null) return
-    handleTransferScorer(myPlayerIndex)
+    if (!isHost) return
+    handleTransferScorer(myPlayerIndex ?? 0)
   }
 
   // Subscribe to Realtime Live Room (Instant Broadcast + DB Changes + Smart Polling Fallback)
@@ -201,15 +223,46 @@ export default function TrufPlay({
       },
       onSeatClaim: (seatPayload) => {
         if (seatPayload?.playerIndex !== undefined) {
+          const isRelease = !!seatPayload.isRelease
           const pName = playerNames[seatPayload.playerIndex] || `Pemain ${seatPayload.playerIndex + 1}`
           setActivityLogs(prev => [...prev.slice(-49), {
             id: `claim-${Date.now()}`,
             timestamp: new Date().toISOString(),
-            actorName: seatPayload.playerName || pName,
+            actorName: isRelease ? pName : (seatPayload.playerName || pName),
             actorRole: 'player',
-            actionType: 'check_in',
-            text: `Check-in ke Kursi ${seatPayload.playerIndex + 1} (${pName})`
+            actionType: isRelease ? 'stand_up' : 'check_in',
+            text: isRelease ? `Berdiri (Lepas Kursi ${seatPayload.playerIndex + 1})` : `Check-in ke Kursi ${seatPayload.playerIndex + 1} (${pName})`
           }])
+
+          // Update local session state
+          if (session) {
+            const updatedIds = [...(session?.player_user_ids || Array(playerNames.length).fill(null))]
+            if (isRelease) {
+              updatedIds[seatPayload.playerIndex] = null
+            } else if (seatPayload.clientId) {
+              updatedIds[seatPayload.playerIndex] = seatPayload.clientId
+            }
+            session.player_user_ids = updatedIds
+
+            // Automatic Scorer Failover:
+            // If the scorer stood up or went offline, reassign scorer automatically:
+            // 1. Host (seat 0) if online -> 2. First online player in roster -> 3. Player 0
+            if (isRelease && seatPayload.playerIndex === scorerIndex) {
+              const fallbackIdx = computeFallbackScorer(updatedIds, scorerIndex)
+              setScorerIndex(fallbackIdx)
+              const fallbackName = playerNames[fallbackIdx] || `Pemain ${fallbackIdx + 1}`
+              addLog(`Pencatat Skor offline/stand up, otomatis dialihkan ke ${fallbackName}`, 'role')
+              if (isHost && session.id) {
+                broadcastState({ scorerIndex: fallbackIdx })
+                gameService.updateSessionSettings(session.id, { ...(session.settings || {}), scorerIndex: fallbackIdx })
+              }
+            }
+
+            // Host (with auth write permission) saves the seat occupancy to Supabase game_sessions
+            if (isHost && session.id) {
+              gameService.updateSessionPlayerUserIds(session.id, updatedIds)
+            }
+          }
         }
       },
       onRoundAdvance: (payload) => {
@@ -245,6 +298,23 @@ export default function TrufPlay({
       },
       onDbUpdate: async () => {
         const refreshed = await gameService.getSession(session.id)
+        if (refreshed?.player_user_ids) {
+          session.player_user_ids = refreshed.player_user_ids
+          // If current scorer is offline in refreshed cloud state, automatically fail over
+          if (!refreshed.player_user_ids[scorerIndex] && !isLocalOrOffline) {
+            const fallbackIdx = computeFallbackScorer(refreshed.player_user_ids, scorerIndex)
+            if (fallbackIdx !== scorerIndex) {
+              setScorerIndex(fallbackIdx)
+              if (isHost && session.id) {
+                broadcastState({ scorerIndex: fallbackIdx })
+                gameService.updateSessionSettings(session.id, { ...(session.settings || {}), scorerIndex: fallbackIdx })
+              }
+            }
+          }
+        }
+        if (refreshed?.settings?.scorerIndex !== undefined && refreshed.settings.scorerIndex !== scorerIndex) {
+          setScorerIndex(refreshed.settings.scorerIndex)
+        }
         if (refreshed?.is_completed && onFinalizeGame) {
           onFinalizeGame(refreshed.game_rounds || localRounds)
           return
@@ -261,6 +331,22 @@ export default function TrufPlay({
     const pollInterval = setInterval(async () => {
       try {
         const refreshed = await gameService.getSession(session.id)
+        if (refreshed?.player_user_ids) {
+          session.player_user_ids = refreshed.player_user_ids
+          if (!refreshed.player_user_ids[scorerIndex] && !isLocalOrOffline) {
+            const fallbackIdx = computeFallbackScorer(refreshed.player_user_ids, scorerIndex)
+            if (fallbackIdx !== scorerIndex) {
+              setScorerIndex(fallbackIdx)
+              if (isHost && session.id) {
+                broadcastState({ scorerIndex: fallbackIdx })
+                gameService.updateSessionSettings(session.id, { ...(session.settings || {}), scorerIndex: fallbackIdx })
+              }
+            }
+          }
+        }
+        if (refreshed?.settings?.scorerIndex !== undefined && refreshed.settings.scorerIndex !== scorerIndex) {
+          setScorerIndex(refreshed.settings.scorerIndex)
+        }
         if (refreshed?.is_completed && onFinalizeGame) {
           onFinalizeGame(refreshed.game_rounds || localRounds)
           return
@@ -595,18 +681,23 @@ export default function TrufPlay({
               {session?.title || 'Truf Session'}
             </span>
             {/* Role Badge */}
-            <span style={{
-              fontSize: '0.68rem',
-              padding: '2px 6px',
-              borderRadius: '5px',
-              fontWeight: 800,
-              whiteSpace: 'nowrap',
-              flexShrink: 0,
-              background: isHost ? 'var(--badge-gold-bg)' : isSpectator ? 'var(--badge-blue-bg)' : 'var(--badge-purple-bg)',
-              color: isHost ? 'var(--badge-gold-text)' : isSpectator ? 'var(--badge-blue-text)' : 'var(--badge-purple-text)',
-              border: `1px solid ${isHost ? 'var(--badge-gold-border)' : isSpectator ? 'var(--badge-blue-border)' : 'var(--badge-purple-border)'}`
-            }}>
-              {isHost ? '👑 Host' : isSpectator ? '👀 Penonton' : `🪑 P${(myPlayerIndex ?? 0) + 1}`}
+            <span 
+              onClick={() => setIsInviteModalOpen(true)}
+              title="Klik untuk atur kursi / Stand Up / undang teman"
+              style={{
+                fontSize: '0.68rem',
+                padding: '2px 6px',
+                borderRadius: '5px',
+                fontWeight: 800,
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+                cursor: 'pointer',
+                background: isHost ? 'var(--badge-gold-bg)' : isSpectator ? 'var(--badge-blue-bg)' : 'var(--badge-purple-bg)',
+                color: isHost ? 'var(--badge-gold-text)' : isSpectator ? 'var(--badge-blue-text)' : 'var(--badge-purple-text)',
+                border: `1px solid ${isHost ? 'var(--badge-gold-border)' : isSpectator ? 'var(--badge-blue-border)' : 'var(--badge-purple-border)'}`
+              }}
+            >
+              {isHost ? '👑 Host' : isSpectator ? '👀 Penonton' : `🪑 P${(myPlayerIndex ?? 0) + 1} (Atur)`}
             </span>
           </div>
 
@@ -698,7 +789,7 @@ export default function TrufPlay({
               <span style={{ fontWeight: 800, color: 'var(--badge-purple-text)', whiteSpace: 'nowrap' }}>
                 {playerNames[scorerIndex]} {isScorer && !isLocalOrOffline ? `(${t('truf.you_badge')})` : ''}
               </span>
-              {!isLocalOrOffline && (
+              {!isLocalOrOffline && canChangeScorer && (
                 <button
                   type="button"
                   className="btn btn-secondary btn-sm"
@@ -925,6 +1016,53 @@ export default function TrufPlay({
                       <span style={{ fontSize: '0.65rem', background: 'var(--badge-purple-bg)', color: 'var(--badge-purple-text)', border: '1px solid var(--badge-purple-border)', padding: '1px 5px', borderRadius: '4px', fontWeight: 800 }}>
                         ✍️ {t('truf.scorer_badge')}
                       </span>
+                    )}
+
+                    {/* Multiplayer Online / Offline Seat Presence Badge */}
+                    {!isLocalOrOffline && (
+                      <span 
+                        style={{ 
+                          fontSize: '0.62rem', 
+                          padding: '1px 5px', 
+                          borderRadius: '4px', 
+                          fontWeight: 700,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '3px',
+                          background: session?.player_user_ids?.[idx] ? 'rgba(16, 185, 129, 0.12)' : 'rgba(255, 255, 255, 0.05)',
+                          color: session?.player_user_ids?.[idx] ? '#10B981' : 'var(--text-dim)',
+                          border: session?.player_user_ids?.[idx] ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid var(--border-glass)'
+                        }}
+                        title={session?.player_user_ids?.[idx] ? 'Pemain terhubung online' : 'Pemain offline / kursi kosong'}
+                      >
+                        <span>{session?.player_user_ids?.[idx] ? '🟢 Online' : '⚪ Offline'}</span>
+                      </span>
+                    )}
+
+                    {/* Quick Stand Up button for the current player */}
+                    {isMe && onReleaseSeat && !isLocalOrOffline && (
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-secondary"
+                        style={{ fontSize: '0.62rem', padding: '1px 6px', height: '19px', borderRadius: '4px', color: '#F87171', borderColor: 'rgba(248, 113, 113, 0.3)' }}
+                        onClick={() => onReleaseSeat(idx)}
+                        title="Stand Up / Lepas kursi ini dan kembali ke mode penonton"
+                      >
+                        Stand Up
+                      </button>
+                    )}
+
+                    {/* Quick Claim Seat button for Spectators on offline seats */}
+                    {isSpectator && !session?.player_user_ids?.[idx] && onClaimSeat && !isLocalOrOffline && (
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-secondary"
+                        style={{ fontSize: '0.62rem', padding: '1px 6px', height: '19px', borderRadius: '4px', color: 'var(--primary-light)' }}
+                        onClick={() => onClaimSeat(idx)}
+                        title="Duduki kursi pemain ini"
+                      >
+                        🪑 Duduki Kursi
+                      </button>
                     )}
                   </div>
 
@@ -1288,14 +1426,16 @@ export default function TrufPlay({
                 ? t('truf.waiting_for_scorer_bid', { name: playerNames[scorerIndex] })
                 : t('truf.waiting_for_scorer_save', { name: playerNames[scorerIndex] })}
             </div>
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              style={{ fontSize: '0.78rem', borderColor: 'var(--badge-purple-border)', color: 'var(--badge-purple-text)', background: 'var(--badge-purple-bg)' }}
-              onClick={handleTakeOverScorer}
-            >
-              ✋ {t('truf.take_over_scorer')}
-            </button>
+            {isHost && (
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                style={{ fontSize: '0.78rem', borderColor: 'var(--badge-purple-border)', color: 'var(--badge-purple-text)', background: 'var(--badge-purple-bg)' }}
+                onClick={handleTakeOverScorer}
+              >
+                👑 Ambil Alih Peran Scorer (Host)
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -1742,6 +1882,7 @@ export default function TrufPlay({
               {playerNames.map((name, pIdx) => {
                 const isCurrent = pIdx === scorerIndex
                 const isThisPlayer = pIdx === myPlayerIndex
+                const isOnline = Boolean(session?.player_user_ids?.[pIdx])
                 return (
                   <button
                     key={pIdx}
@@ -1756,9 +1897,23 @@ export default function TrufPlay({
                     }}
                     onClick={() => handleTransferScorer(pIdx)}
                   >
-                    <span style={{ fontWeight: 700 }}>
-                      {name} {isThisPlayer ? `(${t('truf.you_badge')})` : ''}
-                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontWeight: 700 }}>
+                        {name} {isThisPlayer ? `(${t('truf.you_badge')})` : ''}
+                      </span>
+                      {!isLocalOrOffline && (
+                        <span style={{
+                          fontSize: '0.65rem',
+                          padding: '1px 6px',
+                          borderRadius: '4px',
+                          background: isOnline ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.08)',
+                          color: isOnline ? '#10B981' : 'var(--text-dim)',
+                          fontWeight: 700
+                        }}>
+                          {isOnline ? '🟢 Online' : '⚪ Offline'}
+                        </span>
+                      )}
+                    </div>
                     {isCurrent ? (
                       <span style={{ fontSize: '0.72rem', background: 'rgba(255,255,255,0.25)', padding: '2px 8px', borderRadius: '4px', fontWeight: 800 }}>
                         {t('truf.scorer_badge')}
@@ -1831,6 +1986,7 @@ export default function TrufPlay({
         session={session}
         user={user}
         onClaimSeat={onClaimSeat}
+        onReleaseSeat={onReleaseSeat}
       />
 
       {/* Realtime Table Activity & Audit Log Drawer */}

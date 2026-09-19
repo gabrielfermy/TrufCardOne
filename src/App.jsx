@@ -241,7 +241,18 @@ function MainApp() {
   const handleSelectSeat = async (playerIndex) => {
     if (!pendingJoinSession) return
     const currentClientId = deviceService.getClientIdentifier(user)
-    await gameService.claimSeat(pendingJoinSession.id, playerIndex, currentClientId)
+
+    // Verify fresh session state to prevent race conditions & double-claims
+    const latest = await gameService.getSession(pendingJoinSession.id) || pendingJoinSession
+    const existingOccupant = latest.player_user_ids?.[playerIndex]
+    if (existingOccupant && existingOccupant !== currentClientId && !(user?.id && existingOccupant === user.id)) {
+      alert(t('room.seat_already_taken') || 'Kursi ini telah dipilih oleh pemain lain! Silakan pilih kursi lain yang masih kosong.')
+      setPendingJoinSession(latest)
+      return
+    }
+
+    const pName = latest.player_names?.[playerIndex] || user?.profile?.display_name || user?.email || `Pemain ${playerIndex + 1}`
+    await gameService.claimSeat(pendingJoinSession.id, playerIndex, currentClientId, pName)
     deviceService.setSessionSeat(pendingJoinSession.id, playerIndex)
 
     const refreshed = await gameService.getSession(pendingJoinSession.id) || pendingJoinSession
@@ -269,8 +280,30 @@ function MainApp() {
   const handleClaimSeat = async (playerIndex) => {
     if (!activeSession) return
     const currentClientId = deviceService.getClientIdentifier(user)
-    await gameService.claimSeat(activeSession.id, playerIndex, currentClientId)
+
+    const latest = await gameService.getSession(activeSession.id) || activeSession
+    const existingOccupant = latest.player_user_ids?.[playerIndex]
+    if (existingOccupant && existingOccupant !== currentClientId && !(user?.id && existingOccupant === user.id)) {
+      alert(t('room.seat_already_taken') || 'Kursi ini telah digunakan oleh pemain lain!')
+      return
+    }
+
+    const pName = latest.player_names?.[playerIndex] || user?.profile?.display_name || user?.email || `Pemain ${playerIndex + 1}`
+    await gameService.claimSeat(activeSession.id, playerIndex, currentClientId, pName)
     deviceService.setSessionSeat(activeSession.id, playerIndex)
+    const refreshed = await gameService.getSession(activeSession.id)
+    if (refreshed) {
+      setActiveSession(refreshed)
+      setSessionRounds(refreshed.game_rounds || refreshed.rounds || [])
+    }
+  }
+
+  // Release / Stand Up from a Seat at the Table
+  const handleReleaseSeat = async (playerIndex) => {
+    if (!activeSession) return
+    const currentClientId = deviceService.getClientIdentifier(user)
+    await gameService.releaseSeat(activeSession.id, playerIndex, currentClientId)
+    deviceService.clearSessionSeat(activeSession.id)
     const refreshed = await gameService.getSession(activeSession.id)
     if (refreshed) {
       setActiveSession(refreshed)
@@ -863,6 +896,7 @@ function MainApp() {
             onBackToLobby={handleBackToLobby}
             user={user}
             onClaimSeat={handleClaimSeat}
+            onReleaseSeat={handleReleaseSeat}
           />
         )}
 
@@ -962,6 +996,7 @@ function MainApp() {
             onBackToLobby={handleBackToLobby}
             user={user}
             onClaimSeat={handleClaimSeat}
+            onReleaseSeat={handleReleaseSeat}
           />
         )}
 
@@ -997,6 +1032,7 @@ function MainApp() {
             onBackToLobby={handleBackToLobby}
             user={user}
             onClaimSeat={handleClaimSeat}
+            onReleaseSeat={handleReleaseSeat}
           />
         )}
 
@@ -1118,6 +1154,7 @@ function MainApp() {
             onBackToLobby={handleBackToLobby}
             user={user}
             onClaimSeat={handleClaimSeat}
+            onReleaseSeat={handleReleaseSeat}
           />
         )}
 
@@ -1251,6 +1288,7 @@ function MainApp() {
         session={pendingJoinSession}
         onSelectSeat={handleSelectSeat}
         onEnterAsSpectator={handleEnterAsSpectator}
+        user={user}
       />
 
       {/* Simulated Interstitial & Rewarded Ad Modal (Dev / Web) */}
