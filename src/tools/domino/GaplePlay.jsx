@@ -1,6 +1,9 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { useTranslation } from '../../i18n/I18nContext'
 import { calculateGapleRound, GAPLE_END_TYPES, GAPLE_TEAM_MODES } from './dominoLogic'
+import { gameService } from '../../services/gameService'
+import { deviceService } from '../../services/deviceService'
+import RoomInviteModal from '../../components/common/RoomInviteModal'
 import CardGameRulesModal from '../../components/common/CardGameRulesModal'
 
 export default function GaplePlay({
@@ -9,10 +12,16 @@ export default function GaplePlay({
   onUndoRound,
   onFinishGame,
   onShareStory,
-  onBackToHub
+  onBackToHub,
+  user,
+  onClaimSeat,
+  onReleaseSeat,
+  myPlayerIndex: propMyPlayerIndex
 }) {
   const { t } = useTranslation()
   const [isRulesOpen, setIsRulesOpen] = useState(false)
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false)
+  const [showTransferScorerModal, setShowTransferScorerModal] = useState(false)
 
   const players = session?.player_names || ['Pemain 1', 'Pemain 2', 'Pemain 3', 'Pemain 4']
   const settings = session?.settings || {
@@ -25,6 +34,113 @@ export default function GaplePlay({
   const is2v2 = settings.teamMode === GAPLE_TEAM_MODES.TEAMS_2V2
   const rounds = session?.game_rounds || session?.rounds || []
   const currentRoundNum = rounds.length + 1
+
+  // Reactive live seat claims state to guarantee immediate re-rendering across screens
+  const [livePlayerUserIds, setLivePlayerUserIds] = useState(() => session?.player_user_ids || Array(players.length).fill(null))
+
+  useEffect(() => {
+    if (session?.player_user_ids) {
+      setLivePlayerUserIds(session.player_user_ids)
+    }
+  }, [session?.player_user_ids])
+
+  // Determine user role and claimed seat index
+  const currentClientId = deviceService.getClientIdentifier(user)
+  const isLocalOrOffline = !session?.room_code || session?.settings?.isOfflineLocal || !session?.id || session.id.startsWith('guest-session') || session.id.startsWith('local-session')
+  const isHost = isLocalOrOffline ||
+                 session?.user_id === user?.id || 
+                 livePlayerUserIds?.[0] === currentClientId || 
+                 propMyPlayerIndex === 0 ||
+                 (session?.id?.startsWith('guest-session') && deviceService.getSessionSeat(session.id) === 0)
+
+  let effectiveSeat = propMyPlayerIndex !== undefined ? propMyPlayerIndex : null
+  if (effectiveSeat === null) {
+    const seatInSession = livePlayerUserIds?.findIndex(id => id && (id === currentClientId || (user?.id && id === user.id)))
+    if (seatInSession !== -1 && seatInSession !== undefined) {
+      effectiveSeat = seatInSession
+    } else {
+      const localSeat = deviceService.getSessionSeat(session?.id)
+      if (localSeat !== null) effectiveSeat = localSeat
+      else if (isHost) effectiveSeat = 0
+    }
+  }
+
+  const myPlayerIndex = effectiveSeat
+  const isSpectator = myPlayerIndex === null && !isHost
+
+  // Scorer role state (defaults to Player 0 / Host)
+  const [scorerIndex, setScorerIndex] = useState(session?.settings?.scorerIndex ?? 0)
+
+  // Helper to determine automatic Scorer fallback if current scorer goes offline / stands up
+  const computeFallbackScorer = (currentScorer, liveIds) => {
+    if (liveIds && liveIds[currentScorer]) return currentScorer
+    if (liveIds && liveIds[0]) return 0
+    const firstOnline = liveIds ? liveIds.findIndex(id => Boolean(id)) : -1
+    if (firstOnline !== -1) return firstOnline
+    return 0
+  }
+
+  const effectiveScorerIndex = isLocalOrOffline ? scorerIndex : computeFallbackScorer(scorerIndex, livePlayerUserIds)
+  const isScorer = isLocalOrOffline || myPlayerIndex === effectiveScorerIndex || (isHost && effectiveScorerIndex === null)
+  const canChangeScorer = isLocalOrOffline || isHost || myPlayerIndex === effectiveScorerIndex
+
+  // Realtime Live Room listener
+  useEffect(() => {
+    if (!session?.id || session.id.startsWith('guest-session') || session.id.startsWith('local-session')) return
+
+    const channel = gameService.subscribeToLiveRoom(session.id, {
+      onSeatClaim: (seatPayload) => {
+        if (seatPayload?.playerIndex !== undefined) {
+          const isRelease = !!seatPayload.isRelease
+          setLivePlayerUserIds(prev => {
+            const next = [...(prev || Array(players.length).fill(null))]
+            if (isRelease) {
+              next[seatPayload.playerIndex] = null
+            } else if (seatPayload.clientId) {
+              next[seatPayload.playerIndex] = seatPayload.clientId
+            }
+            if (session) session.player_user_ids = next
+            return next
+          })
+
+          if (isHost && session.id) {
+            const currentArr = session?.player_user_ids || Array(players.length).fill(null)
+            const updated = [...currentArr]
+            if (isRelease) {
+              updated[seatPayload.playerIndex] = null
+            } else if (seatPayload.clientId) {
+              updated[seatPayload.playerIndex] = seatPayload.clientId
+            }
+            gameService.updateSessionPlayerUserIds(session.id, updated)
+          }
+        }
+      },
+      onDbUpdate: async () => {
+        const refreshed = await gameService.getSession(session.id)
+        if (refreshed?.player_user_ids) {
+          setLivePlayerUserIds(refreshed.player_user_ids)
+          if (session) session.player_user_ids = refreshed.player_user_ids
+        }
+      }
+    })
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const refreshed = await gameService.getSession(session.id)
+        if (refreshed?.player_user_ids) {
+          setLivePlayerUserIds(refreshed.player_user_ids)
+          if (session) session.player_user_ids = refreshed.player_user_ids
+        }
+      } catch (err) {
+        // silent catch
+      }
+    }, 4000)
+
+    return () => {
+      clearInterval(pollInterval)
+      gameService.unsubscribeFromLiveRoom(channel, session.id)
+    }
+  }, [session?.id, isHost, players.length])
 
   const [endType, setEndType] = useState(GAPLE_END_TYPES.OUT) // 'out' | 'deadlock'
   const [winnerId, setWinnerId] = useState('p0')
@@ -155,31 +271,243 @@ export default function GaplePlay({
 
   return (
     <div className="main-content" style={{ maxWidth: '800px', margin: '0 auto', paddingBottom: '60px' }}>
+      {/* Spectator Live Banner */}
+      {isSpectator && (
+        <div style={{
+          background: 'linear-gradient(90deg, rgba(56, 189, 248, 0.15), rgba(16, 185, 129, 0.15))',
+          border: '1px solid rgba(56, 189, 248, 0.35)',
+          borderRadius: '12px',
+          padding: '10px 14px',
+          marginBottom: '14px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          color: '#7DD3FC',
+          fontSize: '0.85rem'
+        }}>
+          <span style={{ fontSize: '1.2rem' }}>👀</span>
+          <span><strong>Mode Penonton (Live Spectator)</strong> • Memantau papan Domino Gaple secara realtime</span>
+        </div>
+      )}
+
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
-        <div>
-          <span style={{ fontSize: '0.8rem', color: '#38BDF8', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px' }}>
-            🀄 DOMINO GAPLE {is2v2 ? '• PASANGAN (2 VS 2)' : '• INDIVIDU'}
-          </span>
-          <h2 style={{ fontSize: '1.4rem', fontWeight: 900, margin: '2px 0 0 0' }}>
+      <div className="glass-panel" style={{ padding: '10px 12px', marginBottom: '14px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '8px', minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, flex: 1, overflow: 'hidden' }}>
+            {onBackToHub && (
+              <button 
+                type="button" 
+                className="btn btn-secondary btn-sm" 
+                onClick={onBackToHub}
+                style={{ fontSize: '0.72rem', padding: '3px 8px', borderRadius: '6px', whiteSpace: 'nowrap', flexShrink: 0 }}
+                title="Kembali ke Hub"
+              >
+                ← Hub
+              </button>
+            )}
+            <span style={{
+              fontSize: '0.76rem',
+              color: 'var(--text-dim)',
+              fontWeight: 700,
+              textTransform: 'uppercase',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap'
+            }}>
+              {session?.title || 'Domino Gaple'}
+            </span>
+
+            {/* Role Badge */}
+            <span style={{
+              fontSize: '0.68rem',
+              padding: '2px 6px',
+              borderRadius: '5px',
+              fontWeight: 800,
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
+              background: isHost ? 'var(--badge-gold-bg)' : isSpectator ? 'var(--badge-blue-bg)' : 'var(--badge-purple-bg)',
+              color: isHost ? 'var(--badge-gold-text)' : isSpectator ? 'var(--badge-blue-text)' : 'var(--badge-purple-text)',
+              border: `1px solid ${isHost ? 'var(--badge-gold-border)' : isSpectator ? 'var(--badge-blue-border)' : 'var(--badge-purple-border)'}`
+            }}>
+              {isHost ? '👑 Host' : isSpectator ? '👀 Penonton' : `🪑 P${(myPlayerIndex ?? 0) + 1}`}
+            </span>
+
+            {/* Scorer Badge */}
+            <span style={{
+              fontSize: '0.68rem',
+              padding: '2px 6px',
+              borderRadius: '5px',
+              fontWeight: 800,
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
+              background: 'rgba(56, 189, 248, 0.15)',
+              color: '#38BDF8',
+              border: '1px solid rgba(56, 189, 248, 0.35)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}>
+              <span>📝 Pencatat: {players[effectiveScorerIndex] || `P${effectiveScorerIndex + 1}`}</span>
+              {canChangeScorer && (
+                <button
+                  type="button"
+                  onClick={() => setShowTransferScorerModal(true)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#38BDF8',
+                    cursor: 'pointer',
+                    padding: '0 2px',
+                    fontSize: '0.75rem',
+                    fontWeight: 900
+                  }}
+                  title="Ganti Pencatat Skor"
+                >
+                  ⇄
+                </button>
+              )}
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+            {myPlayerIndex !== null && onReleaseSeat && (
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-danger"
+                onClick={() => {
+                  if (window.confirm('Apakah Anda yakin ingin berdiri dan melepaskan kursi?')) {
+                    onReleaseSeat(myPlayerIndex)
+                    setLivePlayerUserIds(prev => {
+                      const next = [...(prev || [])]
+                      next[myPlayerIndex] = null
+                      return next
+                    })
+                  }
+                }}
+                style={{
+                  fontSize: '0.68rem',
+                  padding: '2px 6px',
+                  borderRadius: '6px',
+                  color: '#F87171',
+                  borderColor: 'rgba(239, 68, 68, 0.4)'
+                }}
+                title="Berdiri dari Kursi"
+              >
+                🚶 Berdiri
+              </button>
+            )}
+
+            <button 
+              type="button"
+              className="btn btn-sm"
+              onClick={() => setIsInviteModalOpen(true)}
+              style={{
+                fontSize: '0.72rem',
+                padding: '3px 7px',
+                background: 'rgba(56, 189, 248, 0.15)',
+                border: '1px solid rgba(56, 189, 248, 0.4)',
+                color: '#38BDF8',
+                fontWeight: 700,
+                borderRadius: '6px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '3px'
+              }}
+              title="Undang Teman & Kode Room"
+            >
+              <span>🔗</span>
+              <span>{session?.room_code || 'Undang'}</span>
+            </button>
+
+            <button 
+              type="button" 
+              className="btn btn-sm btn-secondary"
+              onClick={() => setIsRulesOpen(true)}
+              style={{ color: '#38BDF8', borderColor: 'rgba(56, 189, 248, 0.4)', fontSize: '0.72rem', padding: '3px 7px' }}
+              title="Aturan Permainan Domino Gaple"
+            >
+              <span>📖</span>
+            </button>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', borderTop: '1px solid var(--border-glass)', paddingTop: '8px' }}>
+          <h2 style={{ fontSize: '1.35rem', fontWeight: 900, color: '#38BDF8', margin: 0 }}>
             {t('remi_jawa.round', { num: currentRoundNum }) || `Ronde ${currentRoundNum}`}
           </h2>
+          <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)' }}>
+            Batas Denda: {settings.penaltyThreshold || 100} Pts
+          </span>
         </div>
-        <div style={{ display: 'flex', gap: '6px' }}>
-          <button 
-            type="button" 
-            className="btn btn-sm btn-secondary"
-            onClick={() => setIsRulesOpen(true)}
-            style={{ color: '#38BDF8', borderColor: 'rgba(56, 189, 248, 0.4)' }}
-          >
-            📖 {t('rules_modal.quick_btn') || 'Aturan'}
-          </button>
-          {onBackToHub && (
-            <button className="btn btn-sm btn-secondary" onClick={onBackToHub}>
-              🏠 Hub
-            </button>
-          )}
-        </div>
+      </div>
+
+      {/* Online / Offline Presence Roster Bar */}
+      <div className="glass-panel" style={{ padding: '8px 12px', marginBottom: '14px', display: 'flex', gap: '8px', overflowX: 'auto', alignItems: 'center' }}>
+        <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+          Meja:
+        </span>
+        {players.map((name, idx) => {
+          const isOccupied = Boolean(livePlayerUserIds && livePlayerUserIds[idx])
+          const isMySeat = myPlayerIndex === idx
+          const isSeatScorer = effectiveScorerIndex === idx
+
+          return (
+            <div
+              key={idx}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '3px 8px',
+                borderRadius: '8px',
+                fontSize: '0.72rem',
+                fontWeight: 700,
+                background: isMySeat 
+                  ? 'rgba(168, 85, 247, 0.2)' 
+                  : isOccupied 
+                  ? 'rgba(52, 211, 153, 0.15)' 
+                  : 'rgba(255, 255, 255, 0.05)',
+                border: isMySeat 
+                  ? '1px solid rgba(168, 85, 247, 0.5)' 
+                  : isOccupied 
+                  ? '1px solid rgba(52, 211, 153, 0.4)' 
+                  : '1px dashed var(--border-glass)',
+                color: isOccupied ? 'var(--text-main)' : 'var(--text-muted)'
+              }}
+            >
+              <span>{isOccupied ? '🟢' : '⚪'}</span>
+              <span>{name}</span>
+              {isSeatScorer && <span title="Pencatat Skor">📝</span>}
+              {isMySeat && <span style={{ fontSize: '0.65rem', color: '#C084FC' }}>(Anda)</span>}
+              {!isOccupied && isSpectator && onClaimSeat && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClaimSeat(idx)
+                    setLivePlayerUserIds(prev => {
+                      const next = [...(prev || [])]
+                      next[idx] = currentClientId
+                      return next
+                    })
+                  }}
+                  style={{
+                    background: 'var(--primary)',
+                    color: '#FFF',
+                    border: 'none',
+                    borderRadius: '4px',
+                    fontSize: '0.65rem',
+                    padding: '1px 5px',
+                    marginLeft: '2px',
+                    cursor: 'pointer',
+                    fontWeight: 800
+                  }}
+                >
+                  Duduki
+                </button>
+              )}
+            </div>
+          )
+        })}
       </div>
 
       {/* Game Over Alert Banner */}
@@ -206,198 +534,207 @@ export default function GaplePlay({
         </div>
       )}
 
-      {/* Round End Type Selector (Out vs Gaple Macet) */}
-      <div className="glass-panel" style={{ padding: '16px', marginBottom: '20px' }}>
-        <div className="section-label" style={{ marginTop: 0 }}>🏁 Status Akhir Ronde</div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '14px' }}>
-          <button
-            type="button"
-            className={`btn ${endType === GAPLE_END_TYPES.OUT ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setEndType(GAPLE_END_TYPES.OUT)}
-            style={{ fontWeight: 800, padding: '10px' }}
-          >
-            ✨ Keluar / Habis Kartu (Out)
-          </button>
-          <button
-            type="button"
-            className={`btn ${endType === GAPLE_END_TYPES.DEADLOCK ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setEndType(GAPLE_END_TYPES.DEADLOCK)}
-            style={{ fontWeight: 800, padding: '10px', background: endType === GAPLE_END_TYPES.DEADLOCK ? 'linear-gradient(90deg, #F59E0B, #D97706)' : undefined }}
-          >
-            🔒 Gaple / Macet (Buntu)
-          </button>
+      {/* Inputs (Gated to Scorer) */}
+      {!isScorer ? (
+        <div className="glass-panel" style={{ padding: '20px', marginBottom: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.88rem' }}>
+          ⏳ Ronde {currentRoundNum} sedang dimainkan. Papan skor akan ter-update otomatis saat Pencatat Skor (📝 {players[effectiveScorerIndex] || 'Scorer'}) menyimpan ronde.
         </div>
-
-        {/* Winner Selector (If Out) */}
-        {endType === GAPLE_END_TYPES.OUT ? (
-          <div>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
-              Siapa yang Menang Keluar (0 Titik)?
-            </span>
-            <div style={{ display: 'grid', gridTemplateColumns: `repeat(${players.length}, 1fr)`, gap: '6px' }}>
-              {players.map((name, idx) => {
-                const pId = `p${idx}`
-                const isSelected = winnerId === pId
-                return (
-                  <button
-                    key={pId}
-                    type="button"
-                    className={`btn ${isSelected ? 'btn-primary' : 'btn-secondary'}`}
-                    onClick={() => handleWinnerSelect(pId)}
-                    style={{ fontSize: '0.8rem', fontWeight: 800, padding: '8px 4px' }}
-                  >
-                    {isSelected ? '👑 ' : ''}{name}
-                  </button>
-                )
-              })}
+      ) : (
+        <>
+          {/* Round End Type Selector (Out vs Gaple Macet) */}
+          <div className="glass-panel" style={{ padding: '16px', marginBottom: '20px' }}>
+            <div className="section-label" style={{ marginTop: 0 }}>🏁 Status Akhir Ronde</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '14px' }}>
+              <button
+                type="button"
+                className={`btn ${endType === GAPLE_END_TYPES.OUT ? 'btn-primary' : 'btn-secondary'}`}
+                onClick={() => setEndType(GAPLE_END_TYPES.OUT)}
+                style={{ fontWeight: 800, padding: '10px' }}
+              >
+                ✨ Keluar / Habis Kartu (Out)
+              </button>
+              <button
+                type="button"
+                className={`btn ${endType === GAPLE_END_TYPES.DEADLOCK ? 'btn-primary' : 'btn-secondary'}`}
+                onClick={() => setEndType(GAPLE_END_TYPES.DEADLOCK)}
+                style={{ fontWeight: 800, padding: '10px', background: endType === GAPLE_END_TYPES.DEADLOCK ? 'linear-gradient(90deg, #F59E0B, #D97706)' : undefined }}
+              >
+                🔒 Gaple / Macet (Buntu)
+              </button>
             </div>
-          </div>
-        ) : (
-          <div>
-            <span style={{ fontSize: '0.8rem', color: '#FCD34D', display: 'block', marginBottom: '6px' }}>
-              🔒 Siapa yang Mengeluarkan Balak Terakhir (Pembuat Buntu)?
-            </span>
-            <div style={{ display: 'grid', gridTemplateColumns: `repeat(${players.length}, 1fr)`, gap: '6px' }}>
-              {players.map((name, idx) => {
-                const pId = `p${idx}`
-                const isSelected = deadlockCauserPlayerId === pId
-                return (
-                  <button
-                    key={pId}
-                    type="button"
-                    className={`btn ${isSelected ? 'btn-primary' : 'btn-secondary'}`}
-                    onClick={() => setDeadlockCauserPlayerId(pId)}
-                    style={{ fontSize: '0.8rem', fontWeight: 800, padding: '8px 4px' }}
-                  >
-                    {isSelected ? '🎯 ' : ''}{name}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        )}
-      </div>
 
-      {/* Players Remaining Pips Keypad */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px', marginBottom: '20px' }}>
-        {playerHandInputs.map((p, idx) => {
-          const isWinner = endType === GAPLE_END_TYPES.OUT && p.id === winnerId
-          const penalty = liveCalculation.roundPenalties[p.id] || 0
-          const teamLabel = is2v2 ? (idx % 2 === 0 ? '🔵 Tim A' : '🔴 Tim B') : null
-
-          return (
-            <div
-              key={p.id}
-              className="glass-panel"
-              style={{
-                padding: '16px',
-                border: isWinner 
-                  ? '2px solid rgba(52, 211, 153, 0.6)' 
-                  : penalty > 0 
-                  ? '1px solid rgba(239, 68, 68, 0.3)' 
-                  : '1px solid var(--border-glass)',
-                background: isWinner ? 'rgba(52, 211, 153, 0.08)' : 'var(--bg-glass)'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-                <div>
-                  {teamLabel && (
-                    <span style={{ fontSize: '0.68rem', color: idx % 2 === 0 ? '#38BDF8' : '#F472B6', fontWeight: 800, display: 'block' }}>
-                      {teamLabel}
-                    </span>
-                  )}
-                  <div style={{ fontWeight: 800, fontSize: '1rem', color: isWinner ? '#34D399' : 'var(--text-main)' }}>
-                    {isWinner ? '👑 ' : ''}{p.name}
-                  </div>
-                </div>
-                <div style={{ fontSize: '1rem', fontWeight: 900, color: penalty === 0 ? '#34D399' : '#F87171' }}>
-                  +{penalty} Denda
+            {/* Winner Selector (If Out) */}
+            {endType === GAPLE_END_TYPES.OUT ? (
+              <div>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
+                  Siapa yang Menang Keluar (0 Titik)?
+                </span>
+                <div style={{ display: 'grid', gridTemplateColumns: `repeat(${players.length}, 1fr)`, gap: '6px' }}>
+                  {players.map((name, idx) => {
+                    const pId = `p${idx}`
+                    const isSelected = winnerId === pId
+                    return (
+                      <button
+                        key={pId}
+                        type="button"
+                        className={`btn ${isSelected ? 'btn-primary' : 'btn-secondary'}`}
+                        onClick={() => handleWinnerSelect(pId)}
+                        style={{ fontSize: '0.8rem', fontWeight: 800, padding: '8px 4px' }}
+                      >
+                        {isSelected ? '👑 ' : ''}{name}
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
-
-              {isWinner ? (
-                <div style={{ textAlign: 'center', padding: '16px 0', color: '#34D399', fontWeight: 800, fontSize: '0.85rem' }}>
-                  🎉 Menang (0 Denda)
+            ) : (
+              <div>
+                <span style={{ fontSize: '0.8rem', color: '#FCD34D', display: 'block', marginBottom: '6px' }}>
+                  🔒 Siapa yang Mengeluarkan Balak Terakhir (Pembuat Buntu)?
+                </span>
+                <div style={{ display: 'grid', gridTemplateColumns: `repeat(${players.length}, 1fr)`, gap: '6px' }}>
+                  {players.map((name, idx) => {
+                    const pId = `p${idx}`
+                    const isSelected = deadlockCauserPlayerId === pId
+                    return (
+                      <button
+                        key={pId}
+                        type="button"
+                        className={`btn ${isSelected ? 'btn-primary' : 'btn-secondary'}`}
+                        onClick={() => setDeadlockCauserPlayerId(pId)}
+                        style={{ fontSize: '0.8rem', fontWeight: 800, padding: '8px 4px' }}
+                      >
+                        {isSelected ? '🎯 ' : ''}{name}
+                      </button>
+                    )
+                  })}
                 </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {/* Pips Stepper */}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Jumlah Titik Sisa:</span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <button 
-                        type="button" 
-                        className="btn btn-sm btn-secondary" 
-                        onClick={() => handlePipsChange(idx, -5)}
-                        style={{ fontSize: '0.72rem', padding: '2px 6px' }}
-                      >
-                        -5
-                      </button>
-                      <button 
-                        type="button" 
-                        className="btn btn-sm btn-secondary" 
-                        onClick={() => handlePipsChange(idx, -1)}
-                        style={{ width: '28px', height: '28px', padding: 0 }}
-                      >
-                        -
-                      </button>
-                      <span style={{ minWidth: '36px', textAlign: 'center', fontWeight: 900, fontSize: '1.1rem' }}>
-                        {p.remainingPips}
-                      </span>
-                      <button 
-                        type="button" 
-                        className="btn btn-sm btn-secondary" 
-                        onClick={() => handlePipsChange(idx, 1)}
-                        style={{ width: '28px', height: '28px', padding: 0 }}
-                      >
-                        +
-                      </button>
-                      <button 
-                        type="button" 
-                        className="btn btn-sm btn-secondary" 
-                        onClick={() => handlePipsChange(idx, 5)}
-                        style={{ fontSize: '0.72rem', padding: '2px 6px' }}
-                      >
-                        +5
-                      </button>
+              </div>
+            )}
+          </div>
+
+          {/* Players Remaining Pips Keypad */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px', marginBottom: '20px' }}>
+            {playerHandInputs.map((p, idx) => {
+              const isWinner = endType === GAPLE_END_TYPES.OUT && p.id === winnerId
+              const penalty = liveCalculation.roundPenalties[p.id] || 0
+              const teamLabel = is2v2 ? (idx % 2 === 0 ? '🔵 Tim A' : '🔴 Tim B') : null
+
+              return (
+                <div
+                  key={p.id}
+                  className="glass-panel"
+                  style={{
+                    padding: '16px',
+                    border: isWinner 
+                      ? '2px solid rgba(52, 211, 153, 0.6)' 
+                      : penalty > 0 
+                      ? '1px solid rgba(239, 68, 68, 0.3)' 
+                      : '1px solid var(--border-glass)',
+                    background: isWinner ? 'rgba(52, 211, 153, 0.08)' : 'var(--bg-glass)'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                    <div>
+                      {teamLabel && (
+                        <span style={{ fontSize: '0.68rem', color: idx % 2 === 0 ? '#38BDF8' : '#F472B6', fontWeight: 800, display: 'block' }}>
+                          {teamLabel}
+                        </span>
+                      )}
+                      <div style={{ fontWeight: 800, fontSize: '1rem', color: isWinner ? '#34D399' : 'var(--text-main)' }}>
+                        {isWinner ? '👑 ' : ''}{p.name}
+                      </div>
+                    </div>
+                    <div style={{ fontSize: '1rem', fontWeight: 900, color: penalty === 0 ? '#34D399' : '#F87171' }}>
+                      +{penalty} Denda
                     </div>
                   </div>
 
-                  {/* Balak Mati Badges */}
-                  <div style={{ display: 'flex', gap: '6px', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '8px' }}>
-                    <button
-                      type="button"
-                      className={`btn btn-sm ${p.balakZerosCount > 0 ? 'btn-danger' : 'btn-secondary'}`}
-                      onClick={() => handleToggleBalakZero(idx)}
-                      style={{ fontSize: '0.72rem', flex: 1, padding: '4px' }}
-                    >
-                      {p.balakZerosCount > 0 ? '⚠️ Balak 0-0 (+10)' : '+ Balak 0-0'}
-                    </button>
-                    <button
-                      type="button"
-                      className={`btn btn-sm ${p.balakSixesCount > 0 ? 'btn-danger' : 'btn-secondary'}`}
-                      onClick={() => handleToggleBalakSix(idx)}
-                      style={{ fontSize: '0.72rem', flex: 1, padding: '4px' }}
-                    >
-                      {p.balakSixesCount > 0 ? '⚠️ Balak 6-6 (+12)' : '+ Balak 6-6'}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )
-        })}
-      </div>
+                  {isWinner ? (
+                    <div style={{ textAlign: 'center', padding: '16px 0', color: '#34D399', fontWeight: 800, fontSize: '0.85rem' }}>
+                      🎉 Menang (0 Denda)
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      {/* Pips Stepper */}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Jumlah Titik Sisa:</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <button 
+                            type="button" 
+                            className="btn btn-sm btn-secondary" 
+                            onClick={() => handlePipsChange(idx, -5)}
+                            style={{ fontSize: '0.72rem', padding: '2px 6px' }}
+                          >
+                            -5
+                          </button>
+                          <button 
+                            type="button" 
+                            className="btn btn-sm btn-secondary" 
+                            onClick={() => handlePipsChange(idx, -1)}
+                            style={{ width: '28px', height: '28px', padding: 0 }}
+                          >
+                            -
+                          </button>
+                          <span style={{ minWidth: '36px', textAlign: 'center', fontWeight: 900, fontSize: '1.1rem' }}>
+                            {p.remainingPips}
+                          </span>
+                          <button 
+                            type="button" 
+                            className="btn btn-sm btn-secondary" 
+                            onClick={() => handlePipsChange(idx, 1)}
+                            style={{ width: '28px', height: '28px', padding: 0 }}
+                          >
+                            +
+                          </button>
+                          <button 
+                            type="button" 
+                            className="btn btn-sm btn-secondary" 
+                            onClick={() => handlePipsChange(idx, 5)}
+                            style={{ fontSize: '0.72rem', padding: '2px 6px' }}
+                          >
+                            +5
+                          </button>
+                        </div>
+                      </div>
 
-      {/* Save Button */}
-      <button 
-        type="button" 
-        className="btn btn-primary"
-        onClick={handleSave}
-        style={{ width: '100%', padding: '14px', fontSize: '1rem', fontWeight: 800, marginBottom: '24px' }}
-      >
-        💾 Simpan Ronde {currentRoundNum} & Tambah Denda
-      </button>
+                      {/* Balak Mati Badges */}
+                      <div style={{ display: 'flex', gap: '6px', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '8px' }}>
+                        <button
+                          type="button"
+                          className={`btn btn-sm ${p.balakZerosCount > 0 ? 'btn-danger' : 'btn-secondary'}`}
+                          onClick={() => handleToggleBalakZero(idx)}
+                          style={{ fontSize: '0.72rem', flex: 1, padding: '4px' }}
+                        >
+                          {p.balakZerosCount > 0 ? '⚠️ Balak 0-0 (+10)' : '+ Balak 0-0'}
+                        </button>
+                        <button
+                          type="button"
+                          className={`btn btn-sm ${p.balakSixesCount > 0 ? 'btn-danger' : 'btn-secondary'}`}
+                          onClick={() => handleToggleBalakSix(idx)}
+                          style={{ fontSize: '0.72rem', flex: 1, padding: '4px' }}
+                        >
+                          {p.balakSixesCount > 0 ? '⚠️ Balak 6-6 (+12)' : '+ Balak 6-6'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Save Button */}
+          <button 
+            type="button" 
+            className="btn btn-primary"
+            onClick={handleSave}
+            style={{ width: '100%', padding: '14px', fontSize: '1rem', fontWeight: 800, marginBottom: '24px' }}
+          >
+            💾 Simpan Ronde {currentRoundNum} & Tambah Denda
+          </button>
+        </>
+      )}
 
       {/* 2v2 Team Standings if active */}
       {is2v2 && teamScores && (
@@ -457,7 +794,7 @@ export default function GaplePlay({
         <div className="glass-panel" style={{ padding: '20px', marginBottom: '20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
             <div className="section-label" style={{ margin: 0 }}>📜 Riwayat Ronde Gaple</div>
-            {onUndoRound && (
+            {isHost && onUndoRound && (
               <button className="btn btn-sm btn-secondary" onClick={onUndoRound} style={{ fontSize: '0.75rem' }}>
                 ↩️ Undo Ronde Terakhir
               </button>
@@ -504,12 +841,76 @@ export default function GaplePlay({
             📸 Bagikan Cerita 9:16
           </button>
         )}
-        {onFinishGame && (
+        {isHost && onFinishGame && (
           <button className="btn btn-danger" onClick={onFinishGame}>
             🏁 Selesaikan Permainan
           </button>
         )}
       </div>
+
+      {/* Transfer Scorer Modal */}
+      {showTransferScorerModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.75)',
+          backdropFilter: 'blur(6px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '16px'
+        }}>
+          <div className="glass-panel" style={{ maxWidth: '360px', width: '100%', padding: '20px' }}>
+            <h3 style={{ margin: '0 0 8px 0', fontSize: '1.1rem', fontWeight: 800 }}>
+              📝 Pilih Pencatat Skor (Scorer)
+            </h3>
+            <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '16px' }}>
+              Pencatat skor bertugas memasukkan hasil ronde dan denda ke papan skor.
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+              {players.map((name, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  className={`btn ${effectiveScorerIndex === idx ? 'btn-primary' : 'btn-secondary'}`}
+                  onClick={() => {
+                    setScorerIndex(idx)
+                    setShowTransferScorerModal(false)
+                  }}
+                  style={{ justifyContent: 'space-between', padding: '10px 14px', fontSize: '0.9rem' }}
+                >
+                  <span>{name} {livePlayerUserIds?.[idx] ? '🟢' : '⚪'}</span>
+                  {effectiveScorerIndex === idx && <span>✓ Aktif</span>}
+                </button>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              className="btn btn-secondary btn-block"
+              onClick={() => setShowTransferScorerModal(false)}
+            >
+              Tutup
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Room Invite Modal */}
+      <RoomInviteModal
+        isOpen={isInviteModalOpen}
+        onClose={() => setIsInviteModalOpen(false)}
+        session={session}
+        user={user}
+        onClaimSeat={onClaimSeat}
+        onReleaseSeat={onReleaseSeat}
+        myPlayerIndex={myPlayerIndex}
+      />
 
       <CardGameRulesModal 
         isOpen={isRulesOpen} 

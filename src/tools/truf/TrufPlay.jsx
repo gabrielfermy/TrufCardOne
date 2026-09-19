@@ -29,18 +29,27 @@ export default function TrufPlay({
   const clientId = useRef(`peer-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`).current
   const realtimeChannelRef = useRef(null)
 
+  // Reactive live seat claims state to guarantee immediate re-rendering across screens
+  const [livePlayerUserIds, setLivePlayerUserIds] = useState(() => session?.player_user_ids || Array(playerNames.length).fill(null))
+
+  useEffect(() => {
+    if (session?.player_user_ids) {
+      setLivePlayerUserIds(session.player_user_ids)
+    }
+  }, [session?.player_user_ids])
+
   // Determine user role and claimed seat index
   const currentClientId = deviceService.getClientIdentifier(user)
   const isLocalOrOffline = !session?.room_code || session?.settings?.isOfflineLocal || !session?.id || session.id.startsWith('guest-session') || session.id.startsWith('local-session')
   const isHost = isLocalOrOffline ||
                  session?.user_id === user?.id || 
-                 session?.player_user_ids?.[0] === currentClientId || 
+                 livePlayerUserIds?.[0] === currentClientId || 
                  propMyPlayerIndex === 0 ||
                  (session?.id?.startsWith('guest-session') && deviceService.getSessionSeat(session.id) === 0)
 
   let effectiveSeat = propMyPlayerIndex !== undefined ? propMyPlayerIndex : null
   if (effectiveSeat === null) {
-    const seatInSession = session?.player_user_ids?.findIndex(id => id && (id === currentClientId || (user?.id && id === user.id)))
+    const seatInSession = livePlayerUserIds?.findIndex(id => id && (id === currentClientId || (user?.id && id === user.id)))
     if (seatInSession !== -1 && seatInSession !== undefined) {
       effectiveSeat = seatInSession
     } else {
@@ -60,7 +69,7 @@ export default function TrufPlay({
   // Strict permission: Only the Host OR the current active Scorer can change the Scorer
   const canChangeScorer = isLocalOrOffline || isHost || myPlayerIndex === scorerIndex
   // Only the active Scorer can edit all players. If a player is Offline / Stood Up, Host or Scorer can edit to keep game moving!
-  const canEditPlayer = (idx) => isScorer || myPlayerIndex === idx || (isHost && !session?.player_user_ids?.[idx])
+  const canEditPlayer = (idx) => isScorer || myPlayerIndex === idx || (isHost && !livePlayerUserIds?.[idx])
 
   // Helper to determine automatic Scorer fallback if current scorer goes offline / stands up:
   // 1. Host (seat 0 or host seat) if online
@@ -234,34 +243,35 @@ export default function TrufPlay({
             text: isRelease ? `Berdiri (Lepas Kursi ${seatPayload.playerIndex + 1})` : `Check-in ke Kursi ${seatPayload.playerIndex + 1} (${pName})`
           }])
 
-          // Update local session state
-          if (session) {
-            const updatedIds = [...(session?.player_user_ids || Array(playerNames.length).fill(null))]
+          let updatedIds = []
+          setLivePlayerUserIds(prev => {
+            updatedIds = [...(prev || Array(playerNames.length).fill(null))]
             if (isRelease) {
               updatedIds[seatPayload.playerIndex] = null
             } else if (seatPayload.clientId) {
               updatedIds[seatPayload.playerIndex] = seatPayload.clientId
             }
-            session.player_user_ids = updatedIds
+            if (session) session.player_user_ids = updatedIds
+            return updatedIds
+          })
 
-            // Automatic Scorer Failover:
-            // If the scorer stood up or went offline, reassign scorer automatically:
-            // 1. Host (seat 0) if online -> 2. First online player in roster -> 3. Player 0
-            if (isRelease && seatPayload.playerIndex === scorerIndex) {
-              const fallbackIdx = computeFallbackScorer(updatedIds, scorerIndex)
-              setScorerIndex(fallbackIdx)
-              const fallbackName = playerNames[fallbackIdx] || `Pemain ${fallbackIdx + 1}`
-              addLog(`Pencatat Skor offline/stand up, otomatis dialihkan ke ${fallbackName}`, 'role')
-              if (isHost && session.id) {
-                broadcastState({ scorerIndex: fallbackIdx })
-                gameService.updateSessionSettings(session.id, { ...(session.settings || {}), scorerIndex: fallbackIdx })
-              }
-            }
-
-            // Host (with auth write permission) saves the seat occupancy to Supabase game_sessions
+          // Automatic Scorer Failover:
+          // If the scorer stood up or went offline, reassign scorer automatically:
+          // 1. Host (seat 0) if online -> 2. First online player in roster -> 3. Player 0
+          if (isRelease && seatPayload.playerIndex === scorerIndex) {
+            const fallbackIdx = computeFallbackScorer(updatedIds, scorerIndex)
+            setScorerIndex(fallbackIdx)
+            const fallbackName = playerNames[fallbackIdx] || `Pemain ${fallbackIdx + 1}`
+            addLog(`Pencatat Skor offline/stand up, otomatis dialihkan ke ${fallbackName}`, 'role')
             if (isHost && session.id) {
-              gameService.updateSessionPlayerUserIds(session.id, updatedIds)
+              broadcastState({ scorerIndex: fallbackIdx })
+              gameService.updateSessionSettings(session.id, { ...(session.settings || {}), scorerIndex: fallbackIdx })
             }
+          }
+
+          // Host (with auth write permission) saves the seat occupancy to Supabase game_sessions
+          if (isHost && session.id) {
+            gameService.updateSessionPlayerUserIds(session.id, updatedIds)
           }
         }
       },
@@ -300,6 +310,7 @@ export default function TrufPlay({
         const refreshed = await gameService.getSession(session.id)
         if (refreshed?.player_user_ids) {
           session.player_user_ids = refreshed.player_user_ids
+          setLivePlayerUserIds(refreshed.player_user_ids)
           // If current scorer is offline in refreshed cloud state, automatically fail over
           if (!refreshed.player_user_ids[scorerIndex] && !isLocalOrOffline) {
             const fallbackIdx = computeFallbackScorer(refreshed.player_user_ids, scorerIndex)
@@ -333,6 +344,7 @@ export default function TrufPlay({
         const refreshed = await gameService.getSession(session.id)
         if (refreshed?.player_user_ids) {
           session.player_user_ids = refreshed.player_user_ids
+          setLivePlayerUserIds(refreshed.player_user_ids)
           if (!refreshed.player_user_ids[scorerIndex] && !isLocalOrOffline) {
             const fallbackIdx = computeFallbackScorer(refreshed.player_user_ids, scorerIndex)
             if (fallbackIdx !== scorerIndex) {
@@ -360,14 +372,12 @@ export default function TrufPlay({
             return prev
           })
         }
-      } catch (e) {
-        // Silent catch for background polling
-      }
+      } catch (e) {}
     }, 2500)
 
     return () => {
       clearInterval(pollInterval)
-      if (channel) gameService.unsubscribeLiveRoom(channel)
+      if (channel) gameService.unsubscribeLiveRoom(channel, session.id)
     }
   }, [session?.id])
 

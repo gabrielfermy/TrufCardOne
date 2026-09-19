@@ -646,22 +646,15 @@ export const gameService = {
       }
     } catch {}
 
-    // 2. Broadcast immediately over Realtime channel
-    try {
-      const channel = supabase.channel(`live-room:${sessionId}`)
-      channel.send({
-        type: 'broadcast',
-        event: 'seat_claim',
-        payload: {
-          sessionId,
-          playerIndex,
-          clientId,
-          playerName: playerName || `Pemain ${playerIndex + 1}`
-        }
-      })
-    } catch (e) {
-      console.warn('claimSeat broadcast error:', e)
+    const payload = {
+      sessionId,
+      playerIndex,
+      clientId,
+      playerName: playerName || `Pemain ${playerIndex + 1}`
     }
+
+    // 2. Broadcast immediately over active or new Realtime channel
+    this._broadcastSeatClaimOverChannel(sessionId, payload)
 
     // 3. Handle Supabase Cloud session update
     try {
@@ -688,6 +681,30 @@ export const gameService = {
       console.warn('claimSeat exception:', err)
     }
     return true
+  },
+
+  // Helper to reliably broadcast seat claim / release across WebSocket
+  _broadcastSeatClaimOverChannel(sessionId, payload) {
+    try {
+      if (!this._activeChannels) this._activeChannels = new Map()
+      const existingChannel = this._activeChannels.get(sessionId)
+
+      if (existingChannel && existingChannel.state === 'joined') {
+        this.broadcastSeatClaim(existingChannel, payload)
+      } else {
+        const topic = `live-room:${sessionId}`
+        const ch = existingChannel || supabase.channel(topic, {
+          config: { broadcast: { ack: false, self: false } }
+        })
+        ch.subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            this.broadcastSeatClaim(ch, payload)
+          }
+        })
+      }
+    } catch (e) {
+      console.warn('_broadcastSeatClaimOverChannel error:', e)
+    }
   },
 
   // 7b. Authoritative Update of Player User IDs (Used by Host to persist table seats to Supabase)
@@ -762,22 +779,15 @@ export const gameService = {
       }
     } catch {}
 
-    // 2. Broadcast seat release over Realtime
-    try {
-      const channel = supabase.channel(`live-room:${sessionId}`)
-      channel.send({
-        type: 'broadcast',
-        event: 'seat_claim',
-        payload: {
-          sessionId,
-          playerIndex,
-          clientId: null,
-          isRelease: true
-        }
-      })
-    } catch (e) {
-      console.warn('releaseSeat broadcast error:', e)
+    const payload = {
+      sessionId,
+      playerIndex,
+      clientId: null,
+      isRelease: true
     }
+
+    // 2. Broadcast seat release over Realtime
+    this._broadcastSeatClaimOverChannel(sessionId, payload)
 
     // 3. Update Supabase Cloud
     try {
@@ -813,12 +823,23 @@ export const gameService = {
     if (!sessionId || sessionId.startsWith('guest-session')) return null
 
     try {
+      if (!this._activeChannels) this._activeChannels = new Map()
       const topic = `live-room:${sessionId}`
+
+      // Clean up previous channel for this session if existing
+      const existing = this._activeChannels.get(sessionId)
+      if (existing) {
+        try {
+          supabase.removeChannel(existing)
+        } catch (e) {}
+        this._activeChannels.delete(sessionId)
+      }
+
       if (typeof supabase.getChannels === 'function') {
         const existingChannels = supabase.getChannels() || []
-        const existing = existingChannels.find(ch => ch.topic === `realtime:${topic}` || ch.topic === topic)
-        if (existing) {
-          supabase.removeChannel(existing)
+        const match = existingChannels.find(ch => ch.topic === `realtime:${topic}` || ch.topic === topic)
+        if (match) {
+          supabase.removeChannel(match)
         }
       }
 
@@ -835,11 +856,22 @@ export const gameService = {
       })
 
       if (onDbUpdate) {
+        // Listen to game rounds created, updated, or deleted
         channel.on('postgres_changes', {
           event: '*',
           schema: 'public',
           table: 'game_rounds',
           filter: `session_id=eq.${sessionId}`
+        }, (payload) => {
+          onDbUpdate(payload)
+        })
+
+        // Listen to session modifications (e.g. seats claimed, scorerIndex transferred, completed)
+        channel.on('postgres_changes', {
+          event: '*',
+          schema: 'public',
+          table: 'game_sessions',
+          filter: `id=eq.${sessionId}`
         }, (payload) => {
           onDbUpdate(payload)
         })
@@ -875,6 +907,7 @@ export const gameService = {
         }
       })
 
+      this._activeChannels.set(sessionId, channel)
       return channel
     } catch (err) {
       console.warn('Realtime subscribe safe error catch:', err)
@@ -939,11 +972,25 @@ export const gameService = {
   },
 
   // 13. Unsubscribe Live Room
-  unsubscribeLiveRoom(channel) {
+  unsubscribeLiveRoom(channel, sessionId) {
+    if (this._activeChannels && sessionId) {
+      this._activeChannels.delete(sessionId)
+    }
     if (channel) {
       try {
+        if (this._activeChannels) {
+          for (const [sId, ch] of this._activeChannels.entries()) {
+            if (ch === channel) {
+              this._activeChannels.delete(sId)
+            }
+          }
+        }
         supabase.removeChannel(channel)
       } catch (e) {}
     }
+  },
+
+  unsubscribeFromLiveRoom(channel, sessionId) {
+    return this.unsubscribeLiveRoom(channel, sessionId)
   }
 }

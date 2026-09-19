@@ -929,6 +929,9 @@ function MainApp() {
             onFinishGame={handleFinalizeGame}
             onShareStory={handleShareCurrentSession}
             onBackToHub={handleBackToLobby}
+            user={user}
+            onClaimSeat={handleClaimSeat}
+            onReleaseSeat={handleReleaseSeat}
           />
         )}
 
@@ -961,6 +964,9 @@ function MainApp() {
             onFinishGame={handleFinalizeGame}
             onShareStory={handleShareCurrentSession}
             onBackToHub={handleBackToLobby}
+            user={user}
+            onClaimSeat={handleClaimSeat}
+            onReleaseSeat={handleReleaseSeat}
           />
         )}
 
@@ -1066,6 +1072,9 @@ function MainApp() {
               onFinishGame={handleFinalizeGame}
               onShareStory={handleShareCurrentSession}
               onBackToHub={handleBackToLobby}
+              user={user}
+              onClaimSeat={handleClaimSeat}
+              onReleaseSeat={handleReleaseSeat}
             />
           ) : (
             <CapsaSusunPlay
@@ -1075,6 +1084,9 @@ function MainApp() {
               onFinishGame={handleFinalizeGame}
               onShareStory={handleShareCurrentSession}
               onBackToHub={handleBackToLobby}
+              user={user}
+              onClaimSeat={handleClaimSeat}
+              onReleaseSeat={handleReleaseSeat}
             />
           )
         )}
@@ -1109,6 +1121,9 @@ function MainApp() {
               onFinishGame={handleFinalizeGame}
               onShareStory={handleShareCurrentSession}
               onBackToHub={handleBackToLobby}
+              user={user}
+              onClaimSeat={handleClaimSeat}
+              onReleaseSeat={handleReleaseSeat}
             />
           ) : (
             <GaplePlay
@@ -1118,6 +1133,9 @@ function MainApp() {
               onFinishGame={handleFinalizeGame}
               onShareStory={handleShareCurrentSession}
               onBackToHub={handleBackToLobby}
+              user={user}
+              onClaimSeat={handleClaimSeat}
+              onReleaseSeat={handleReleaseSeat}
             />
           )
         )}

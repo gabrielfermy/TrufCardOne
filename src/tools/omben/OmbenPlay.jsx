@@ -26,16 +26,27 @@ export default function OmbenPlay({
   const targetLoss = session?.settings?.targetLoss || 5
   const currentRoundNumber = rounds.length + 1
 
+  // Reactive live seat claims state to guarantee immediate re-rendering across screens
+  const [livePlayerUserIds, setLivePlayerUserIds] = useState(() => session?.player_user_ids || Array(playerNames.length).fill(null))
+
+  useEffect(() => {
+    if (session?.player_user_ids) {
+      setLivePlayerUserIds(session.player_user_ids)
+    }
+  }, [session?.player_user_ids])
+
   // Determine user role and claimed seat index
   const currentClientId = deviceService.getClientIdentifier(user)
-  const isHost = session?.user_id === user?.id || 
-                 session?.player_user_ids?.[0] === currentClientId || 
+  const isLocalOrOffline = !session?.room_code || session?.settings?.isOfflineLocal || !session?.id || session.id.startsWith('guest-session') || session.id.startsWith('local-session')
+  const isHost = isLocalOrOffline ||
+                 session?.user_id === user?.id || 
+                 livePlayerUserIds?.[0] === currentClientId || 
                  propMyPlayerIndex === 0 ||
                  (session?.id?.startsWith('guest-session') && deviceService.getSessionSeat(session.id) === 0)
 
   let effectiveSeat = propMyPlayerIndex !== undefined ? propMyPlayerIndex : null
   if (effectiveSeat === null) {
-    const seatInSession = session?.player_user_ids?.findIndex(id => id && (id === currentClientId || (user?.id && id === user.id)))
+    const seatInSession = livePlayerUserIds?.findIndex(id => id && (id === currentClientId || (user?.id && id === user.id)))
     if (seatInSession !== -1 && seatInSession !== undefined) {
       effectiveSeat = seatInSession
     } else {
@@ -48,6 +59,23 @@ export default function OmbenPlay({
   const myPlayerIndex = effectiveSeat
   const isSpectator = myPlayerIndex === null && !isHost
 
+  // Scorer role state (defaults to Player 0 / Host)
+  const [scorerIndex, setScorerIndex] = useState(session?.settings?.scorerIndex ?? 0)
+  const [showTransferScorerModal, setShowTransferScorerModal] = useState(false)
+
+  // Helper to determine automatic Scorer fallback if current scorer goes offline / stands up
+  const computeFallbackScorer = (currentScorer, liveIds) => {
+    if (liveIds && liveIds[currentScorer]) return currentScorer
+    if (liveIds && liveIds[0]) return 0
+    const firstOnline = liveIds ? liveIds.findIndex(id => Boolean(id)) : -1
+    if (firstOnline !== -1) return firstOnline
+    return 0
+  }
+
+  const effectiveScorerIndex = isLocalOrOffline ? scorerIndex : computeFallbackScorer(scorerIndex, livePlayerUserIds)
+  const isScorer = isLocalOrOffline || myPlayerIndex === effectiveScorerIndex || (isHost && effectiveScorerIndex === null)
+  const canChangeScorer = isLocalOrOffline || isHost || myPlayerIndex === effectiveScorerIndex
+
   // Finishing rank selection for current round (1 = Winner, N = Omben Loser)
   const [ranks, setRanks] = useState(() => playerNames.map((_, i) => i + 1))
   const [cardsLeft, setCardsLeft] = useState(() => Array(playerNames.length).fill(0))
@@ -56,39 +84,61 @@ export default function OmbenPlay({
 
   // Realtime Live Room listener
   useEffect(() => {
-    if (!session?.id || session.id.startsWith('guest-session')) return
+    if (!session?.id || session.id.startsWith('guest-session') || session.id.startsWith('local-session')) return
 
     const channel = gameService.subscribeToLiveRoom(session.id, {
       onSeatClaim: (seatPayload) => {
         if (seatPayload?.playerIndex !== undefined) {
           const isRelease = !!seatPayload.isRelease
-          if (session) {
-            const updatedIds = [...(session?.player_user_ids || Array(playerNames.length).fill(null))]
+          setLivePlayerUserIds(prev => {
+            const next = [...(prev || Array(playerNames.length).fill(null))]
             if (isRelease) {
-              updatedIds[seatPayload.playerIndex] = null
+              next[seatPayload.playerIndex] = null
             } else if (seatPayload.clientId) {
-              updatedIds[seatPayload.playerIndex] = seatPayload.clientId
+              next[seatPayload.playerIndex] = seatPayload.clientId
             }
-            session.player_user_ids = updatedIds
+            if (session) session.player_user_ids = next
+            return next
+          })
 
-            if (isHost && session.id) {
-              gameService.updateSessionPlayerUserIds(session.id, updatedIds)
+          if (isHost && session.id) {
+            const currentArr = session?.player_user_ids || Array(playerNames.length).fill(null)
+            const updated = [...currentArr]
+            if (isRelease) {
+              updated[seatPayload.playerIndex] = null
+            } else if (seatPayload.clientId) {
+              updated[seatPayload.playerIndex] = seatPayload.clientId
             }
+            gameService.updateSessionPlayerUserIds(session.id, updated)
           }
         }
       },
       onDbUpdate: async () => {
         const refreshed = await gameService.getSession(session.id)
         if (refreshed?.player_user_ids) {
-          session.player_user_ids = refreshed.player_user_ids
+          setLivePlayerUserIds(refreshed.player_user_ids)
+          if (session) session.player_user_ids = refreshed.player_user_ids
         }
       }
     })
 
+    const pollInterval = setInterval(async () => {
+      try {
+        const refreshed = await gameService.getSession(session.id)
+        if (refreshed?.player_user_ids) {
+          setLivePlayerUserIds(refreshed.player_user_ids)
+          if (session) session.player_user_ids = refreshed.player_user_ids
+        }
+      } catch (err) {
+        // silent polling catch
+      }
+    }, 4000)
+
     return () => {
-      gameService.unsubscribeFromLiveRoom(channel)
+      clearInterval(pollInterval)
+      gameService.unsubscribeFromLiveRoom(channel, session.id)
     }
-  }, [session?.id])
+  }, [session?.id, isHost, playerNames.length])
 
   // Cumulative Omben Losses & Wins
   const ombenLosses = Array(playerNames.length).fill(0)
@@ -213,9 +263,72 @@ export default function OmbenPlay({
             }}>
               {isHost ? '👑 Host' : isSpectator ? '👀 Penonton' : `🪑 P${(myPlayerIndex ?? 0) + 1}`}
             </span>
+
+            {/* Scorer Badge */}
+            <span style={{
+              fontSize: '0.68rem',
+              padding: '2px 6px',
+              borderRadius: '5px',
+              fontWeight: 800,
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
+              background: 'rgba(56, 189, 248, 0.15)',
+              color: '#38BDF8',
+              border: '1px solid rgba(56, 189, 248, 0.35)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}>
+              <span>📝 Pencatat: {playerNames[effectiveScorerIndex] || `P${effectiveScorerIndex + 1}`}</span>
+              {canChangeScorer && (
+                <button
+                  type="button"
+                  onClick={() => setShowTransferScorerModal(true)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#38BDF8',
+                    cursor: 'pointer',
+                    padding: '0 2px',
+                    fontSize: '0.75rem',
+                    fontWeight: 900
+                  }}
+                  title="Ganti Pencatat Skor"
+                >
+                  ⇄
+                </button>
+              )}
+            </span>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+            {myPlayerIndex !== null && onReleaseSeat && (
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-danger"
+                onClick={() => {
+                  if (window.confirm('Apakah Anda yakin ingin berdiri dan melepaskan kursi?')) {
+                    onReleaseSeat(myPlayerIndex)
+                    setLivePlayerUserIds(prev => {
+                      const next = [...(prev || [])]
+                      next[myPlayerIndex] = null
+                      return next
+                    })
+                  }
+                }}
+                style={{
+                  fontSize: '0.68rem',
+                  padding: '2px 6px',
+                  borderRadius: '6px',
+                  color: '#F87171',
+                  borderColor: 'rgba(239, 68, 68, 0.4)'
+                }}
+                title="Berdiri dari Kursi"
+              >
+                🚶 Berdiri
+              </button>
+            )}
+
             <button 
               type="button"
               className="btn btn-sm"
@@ -279,6 +392,75 @@ export default function OmbenPlay({
         </div>
       </div>
 
+      {/* Online / Offline Presence Roster Bar */}
+      <div className="glass-panel" style={{ padding: '8px 12px', marginBottom: '12px', display: 'flex', gap: '8px', overflowX: 'auto', alignItems: 'center' }}>
+        <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+          Meja:
+        </span>
+        {playerNames.map((name, idx) => {
+          const isOccupied = Boolean(livePlayerUserIds && livePlayerUserIds[idx])
+          const isMySeat = myPlayerIndex === idx
+          const isSeatScorer = effectiveScorerIndex === idx
+
+          return (
+            <div
+              key={idx}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '3px 8px',
+                borderRadius: '8px',
+                fontSize: '0.72rem',
+                fontWeight: 700,
+                background: isMySeat 
+                  ? 'rgba(168, 85, 247, 0.2)' 
+                  : isOccupied 
+                  ? 'rgba(52, 211, 153, 0.15)' 
+                  : 'rgba(255, 255, 255, 0.05)',
+                border: isMySeat 
+                  ? '1px solid rgba(168, 85, 247, 0.5)' 
+                  : isOccupied 
+                  ? '1px solid rgba(52, 211, 153, 0.4)' 
+                  : '1px dashed var(--border-glass)',
+                color: isOccupied ? 'var(--text-main)' : 'var(--text-muted)'
+              }}
+            >
+              <span>{isOccupied ? '🟢' : '⚪'}</span>
+              <span>{name}</span>
+              {isSeatScorer && <span title="Pencatat Skor">📝</span>}
+              {isMySeat && <span style={{ fontSize: '0.65rem', color: '#C084FC' }}>(Anda)</span>}
+              {!isOccupied && isSpectator && onClaimSeat && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClaimSeat(idx)
+                    setLivePlayerUserIds(prev => {
+                      const next = [...(prev || [])]
+                      next[idx] = currentClientId
+                      return next
+                    })
+                  }}
+                  style={{
+                    background: 'var(--primary)',
+                    color: '#FFF',
+                    border: 'none',
+                    borderRadius: '4px',
+                    fontSize: '0.65rem',
+                    padding: '1px 5px',
+                    marginLeft: '2px',
+                    cursor: 'pointer',
+                    fontWeight: 800
+                  }}
+                >
+                  Duduki
+                </button>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
       {/* Dare Alert Banner */}
       {targetReachedPlayers.length > 0 && (
         <div style={{ background: 'var(--badge-orange-bg)', border: '1px solid var(--badge-orange-border)', padding: '14px', borderRadius: '12px', marginBottom: '16px', textAlign: 'center', color: 'var(--badge-orange-text)', fontWeight: 700 }}>
@@ -286,10 +468,10 @@ export default function OmbenPlay({
         </div>
       )}
 
-      {/* Round Form Panel (Hidden for Spectators) */}
-      {isSpectator ? (
+      {/* Round Form Panel (Only Active Scorer can submit) */}
+      {!isScorer ? (
         <div className="glass-panel" style={{ padding: '20px', marginBottom: '16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.88rem' }}>
-          ⏳ Ronde {currentRoundNumber} sedang dimainkan. Papan omben akan ter-update otomatis saat Host menyimpan ronde.
+          ⏳ Ronde {currentRoundNumber} sedang dimainkan. Papan omben akan ter-update otomatis saat Pencatat Skor (📝 {playerNames[effectiveScorerIndex] || 'Scorer'}) menyimpan ronde.
         </div>
       ) : (
       <div className="glass-panel" style={{ padding: '20px', marginBottom: '16px' }}>
@@ -409,6 +591,59 @@ export default function OmbenPlay({
         </div>
       </div>
 
+      {/* Transfer Scorer Modal */}
+      {showTransferScorerModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.75)',
+          backdropFilter: 'blur(6px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '16px'
+        }}>
+          <div className="glass-panel" style={{ maxWidth: '360px', width: '100%', padding: '20px' }}>
+            <h3 style={{ margin: '0 0 8px 0', fontSize: '1.1rem', fontWeight: 800 }}>
+              📝 Pilih Pencatat Skor (Scorer)
+            </h3>
+            <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '16px' }}>
+              Pencatat skor bertugas memasukkan hasil ronde dan menyimpannya ke papan skor.
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+              {playerNames.map((name, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  className={`btn ${effectiveScorerIndex === idx ? 'btn-primary' : 'btn-secondary'}`}
+                  onClick={() => {
+                    setScorerIndex(idx)
+                    setShowTransferScorerModal(false)
+                  }}
+                  style={{ justifyContent: 'space-between', padding: '10px 14px', fontSize: '0.9rem' }}
+                >
+                  <span>{name} {livePlayerUserIds?.[idx] ? '🟢' : '⚪'}</span>
+                  {effectiveScorerIndex === idx && <span>✓ Aktif</span>}
+                </button>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              className="btn btn-secondary btn-block"
+              onClick={() => setShowTransferScorerModal(false)}
+            >
+              Tutup
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Room Invite Modal */}
       <RoomInviteModal
         isOpen={isInviteModalOpen}
@@ -417,6 +652,7 @@ export default function OmbenPlay({
         user={user}
         onClaimSeat={onClaimSeat}
         onReleaseSeat={onReleaseSeat}
+        myPlayerIndex={myPlayerIndex}
       />
 
       {/* Card Game Rules Modal */}

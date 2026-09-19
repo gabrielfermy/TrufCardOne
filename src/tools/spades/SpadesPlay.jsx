@@ -1,6 +1,9 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { useTranslation } from '../../i18n/I18nContext'
 import { calculateSpadesRound, SPADES_MODES } from './spadesLogic'
+import { gameService } from '../../services/gameService'
+import { deviceService } from '../../services/deviceService'
+import RoomInviteModal from '../../components/common/RoomInviteModal'
 import CardGameRulesModal from '../../components/common/CardGameRulesModal'
 
 export default function SpadesPlay({
@@ -9,10 +12,16 @@ export default function SpadesPlay({
   onUndoRound,
   onFinishGame,
   onShareStory,
-  onBackToHub
+  onBackToHub,
+  user,
+  onClaimSeat,
+  onReleaseSeat,
+  myPlayerIndex: propMyPlayerIndex
 }) {
   const { t } = useTranslation()
   const [isRulesOpen, setIsRulesOpen] = useState(false)
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false)
+  const [showTransferScorerModal, setShowTransferScorerModal] = useState(false)
   const [inputPhase, setInputPhase] = useState('bid') // 'bid' | 'won'
 
   const players = session?.player_names || ['North', 'East', 'South', 'West']
@@ -28,6 +37,114 @@ export default function SpadesPlay({
   const is2v2 = settings.spadesMode === SPADES_MODES.PARTNERSHIP_2V2
   const rounds = session?.game_rounds || session?.rounds || []
   const currentRoundNum = rounds.length + 1
+
+  // Reactive live seat claims state to guarantee immediate re-rendering across screens
+  const [livePlayerUserIds, setLivePlayerUserIds] = useState(() => session?.player_user_ids || Array(players.length).fill(null))
+
+  useEffect(() => {
+    if (session?.player_user_ids) {
+      setLivePlayerUserIds(session.player_user_ids)
+    }
+  }, [session?.player_user_ids])
+
+  // Determine user role and claimed seat index
+  const currentClientId = deviceService.getClientIdentifier(user)
+  const isLocalOrOffline = !session?.room_code || session?.settings?.isOfflineLocal || !session?.id || session.id.startsWith('guest-session') || session.id.startsWith('local-session')
+  const isHost = isLocalOrOffline ||
+                 session?.user_id === user?.id || 
+                 livePlayerUserIds?.[0] === currentClientId || 
+                 propMyPlayerIndex === 0 ||
+                 (session?.id?.startsWith('guest-session') && deviceService.getSessionSeat(session.id) === 0)
+
+  let effectiveSeat = propMyPlayerIndex !== undefined ? propMyPlayerIndex : null
+  if (effectiveSeat === null) {
+    const seatInSession = livePlayerUserIds?.findIndex(id => id && (id === currentClientId || (user?.id && id === user.id)))
+    if (seatInSession !== -1 && seatInSession !== undefined) {
+      effectiveSeat = seatInSession
+    } else {
+      const localSeat = deviceService.getSessionSeat(session?.id)
+      if (localSeat !== null) effectiveSeat = localSeat
+      else if (isHost) effectiveSeat = 0
+    }
+  }
+
+  const myPlayerIndex = effectiveSeat
+  const isSpectator = myPlayerIndex === null && !isHost
+
+  // Scorer role state (defaults to Player 0 / Host)
+  const [scorerIndex, setScorerIndex] = useState(session?.settings?.scorerIndex ?? 0)
+
+  // Helper to determine automatic Scorer fallback if current scorer goes offline / stands up
+  const computeFallbackScorer = (currentScorer, liveIds) => {
+    if (liveIds && liveIds[currentScorer]) return currentScorer
+    if (liveIds && liveIds[0]) return 0
+    const firstOnline = liveIds ? liveIds.findIndex(id => Boolean(id)) : -1
+    if (firstOnline !== -1) return firstOnline
+    return 0
+  }
+
+  const effectiveScorerIndex = isLocalOrOffline ? scorerIndex : computeFallbackScorer(scorerIndex, livePlayerUserIds)
+  const isScorer = isLocalOrOffline || myPlayerIndex === effectiveScorerIndex || (isHost && effectiveScorerIndex === null)
+  const canChangeScorer = isLocalOrOffline || isHost || myPlayerIndex === effectiveScorerIndex
+  const canEditPlayer = (idx) => isScorer || myPlayerIndex === idx || (isHost && !livePlayerUserIds?.[idx])
+
+  // Realtime Live Room listener
+  useEffect(() => {
+    if (!session?.id || session.id.startsWith('guest-session') || session.id.startsWith('local-session')) return
+
+    const channel = gameService.subscribeToLiveRoom(session.id, {
+      onSeatClaim: (seatPayload) => {
+        if (seatPayload?.playerIndex !== undefined) {
+          const isRelease = !!seatPayload.isRelease
+          setLivePlayerUserIds(prev => {
+            const next = [...(prev || Array(players.length).fill(null))]
+            if (isRelease) {
+              next[seatPayload.playerIndex] = null
+            } else if (seatPayload.clientId) {
+              next[seatPayload.playerIndex] = seatPayload.clientId
+            }
+            if (session) session.player_user_ids = next
+            return next
+          })
+
+          if (isHost && session.id) {
+            const currentArr = session?.player_user_ids || Array(players.length).fill(null)
+            const updated = [...currentArr]
+            if (isRelease) {
+              updated[seatPayload.playerIndex] = null
+            } else if (seatPayload.clientId) {
+              updated[seatPayload.playerIndex] = seatPayload.clientId
+            }
+            gameService.updateSessionPlayerUserIds(session.id, updated)
+          }
+        }
+      },
+      onDbUpdate: async () => {
+        const refreshed = await gameService.getSession(session.id)
+        if (refreshed?.player_user_ids) {
+          setLivePlayerUserIds(refreshed.player_user_ids)
+          if (session) session.player_user_ids = refreshed.player_user_ids
+        }
+      }
+    })
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const refreshed = await gameService.getSession(session.id)
+        if (refreshed?.player_user_ids) {
+          setLivePlayerUserIds(refreshed.player_user_ids)
+          if (session) session.player_user_ids = refreshed.player_user_ids
+        }
+      } catch (err) {
+        // silent catch
+      }
+    }, 4000)
+
+    return () => {
+      clearInterval(pollInterval)
+      gameService.unsubscribeFromLiveRoom(channel, session.id)
+    }
+  }, [session?.id, isHost, players.length])
 
   // Player bids and won inputs
   const [playerInputs, setPlayerInputs] = useState(() =>
@@ -159,31 +276,243 @@ export default function SpadesPlay({
 
   return (
     <div className="main-content" style={{ maxWidth: '800px', margin: '0 auto', paddingBottom: '60px' }}>
+      {/* Spectator Live Banner */}
+      {isSpectator && (
+        <div style={{
+          background: 'linear-gradient(90deg, rgba(168, 85, 247, 0.15), rgba(56, 189, 248, 0.15))',
+          border: '1px solid rgba(168, 85, 247, 0.35)',
+          borderRadius: '12px',
+          padding: '10px 14px',
+          marginBottom: '14px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          color: '#C084FC',
+          fontSize: '0.85rem'
+        }}>
+          <span style={{ fontSize: '1.2rem' }}>👀</span>
+          <span><strong>Mode Penonton (Live Spectator)</strong> • Memantau papan Spades secara realtime</span>
+        </div>
+      )}
+
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
-        <div>
-          <span style={{ fontSize: '0.8rem', color: '#A855F7', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px' }}>
-            ♠️ SPADES {is2v2 ? '• 2V2 PARTNERSHIP' : '• CUTTHROAT SOLO'}
-          </span>
-          <h2 style={{ fontSize: '1.4rem', fontWeight: 900, margin: '2px 0 0 0' }}>
+      <div className="glass-panel" style={{ padding: '10px 12px', marginBottom: '14px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '8px', minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, flex: 1, overflow: 'hidden' }}>
+            {onBackToHub && (
+              <button 
+                type="button" 
+                className="btn btn-secondary btn-sm" 
+                onClick={onBackToHub}
+                style={{ fontSize: '0.72rem', padding: '3px 8px', borderRadius: '6px', whiteSpace: 'nowrap', flexShrink: 0 }}
+                title="Kembali ke Hub"
+              >
+                ← Hub
+              </button>
+            )}
+            <span style={{
+              fontSize: '0.76rem',
+              color: 'var(--text-dim)',
+              fontWeight: 700,
+              textTransform: 'uppercase',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap'
+            }}>
+              {session?.title || 'Spades'}
+            </span>
+
+            {/* Role Badge */}
+            <span style={{
+              fontSize: '0.68rem',
+              padding: '2px 6px',
+              borderRadius: '5px',
+              fontWeight: 800,
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
+              background: isHost ? 'var(--badge-gold-bg)' : isSpectator ? 'var(--badge-blue-bg)' : 'var(--badge-purple-bg)',
+              color: isHost ? 'var(--badge-gold-text)' : isSpectator ? 'var(--badge-blue-text)' : 'var(--badge-purple-text)',
+              border: `1px solid ${isHost ? 'var(--badge-gold-border)' : isSpectator ? 'var(--badge-blue-border)' : 'var(--badge-purple-border)'}`
+            }}>
+              {isHost ? '👑 Host' : isSpectator ? '👀 Penonton' : `🪑 P${(myPlayerIndex ?? 0) + 1}`}
+            </span>
+
+            {/* Scorer Badge */}
+            <span style={{
+              fontSize: '0.68rem',
+              padding: '2px 6px',
+              borderRadius: '5px',
+              fontWeight: 800,
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
+              background: 'rgba(56, 189, 248, 0.15)',
+              color: '#38BDF8',
+              border: '1px solid rgba(56, 189, 248, 0.35)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}>
+              <span>📝 Pencatat: {players[effectiveScorerIndex] || `P${effectiveScorerIndex + 1}`}</span>
+              {canChangeScorer && (
+                <button
+                  type="button"
+                  onClick={() => setShowTransferScorerModal(true)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#38BDF8',
+                    cursor: 'pointer',
+                    padding: '0 2px',
+                    fontSize: '0.75rem',
+                    fontWeight: 900
+                  }}
+                  title="Ganti Pencatat Skor"
+                >
+                  ⇄
+                </button>
+              )}
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+            {myPlayerIndex !== null && onReleaseSeat && (
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-danger"
+                onClick={() => {
+                  if (window.confirm('Apakah Anda yakin ingin berdiri dan melepaskan kursi?')) {
+                    onReleaseSeat(myPlayerIndex)
+                    setLivePlayerUserIds(prev => {
+                      const next = [...(prev || [])]
+                      next[myPlayerIndex] = null
+                      return next
+                    })
+                  }
+                }}
+                style={{
+                  fontSize: '0.68rem',
+                  padding: '2px 6px',
+                  borderRadius: '6px',
+                  color: '#F87171',
+                  borderColor: 'rgba(239, 68, 68, 0.4)'
+                }}
+                title="Berdiri dari Kursi"
+              >
+                🚶 Berdiri
+              </button>
+            )}
+
+            <button 
+              type="button"
+              className="btn btn-sm"
+              onClick={() => setIsInviteModalOpen(true)}
+              style={{
+                fontSize: '0.72rem',
+                padding: '3px 7px',
+                background: 'rgba(168, 85, 247, 0.15)',
+                border: '1px solid rgba(168, 85, 247, 0.4)',
+                color: '#C084FC',
+                fontWeight: 700,
+                borderRadius: '6px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '3px'
+              }}
+              title="Undang Teman & Kode Room"
+            >
+              <span>🔗</span>
+              <span>{session?.room_code || 'Undang'}</span>
+            </button>
+
+            <button 
+              type="button" 
+              className="btn btn-sm btn-secondary"
+              onClick={() => setIsRulesOpen(true)}
+              style={{ color: '#A855F7', borderColor: 'rgba(168, 85, 247, 0.4)', fontSize: '0.72rem', padding: '3px 7px' }}
+              title="Aturan Permainan Spades"
+            >
+              <span>📖</span>
+            </button>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', borderTop: '1px solid var(--border-glass)', paddingTop: '8px' }}>
+          <h2 style={{ fontSize: '1.35rem', fontWeight: 900, color: '#A855F7', margin: 0 }}>
             {t('remi_jawa.round', { num: currentRoundNum }) || `Ronde ${currentRoundNum}`}
           </h2>
+          <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)' }}>
+            Target: {settings.targetScore || 500} Pts
+          </span>
         </div>
-        <div style={{ display: 'flex', gap: '6px' }}>
-          <button 
-            type="button" 
-            className="btn btn-sm btn-secondary"
-            onClick={() => setIsRulesOpen(true)}
-            style={{ color: '#A855F7', borderColor: 'rgba(168, 85, 247, 0.4)' }}
-          >
-            📖 {t('rules_modal.quick_btn') || 'Aturan'}
-          </button>
-          {onBackToHub && (
-            <button className="btn btn-sm btn-secondary" onClick={onBackToHub}>
-              🏠 Hub
-            </button>
-          )}
-        </div>
+      </div>
+
+      {/* Online / Offline Presence Roster Bar */}
+      <div className="glass-panel" style={{ padding: '8px 12px', marginBottom: '14px', display: 'flex', gap: '8px', overflowX: 'auto', alignItems: 'center' }}>
+        <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+          Meja:
+        </span>
+        {players.map((name, idx) => {
+          const isOccupied = Boolean(livePlayerUserIds && livePlayerUserIds[idx])
+          const isMySeat = myPlayerIndex === idx
+          const isSeatScorer = effectiveScorerIndex === idx
+
+          return (
+            <div
+              key={idx}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '3px 8px',
+                borderRadius: '8px',
+                fontSize: '0.72rem',
+                fontWeight: 700,
+                background: isMySeat 
+                  ? 'rgba(168, 85, 247, 0.2)' 
+                  : isOccupied 
+                  ? 'rgba(52, 211, 153, 0.15)' 
+                  : 'rgba(255, 255, 255, 0.05)',
+                border: isMySeat 
+                  ? '1px solid rgba(168, 85, 247, 0.5)' 
+                  : isOccupied 
+                  ? '1px solid rgba(52, 211, 153, 0.4)' 
+                  : '1px dashed var(--border-glass)',
+                color: isOccupied ? 'var(--text-main)' : 'var(--text-muted)'
+              }}
+            >
+              <span>{isOccupied ? '🟢' : '⚪'}</span>
+              <span>{name}</span>
+              {isSeatScorer && <span title="Pencatat Skor">📝</span>}
+              {isMySeat && <span style={{ fontSize: '0.65rem', color: '#C084FC' }}>(Anda)</span>}
+              {!isOccupied && isSpectator && onClaimSeat && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClaimSeat(idx)
+                    setLivePlayerUserIds(prev => {
+                      const next = [...(prev || [])]
+                      next[idx] = currentClientId
+                      return next
+                    })
+                  }}
+                  style={{
+                    background: 'var(--primary)',
+                    color: '#FFF',
+                    border: 'none',
+                    borderRadius: '4px',
+                    fontSize: '0.65rem',
+                    padding: '1px 5px',
+                    marginLeft: '2px',
+                    cursor: 'pointer',
+                    fontWeight: 800
+                  }}
+                >
+                  Duduki
+                </button>
+              )}
+            </div>
+          )
+        })}
       </div>
 
       {/* Main Scoreboard & Bag Meters */}
@@ -197,7 +526,6 @@ export default function SpadesPlay({
             <div style={{ fontSize: '2rem', fontWeight: 900, color: '#FFF', margin: '4px 0' }}>
               {totalScores.team_a} Pts
             </div>
-            {/* Sandbags Meter */}
             <div style={{ fontSize: '0.78rem', color: '#FCD34D', fontWeight: 700 }}>
               🎒 Bags: {currentBags.team_a} / 10
             </div>
@@ -211,7 +539,6 @@ export default function SpadesPlay({
             <div style={{ fontSize: '2rem', fontWeight: 900, color: '#FFF', margin: '4px 0' }}>
               {totalScores.team_b} Pts
             </div>
-            {/* Sandbags Meter */}
             <div style={{ fontSize: '0.78rem', color: '#FCD34D', fontWeight: 700 }}>
               🎒 Bags: {currentBags.team_b} / 10
             </div>
@@ -243,6 +570,7 @@ export default function SpadesPlay({
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px', marginBottom: '20px' }}>
         {playerInputs.map((p, idx) => {
           const teamLabel = is2v2 ? (idx % 2 === 0 ? '🔵 Tim A' : '🔴 Tim B') : null
+          const canEditThis = canEditPlayer(idx)
 
           return (
             <div
@@ -250,6 +578,7 @@ export default function SpadesPlay({
               className="glass-panel"
               style={{
                 padding: '16px',
+                opacity: canEditThis ? 1 : 0.75,
                 border: p.isBlindNil 
                   ? '1px solid #F59E0B' 
                   : p.isNil 
@@ -279,6 +608,7 @@ export default function SpadesPlay({
                   <div style={{ display: 'flex', gap: '4px', marginBottom: '8px' }}>
                     <button
                       type="button"
+                      disabled={!canEditThis}
                       className={`btn btn-sm ${p.isNil ? 'btn-primary' : 'btn-secondary'}`}
                       onClick={() => handleToggleNil(idx, 'nil')}
                       style={{ flex: 1, fontSize: '0.72rem', padding: '4px' }}
@@ -287,6 +617,7 @@ export default function SpadesPlay({
                     </button>
                     <button
                       type="button"
+                      disabled={!canEditThis}
                       className={`btn btn-sm ${p.isBlindNil ? 'btn-primary' : 'btn-secondary'}`}
                       onClick={() => handleToggleNil(idx, 'blind_nil')}
                       style={{ flex: 1, fontSize: '0.72rem', padding: '4px', color: '#FCD34D' }}
@@ -301,6 +632,7 @@ export default function SpadesPlay({
                         <button
                           key={b}
                           type="button"
+                          disabled={!canEditThis}
                           className={`btn btn-sm ${p.bid === b ? 'btn-primary' : 'btn-secondary'}`}
                           onClick={() => handleBidChange(idx, b)}
                           style={{ flex: 1, minWidth: '24px', padding: '4px 0', fontSize: '0.75rem', fontWeight: 800 }}
@@ -318,6 +650,7 @@ export default function SpadesPlay({
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <button
                       type="button"
+                      disabled={!canEditThis}
                       className="btn btn-sm btn-secondary"
                       onClick={() => handleWonChange(idx, -1)}
                       style={{ width: '32px', height: '32px', padding: 0 }}
@@ -329,6 +662,7 @@ export default function SpadesPlay({
                     </span>
                     <button
                       type="button"
+                      disabled={!canEditThis}
                       className="btn btn-sm btn-secondary"
                       onClick={() => handleWonChange(idx, 1)}
                       style={{ width: '32px', height: '32px', padding: 0 }}
@@ -373,7 +707,7 @@ export default function SpadesPlay({
         </div>
       )}
 
-      {/* Action CTA */}
+      {/* Action CTA (Gated to Scorer for saving) */}
       {inputPhase === 'bid' ? (
         <button
           type="button"
@@ -383,7 +717,7 @@ export default function SpadesPlay({
         >
           Lanjut ke Input Hasil Trik (Won) →
         </button>
-      ) : (
+      ) : isScorer ? (
         <button
           type="button"
           className="btn btn-primary"
@@ -393,6 +727,10 @@ export default function SpadesPlay({
         >
           {totalWonSum === 13 ? `💾 Simpan Ronde ${currentRoundNum}` : `⚠️ Total Won Harus 13 (Saat Ini: ${totalWonSum})`}
         </button>
+      ) : (
+        <div style={{ textAlign: 'center', padding: '12px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+          ⏳ Hanya Pencatat Skor (📝 {players[effectiveScorerIndex] || 'Scorer'}) yang dapat menyimpan ronde ini.
+        </div>
       )}
 
       {/* Round Ledger */}
@@ -400,7 +738,7 @@ export default function SpadesPlay({
         <div className="glass-panel" style={{ padding: '20px', marginBottom: '20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
             <div className="section-label" style={{ margin: 0 }}>📜 Riwayat Ronde Spades</div>
-            {onUndoRound && (
+            {isHost && onUndoRound && (
               <button className="btn btn-sm btn-secondary" onClick={onUndoRound} style={{ fontSize: '0.75rem' }}>
                 ↩️ Undo Ronde Terakhir
               </button>
@@ -448,12 +786,76 @@ export default function SpadesPlay({
             📸 Bagikan Cerita 9:16
           </button>
         )}
-        {onFinishGame && (
+        {isHost && onFinishGame && (
           <button className="btn btn-danger" onClick={onFinishGame}>
             🏁 Selesaikan Permainan
           </button>
         )}
       </div>
+
+      {/* Transfer Scorer Modal */}
+      {showTransferScorerModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.75)',
+          backdropFilter: 'blur(6px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '16px'
+        }}>
+          <div className="glass-panel" style={{ maxWidth: '360px', width: '100%', padding: '20px' }}>
+            <h3 style={{ margin: '0 0 8px 0', fontSize: '1.1rem', fontWeight: 800 }}>
+              📝 Pilih Pencatat Skor (Scorer)
+            </h3>
+            <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '16px' }}>
+              Pencatat skor bertugas memasukkan bid & trik lalu menyimpannya ke papan skor.
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+              {players.map((name, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  className={`btn ${effectiveScorerIndex === idx ? 'btn-primary' : 'btn-secondary'}`}
+                  onClick={() => {
+                    setScorerIndex(idx)
+                    setShowTransferScorerModal(false)
+                  }}
+                  style={{ justifyContent: 'space-between', padding: '10px 14px', fontSize: '0.9rem' }}
+                >
+                  <span>{name} {livePlayerUserIds?.[idx] ? '🟢' : '⚪'}</span>
+                  {effectiveScorerIndex === idx && <span>✓ Aktif</span>}
+                </button>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              className="btn btn-secondary btn-block"
+              onClick={() => setShowTransferScorerModal(false)}
+            >
+              Tutup
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Room Invite Modal */}
+      <RoomInviteModal
+        isOpen={isInviteModalOpen}
+        onClose={() => setIsInviteModalOpen(false)}
+        session={session}
+        user={user}
+        onClaimSeat={onClaimSeat}
+        onReleaseSeat={onReleaseSeat}
+        myPlayerIndex={myPlayerIndex}
+      />
 
       <CardGameRulesModal 
         isOpen={isRulesOpen} 

@@ -28,16 +28,27 @@ export default function RemiPlay({
   const clientId = useRef(`peer-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`).current
   const realtimeChannelRef = useRef(null)
 
+  // Reactive live seat claims state to guarantee immediate re-rendering across screens
+  const [livePlayerUserIds, setLivePlayerUserIds] = useState(() => session?.player_user_ids || Array(playerNames.length).fill(null))
+
+  useEffect(() => {
+    if (session?.player_user_ids) {
+      setLivePlayerUserIds(session.player_user_ids)
+    }
+  }, [session?.player_user_ids])
+
   // Determine user role and claimed seat index
   const currentClientId = deviceService.getClientIdentifier(user)
-  const isHost = session?.user_id === user?.id || 
-                 session?.player_user_ids?.[0] === currentClientId || 
+  const isLocalOrOffline = !session?.room_code || session?.settings?.isOfflineLocal || !session?.id || session.id.startsWith('guest-session') || session.id.startsWith('local-session')
+  const isHost = isLocalOrOffline ||
+                 session?.user_id === user?.id || 
+                 livePlayerUserIds?.[0] === currentClientId || 
                  propMyPlayerIndex === 0 ||
                  (session?.id?.startsWith('guest-session') && deviceService.getSessionSeat(session.id) === 0)
 
   let effectiveSeat = propMyPlayerIndex !== undefined ? propMyPlayerIndex : null
   if (effectiveSeat === null) {
-    const seatInSession = session?.player_user_ids?.findIndex(id => id && (id === currentClientId || (user?.id && id === user.id)))
+    const seatInSession = livePlayerUserIds?.findIndex(id => id && (id === currentClientId || (user?.id && id === user.id)))
     if (seatInSession !== -1 && seatInSession !== undefined) {
       effectiveSeat = seatInSession
     } else {
@@ -49,6 +60,21 @@ export default function RemiPlay({
 
   const myPlayerIndex = effectiveSeat
   const isSpectator = myPlayerIndex === null && !isHost
+
+  // Scorer role state (defaults to Player 0 / Host)
+  const [scorerIndex, setScorerIndex] = useState(session?.settings?.scorerIndex ?? 0)
+  const [showTransferScorerModal, setShowTransferScorerModal] = useState(false)
+  const isScorer = isLocalOrOffline || myPlayerIndex === scorerIndex
+  const canChangeScorer = isLocalOrOffline || isHost || myPlayerIndex === scorerIndex
+  const canEditPlayer = (idx) => isScorer || myPlayerIndex === idx || (isHost && !livePlayerUserIds?.[idx])
+
+  const computeFallbackScorer = (playerUserIds = [], currentScorer = 0) => {
+    if (playerUserIds && playerUserIds[currentScorer]) return currentScorer
+    if (playerUserIds && playerUserIds[0]) return 0
+    const firstOnline = playerUserIds ? playerUserIds.findIndex(id => Boolean(id)) : -1
+    if (firstOnline !== -1) return firstOnline
+    return 0
+  }
 
   const [localRounds, setLocalRounds] = useState(rounds || [])
 
@@ -84,8 +110,61 @@ export default function RemiPlay({
       isTutupMurni,
       penalties,
       activeKeypadPlayer,
+      scorerIndex,
       ...overrides
     })
+  }
+
+  // Scorer transfer & takeover handlers
+  const handleTransferScorer = (newIdx) => {
+    if (!canChangeScorer) {
+      alert('Hanya Pembuat Game (Host) atau Pencatat Skor aktif yang berwenang mengganti Scorer.')
+      return
+    }
+    if (newIdx < 0 || newIdx >= playerNames.length) return
+    try { hapticsService.medium() } catch {}
+    setScorerIndex(newIdx)
+    broadcastState({ scorerIndex: newIdx })
+    setShowTransferScorerModal(false)
+    if (isHost && session?.id) {
+      gameService.updateSessionSettings(session.id, { ...(session.settings || {}), scorerIndex: newIdx })
+    }
+  }
+
+  const handleTakeOverScorer = () => {
+    if (!isHost) return
+    handleTransferScorer(myPlayerIndex ?? 0)
+  }
+
+  const handleStandUpSelf = async () => {
+    if (myPlayerIndex === null) return
+    const conf = window.confirm(`Apakah Anda yakin ingin berdiri dan mengosongkan Kursi ${myPlayerIndex + 1}?`)
+    if (!conf) return
+    try {
+      if (onReleaseSeat) {
+        await onReleaseSeat(session?.id, myPlayerIndex)
+      } else {
+        await gameService.releaseSeat(session?.id, myPlayerIndex, currentClientId)
+      }
+      deviceService.clearSessionSeat(session?.id)
+      hapticsService.medium()
+    } catch (err) {
+      console.error('Failed to stand up:', err)
+    }
+  }
+
+  const handleClaimSeatDirect = async (seatIdx) => {
+    if (seatIdx < 0 || seatIdx >= playerNames.length) return
+    try {
+      if (onClaimSeat) {
+        await onClaimSeat(session?.id, seatIdx, playerNames[seatIdx])
+      } else {
+        await gameService.claimSeat(session?.id, seatIdx, currentClientId, playerNames[seatIdx])
+      }
+      hapticsService.success()
+    } catch (err) {
+      console.error('Failed to claim seat:', err)
+    }
   }
 
   // Subscribe to Realtime Live Room (Instant Broadcast + DB Changes + Smart Polling Fallback)
@@ -99,6 +178,7 @@ export default function RemiPlay({
           if (payload.isTutupMurni !== undefined) setIsTutupMurni(payload.isTutupMurni)
           if (Array.isArray(payload.penalties)) setPenalties(payload.penalties)
           if (payload.activeKeypadPlayer !== undefined) setActiveKeypadPlayer(payload.activeKeypadPlayer)
+          if (payload.scorerIndex !== undefined) setScorerIndex(payload.scorerIndex)
         }
       },
       onRoundAdvance: (payload) => {
@@ -117,18 +197,29 @@ export default function RemiPlay({
       onSeatClaim: (seatPayload) => {
         if (seatPayload?.playerIndex !== undefined) {
           const isRelease = !!seatPayload.isRelease
-          if (session) {
-            const updatedIds = [...(session?.player_user_ids || Array(playerNames.length).fill(null))]
+          let updatedIds = []
+          setLivePlayerUserIds(prev => {
+            updatedIds = [...(prev || Array(playerNames.length).fill(null))]
             if (isRelease) {
               updatedIds[seatPayload.playerIndex] = null
             } else if (seatPayload.clientId) {
               updatedIds[seatPayload.playerIndex] = seatPayload.clientId
             }
-            session.player_user_ids = updatedIds
+            if (session) session.player_user_ids = updatedIds
+            return updatedIds
+          })
 
+          if (isRelease && seatPayload.playerIndex === scorerIndex) {
+            const fallbackIdx = computeFallbackScorer(updatedIds, scorerIndex)
+            setScorerIndex(fallbackIdx)
             if (isHost && session.id) {
-              gameService.updateSessionPlayerUserIds(session.id, updatedIds)
+              broadcastState({ scorerIndex: fallbackIdx })
+              gameService.updateSessionSettings(session.id, { ...(session.settings || {}), scorerIndex: fallbackIdx })
             }
+          }
+
+          if (isHost && session.id) {
+            gameService.updateSessionPlayerUserIds(session.id, updatedIds)
           }
         }
       },
@@ -136,6 +227,24 @@ export default function RemiPlay({
         const refreshed = await gameService.getSession(session.id)
         if (refreshed?.player_user_ids) {
           session.player_user_ids = refreshed.player_user_ids
+          setLivePlayerUserIds(refreshed.player_user_ids)
+          if (!refreshed.player_user_ids[scorerIndex] && !isLocalOrOffline) {
+            const fallbackIdx = computeFallbackScorer(refreshed.player_user_ids, scorerIndex)
+            if (fallbackIdx !== scorerIndex) {
+              setScorerIndex(fallbackIdx)
+              if (isHost && session.id) {
+                broadcastState({ scorerIndex: fallbackIdx })
+                gameService.updateSessionSettings(session.id, { ...(session.settings || {}), scorerIndex: fallbackIdx })
+              }
+            }
+          }
+        }
+        if (refreshed?.settings?.scorerIndex !== undefined && refreshed.settings.scorerIndex !== scorerIndex) {
+          setScorerIndex(refreshed.settings.scorerIndex)
+        }
+        if (refreshed?.is_completed && onFinalizeGame) {
+          onFinalizeGame(refreshed.game_rounds || localRounds)
+          return
         }
         if (refreshed?.game_rounds && refreshed.game_rounds.length >= localRounds.length) {
           setLocalRounds(refreshed.game_rounds)
@@ -149,6 +258,27 @@ export default function RemiPlay({
     const pollInterval = setInterval(async () => {
       try {
         const refreshed = await gameService.getSession(session.id)
+        if (refreshed?.player_user_ids) {
+          session.player_user_ids = refreshed.player_user_ids
+          setLivePlayerUserIds(refreshed.player_user_ids)
+          if (!refreshed.player_user_ids[scorerIndex] && !isLocalOrOffline) {
+            const fallbackIdx = computeFallbackScorer(refreshed.player_user_ids, scorerIndex)
+            if (fallbackIdx !== scorerIndex) {
+              setScorerIndex(fallbackIdx)
+              if (isHost && session.id) {
+                broadcastState({ scorerIndex: fallbackIdx })
+                gameService.updateSessionSettings(session.id, { ...(session.settings || {}), scorerIndex: fallbackIdx })
+              }
+            }
+          }
+        }
+        if (refreshed?.settings?.scorerIndex !== undefined && refreshed.settings.scorerIndex !== scorerIndex) {
+          setScorerIndex(refreshed.settings.scorerIndex)
+        }
+        if (refreshed?.is_completed && onFinalizeGame) {
+          onFinalizeGame(refreshed.game_rounds || localRounds)
+          return
+        }
         if (refreshed?.game_rounds && refreshed.game_rounds.length > 0) {
           setLocalRounds(prev => {
             if (refreshed.game_rounds.length > prev.length) {
@@ -162,7 +292,7 @@ export default function RemiPlay({
 
     return () => {
       clearInterval(pollInterval)
-      if (channel) gameService.unsubscribeLiveRoom(channel)
+      if (channel) gameService.unsubscribeLiveRoom(channel, session.id)
     }
   }, [session?.id])
 
@@ -251,12 +381,52 @@ export default function RemiPlay({
           marginBottom: '14px',
           display: 'flex',
           alignItems: 'center',
-          gap: '8px',
+          justifyContent: 'space-between',
           color: '#FDE68A',
           fontSize: '0.85rem'
         }}>
-          <span style={{ fontSize: '1.2rem' }}>👀</span>
-          <span><strong>Mode Penonton (Live Spectator)</strong> • Memantau denda dan skor secara realtime</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '1.2rem' }}>👀</span>
+            <span><strong>Mode Penonton (Live Spectator)</strong> • Memantau denda dan skor secara realtime</span>
+          </div>
+          {isHost && !isScorer && (
+            <button
+              type="button"
+              className="btn btn-warning btn-sm"
+              onClick={handleTakeOverScorer}
+              style={{ fontSize: '0.74rem', padding: '4px 10px', fontWeight: 800 }}
+            >
+              👑 Ambil Alih Scorer (Host)
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Non-Scorer Player Notice */}
+      {!isSpectator && !isScorer && (
+        <div style={{
+          background: 'rgba(59, 130, 246, 0.12)',
+          border: '1px solid rgba(59, 130, 246, 0.3)',
+          borderRadius: '10px',
+          padding: '8px 12px',
+          marginBottom: '12px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          fontSize: '0.82rem',
+          color: '#93C5FD'
+        }}>
+          <span>✏️ Pencatatan skor dilakukan oleh <strong>{playerNames[scorerIndex] || `Pemain ${scorerIndex + 1}`}</strong></span>
+          {isHost && (
+            <button
+              type="button"
+              className="btn btn-warning btn-xs"
+              onClick={handleTakeOverScorer}
+              style={{ fontSize: '0.72rem', padding: '2px 8px', fontWeight: 800 }}
+            >
+              👑 Ambil Alih (Host)
+            </button>
+          )}
         </div>
       )}
 
@@ -288,20 +458,64 @@ export default function RemiPlay({
               {session?.title || 'Remi Session'}
             </span>
 
-            {/* Role Badge */}
-            <span style={{
-              fontSize: '0.68rem',
-              padding: '2px 6px',
-              borderRadius: '5px',
-              fontWeight: 800,
-              whiteSpace: 'nowrap',
-              flexShrink: 0,
-              background: isHost ? 'var(--badge-gold-bg)' : isSpectator ? 'var(--badge-blue-bg)' : 'var(--badge-purple-bg)',
-              color: isHost ? 'var(--badge-gold-text)' : isSpectator ? 'var(--badge-blue-text)' : 'var(--badge-purple-text)',
-              border: `1px solid ${isHost ? 'var(--badge-gold-border)' : isSpectator ? 'var(--badge-blue-border)' : 'var(--badge-purple-border)'}`
-            }}>
+            {/* Role Badge (Clickable to open Room / Seats) */}
+            <span 
+              onClick={() => setIsInviteModalOpen(true)}
+              style={{
+                fontSize: '0.68rem',
+                padding: '2px 6px',
+                borderRadius: '5px',
+                fontWeight: 800,
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+                cursor: 'pointer',
+                background: isHost ? 'var(--badge-gold-bg)' : isSpectator ? 'var(--badge-blue-bg)' : 'var(--badge-purple-bg)',
+                color: isHost ? 'var(--badge-gold-text)' : isSpectator ? 'var(--badge-blue-text)' : 'var(--badge-purple-text)',
+                border: `1px solid ${isHost ? 'var(--badge-gold-border)' : isSpectator ? 'var(--badge-blue-border)' : 'var(--badge-purple-border)'}`
+              }}
+              title="Klik untuk Kelola Kursi Meja & Kode Room"
+            >
               {isHost ? '👑 Host' : isSpectator ? '👀 Penonton' : `🪑 P${(myPlayerIndex ?? 0) + 1}`}
             </span>
+
+            {/* Scorer Role Indicator */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <span 
+                style={{
+                  fontSize: '0.68rem',
+                  padding: '2px 6px',
+                  borderRadius: '5px',
+                  fontWeight: 700,
+                  background: isScorer ? '#FEF3C7' : '#F3F4F6',
+                  color: isScorer ? '#D97706' : '#4B5563',
+                  border: isScorer ? '1px solid #F59E0B' : '1px solid #E5E7EB',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '3px'
+                }}
+              >
+                <span>✏️ Scorer:</span>
+                <strong>{playerNames[scorerIndex] || `P1`}</strong>
+              </span>
+              {canChangeScorer && (
+                <button
+                  type="button"
+                  className="btn btn-xs"
+                  onClick={() => setShowTransferScorerModal(true)}
+                  style={{
+                    padding: '1px 5px',
+                    fontSize: '0.68rem',
+                    background: 'rgba(255,255,255,0.85)',
+                    border: '1px solid #D1D5DB',
+                    borderRadius: '4px',
+                    cursor: 'pointer'
+                  }}
+                  title="Ganti atau Serahkan Peran Scorer"
+                >
+                  ⇄
+                </button>
+              )}
+            </div>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
@@ -374,10 +588,10 @@ export default function RemiPlay({
         </div>
       )}
 
-      {/* Round Form Panel (Hidden for Spectators) */}
-      {isSpectator ? (
+      {/* Round Form Panel (Active Scorer or Host only) */}
+      {!isScorer ? (
         <div className="glass-panel" style={{ padding: '20px', marginBottom: '16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.88rem' }}>
-          ⏳ Ronde {currentRoundNumber} sedang dimainkan. Skor akan diperbarui otomatis saat Host menyimpan ronde.
+          ⏳ Ronde {currentRoundNumber} sedang dicatat oleh <strong>{playerNames[scorerIndex] || `Pemain ${scorerIndex + 1}`}</strong>.
         </div>
       ) : (
       <div className="glass-panel" style={{ padding: '20px', marginBottom: '16px' }}>
@@ -397,6 +611,7 @@ export default function RemiPlay({
                 onClick={() => {
                   hapticsService.light()
                   setCloserIndex(idx)
+                  broadcastState({ closerIndex: idx })
                 }}
               >
                 🏆 {name}
@@ -412,7 +627,11 @@ export default function RemiPlay({
             <button
               type="button"
               className={`btn btn-sm ${!isTutupMurni ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => { hapticsService.light(); setIsTutupMurni(false) }}
+              onClick={() => { 
+                hapticsService.light()
+                setIsTutupMurni(false)
+                broadcastState({ isTutupMurni: false })
+              }}
             >
               {t('remi.tutup_biasa')}
             </button>
@@ -420,7 +639,11 @@ export default function RemiPlay({
               type="button"
               className={`btn btn-sm ${isTutupMurni ? 'btn-primary' : 'btn-secondary'}`}
               style={{ background: isTutupMurni ? '#EC4899' : undefined }}
-              onClick={() => { hapticsService.medium(); setIsTutupMurni(true) }}
+              onClick={() => { 
+                hapticsService.medium()
+                setIsTutupMurni(true)
+                broadcastState({ isTutupMurni: true })
+              }}
             >
               🔥 {t('remi.tutup_murni')}
             </button>
@@ -433,6 +656,7 @@ export default function RemiPlay({
           {playerNames.map((name, idx) => {
             const isCloser = idx === closerIndex
             const penalty = penalties[idx] || 0
+            const isOccupied = Boolean(livePlayerUserIds?.[idx])
 
             return (
               <div
@@ -447,9 +671,19 @@ export default function RemiPlay({
                   borderRadius: '12px'
                 }}
               >
-                <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span 
+                    style={{
+                      display: 'inline-block',
+                      width: '8px',
+                      height: '8px',
+                      borderRadius: '50%',
+                      background: isOccupied ? '#10B981' : '#9CA3AF'
+                    }}
+                    title={isOccupied ? 'Online di room' : 'Offline / Belum check-in'}
+                  />
                   <strong style={{ fontSize: '0.95rem', color: 'var(--text-main)' }}>{name}</strong>
-                  {isCloser && <span style={{ marginLeft: '8px', color: 'var(--badge-gold-text)', fontSize: '0.75rem', fontWeight: 800 }}>MENUTUP (0 Pts)</span>}
+                  {isCloser && <span style={{ marginLeft: '4px', color: 'var(--badge-gold-text)', fontSize: '0.75rem', fontWeight: 800 }}>MENUTUP (0 Pts)</span>}
                 </div>
 
                 {!isCloser && (
@@ -457,7 +691,10 @@ export default function RemiPlay({
                     <button
                       type="button"
                       className="btn btn-secondary btn-sm"
-                      onClick={() => setActiveKeypadPlayer(idx)}
+                      onClick={() => {
+                        setActiveKeypadPlayer(idx)
+                        broadcastState({ activeKeypadPlayer: idx })
+                      }}
                     >
                       ⌨️ Hitung ({penalty} pts)
                     </button>
@@ -469,6 +706,7 @@ export default function RemiPlay({
                         setPenalties(prev => {
                           const n = [...prev]
                           n[idx] = val
+                          broadcastState({ penalties: n })
                           return n
                         })
                       }}
@@ -498,13 +736,13 @@ export default function RemiPlay({
 
       {/* Card Penalty Keypad Modal */}
       {activeKeypadPlayer !== null && (
-        <div className="modal-overlay" onClick={() => setActiveKeypadPlayer(null)}>
+        <div className="modal-overlay" onClick={() => { setActiveKeypadPlayer(null); broadcastState({ activeKeypadPlayer: null }) }}>
           <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '440px' }}>
             <div className="modal-header">
               <h3 className="modal-title">
                 🎴 {t('remi.keypad_title', { player: playerNames[activeKeypadPlayer] })}
               </h3>
-              <button className="btn-close" onClick={() => setActiveKeypadPlayer(null)}>✕</button>
+              <button className="btn-close" onClick={() => { setActiveKeypadPlayer(null); broadcastState({ activeKeypadPlayer: null }) }}>✕</button>
             </div>
 
             <div style={{ background: 'rgba(0,0,0,0.3)', padding: '12px', borderRadius: '12px', textAlign: 'center', marginBottom: '16px' }}>
@@ -532,7 +770,7 @@ export default function RemiPlay({
               <button className="btn btn-secondary" onClick={handleClearKeypad}>
                 Reset 0
               </button>
-              <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => setActiveKeypadPlayer(null)}>
+              <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => { setActiveKeypadPlayer(null); broadcastState({ activeKeypadPlayer: null }) }}>
                 Selesai
               </button>
             </div>
@@ -540,7 +778,7 @@ export default function RemiPlay({
         </div>
       )}
 
-      {/* Remi Cumulative Leaderboard */}
+      {/* Remi Cumulative Leaderboard & Player Presence */}
       <div className="glass-panel" style={{ padding: '20px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
           <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>📊 Klasemen Denda Remi</h3>
@@ -568,6 +806,7 @@ export default function RemiPlay({
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border-glass)' }}>
                 <th style={{ padding: '8px', textAlign: 'left' }}>Pemain</th>
+                <th style={{ padding: '8px' }}>Status / Aksi</th>
                 <th style={{ padding: '8px' }}>Total Denda</th>
                 {rounds.map((r, i) => (
                   <th key={i} style={{ padding: '8px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
@@ -579,9 +818,59 @@ export default function RemiPlay({
             <tbody>
               {playerNames.map((name, idx) => {
                 const total = cumulativeScores[idx] || 0
+                const isOccupied = Boolean(livePlayerUserIds?.[idx])
+                const isMySeat = myPlayerIndex === idx
+
                 return (
                   <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                    <td style={{ padding: '10px 8px', textAlign: 'left', fontWeight: 700 }}>{name}</td>
+                    <td style={{ padding: '10px 8px', textAlign: 'left', fontWeight: 700 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span>{name}</span>
+                        {idx === scorerIndex && (
+                          <span style={{ fontSize: '0.7rem', padding: '1px 5px', borderRadius: '4px', background: '#FEF3C7', color: '#D97706', fontWeight: 800 }}>
+                            ✏️ Scorer
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td style={{ padding: '10px 8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                        <span 
+                          style={{
+                            fontSize: '0.72rem',
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            background: isOccupied ? 'rgba(16, 185, 129, 0.15)' : 'rgba(156, 163, 175, 0.15)',
+                            color: isOccupied ? '#10B981' : '#9CA3AF',
+                            fontWeight: 700
+                          }}
+                        >
+                          {isOccupied ? '🟢 Online' : '⚪ Offline'}
+                        </span>
+                        {isMySeat && (
+                          <button
+                            type="button"
+                            className="btn btn-danger btn-xs"
+                            onClick={handleStandUpSelf}
+                            style={{ fontSize: '0.68rem', padding: '2px 6px' }}
+                            title="Berdiri dan kosongkan kursi Anda"
+                          >
+                            Berdiri
+                          </button>
+                        )}
+                        {!isMySeat && isSpectator && !isOccupied && (
+                          <button
+                            type="button"
+                            className="btn btn-primary btn-xs"
+                            onClick={() => handleClaimSeatDirect(idx)}
+                            style={{ fontSize: '0.68rem', padding: '2px 6px' }}
+                            title="Duduki kursi ini"
+                          >
+                            🪑 Duduki
+                          </button>
+                        )}
+                      </div>
+                    </td>
                     <td style={{ padding: '10px 8px', fontWeight: 800, color: total === 0 ? '#34D399' : '#F87171' }}>
                       {total} pts
                     </td>
@@ -602,11 +891,54 @@ export default function RemiPlay({
         </div>
       </div>
 
+      {/* Transfer Scorer Role Modal */}
+      {showTransferScorerModal && (
+        <div className="modal-overlay" onClick={() => setShowTransferScorerModal(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px' }}>
+            <div className="modal-header">
+              <h3 className="modal-title">⇄ Alihkan Peran Pencatat Skor (Scorer)</h3>
+              <button className="btn-close" onClick={() => setShowTransferScorerModal(false)}>✕</button>
+            </div>
+            <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)', marginBottom: '14px' }}>
+              Pilih pemain yang akan mencatat denda kartu ronde pada game ini:
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {playerNames.map((name, idx) => {
+                const isCurrent = idx === scorerIndex
+                const isOnline = Boolean(livePlayerUserIds?.[idx])
+                return (
+                  <button
+                    key={idx}
+                    type="button"
+                    className={`btn ${isCurrent ? 'btn-primary' : 'btn-secondary'}`}
+                    onClick={() => handleTransferScorer(idx)}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '10px 14px'
+                    }}
+                  >
+                    <span style={{ fontWeight: 700 }}>
+                      {isCurrent ? '✏️ ' : ''}{name} {idx === 0 ? '(Host)' : ''}
+                    </span>
+                    <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>
+                      {isOnline ? '🟢 Online' : '⚪ Offline'}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Room Invite Modal */}
       <RoomInviteModal
         isOpen={isInviteModalOpen}
         onClose={() => setIsInviteModalOpen(false)}
         session={session}
+        myPlayerIndex={myPlayerIndex}
         user={user}
         onClaimSeat={onClaimSeat}
         onReleaseSeat={onReleaseSeat}
