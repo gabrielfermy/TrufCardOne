@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useTranslation } from '../../i18n/I18nContext'
 import { soundService } from '../../services/soundService'
 import { hapticsService } from '../../services/hapticsService'
@@ -6,6 +6,24 @@ import { hapticsService } from '../../services/hapticsService'
 export default function CardGameRulesModal({ isOpen, onClose, initialGame = 'truf' }) {
   const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState(initialGame)
+  const tabsRef = useRef(null)
+  const [canScrollLeft, setCanScrollLeft] = useState(false)
+  const [canScrollRight, setCanScrollRight] = useState(true)
+
+  const checkScroll = () => {
+    if (tabsRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = tabsRef.current
+      setCanScrollLeft(scrollLeft > 4)
+      setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 4)
+    }
+  }
+
+  const scrollTabs = (offset) => {
+    if (tabsRef.current) {
+      tabsRef.current.scrollBy({ left: offset, behavior: 'smooth' })
+      setTimeout(checkScroll, 200)
+    }
+  }
 
   useEffect(() => {
     if (initialGame) {
@@ -13,7 +31,22 @@ export default function CardGameRulesModal({ isOpen, onClose, initialGame = 'tru
     }
   }, [initialGame, isOpen])
 
+  useEffect(() => {
+    if (isOpen && activeTab && tabsRef.current) {
+      const activeButton = tabsRef.current.querySelector(`[data-tab-key="${activeTab}"]`)
+      if (activeButton) {
+        activeButton.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
+      }
+      setTimeout(checkScroll, 150)
+    }
+  }, [activeTab, isOpen])
+
   if (!isOpen) return null
+
+  const stripEmoji = (str) => {
+    if (!str) return ''
+    return str.replace(/^[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}\s]+/u, '').trim()
+  }
 
   const handleTabChange = (tabKey) => {
     try {
@@ -30,6 +63,81 @@ export default function CardGameRulesModal({ isOpen, onClose, initialGame = 'tru
     } catch {}
     onClose()
   }
+
+  const tabList = [
+    { 
+      key: 'truf', 
+      icon: '🃏', 
+      label: stripEmoji(t('rules_modal.tab_truf')) || 'Truf (Trup)', 
+      activeBg: 'var(--badge-purple-bg)', 
+      activeBorder: 'var(--badge-purple-border)', 
+      activeText: 'var(--badge-purple-text)' 
+    },
+    { 
+      key: 'bridge', 
+      icon: '🃏', 
+      label: stripEmoji(t('rules_modal.tab_bridge')) || 'Contract Bridge', 
+      activeBg: 'rgba(129, 140, 248, 0.16)', 
+      activeBorder: 'rgba(129, 140, 248, 0.45)', 
+      activeText: '#818CF8' 
+    },
+    { 
+      key: 'spades', 
+      icon: '♠️', 
+      label: stripEmoji(t('rules_modal.tab_spades')) || 'Spades', 
+      activeBg: 'rgba(168, 85, 247, 0.16)', 
+      activeBorder: 'rgba(168, 85, 247, 0.45)', 
+      activeText: '#A855F7' 
+    },
+    { 
+      key: 'remi', 
+      icon: '🎴', 
+      label: stripEmoji(t('rules_modal.tab_remi')) || 'Remi (7-Card)', 
+      activeBg: 'rgba(236, 72, 153, 0.16)', 
+      activeBorder: 'rgba(236, 72, 153, 0.45)', 
+      activeText: '#F472B6' 
+    },
+    { 
+      key: 'remi_jawa', 
+      icon: '🎴', 
+      label: stripEmoji(t('rules_modal.tab_remi_jawa')) || 'Remi Jawa', 
+      activeBg: 'rgba(245, 158, 11, 0.16)', 
+      activeBorder: 'rgba(245, 158, 11, 0.45)', 
+      activeText: '#F59E0B' 
+    },
+    { 
+      key: 'capsa', 
+      icon: '🎴', 
+      label: stripEmoji(t('rules_modal.tab_capsa')) || 'Capsa', 
+      activeBg: 'rgba(6, 182, 212, 0.16)', 
+      activeBorder: 'rgba(6, 182, 212, 0.45)', 
+      activeText: '#06B6D4' 
+    },
+    { 
+      key: 'domino', 
+      icon: '🀄', 
+      label: stripEmoji(t('rules_modal.tab_domino')) || 'Domino Gaple', 
+      activeBg: 'rgba(56, 189, 248, 0.16)', 
+      activeBorder: 'rgba(56, 189, 248, 0.45)', 
+      activeText: '#38BDF8' 
+    },
+    { 
+      key: 'omben', 
+      icon: '🍺', 
+      label: stripEmoji(t('rules_modal.tab_omben')) || 'Omben (Cangkulan)', 
+      activeBg: 'var(--badge-gold-bg)', 
+      activeBorder: 'var(--badge-gold-border)', 
+      activeText: 'var(--badge-gold-text)' 
+    },
+    { 
+      key: 'chess', 
+      icon: '♟️', 
+      label: stripEmoji(t('rules_modal.tab_chess')) || 'Jam Catur', 
+      activeBg: 'var(--badge-blue-bg)', 
+      activeBorder: 'var(--badge-blue-border)', 
+      activeText: 'var(--badge-blue-text)' 
+    }
+  ]
 
   return (
     <div 
@@ -98,124 +206,132 @@ export default function CardGameRulesModal({ isOpen, onClose, initialGame = 'tru
           </button>
         </div>
 
-        {/* Tab Navigation */}
+        {/* Tab Navigation with Left/Right Scroll Buttons */}
         <div style={{
+          position: 'relative',
           display: 'flex',
           alignItems: 'center',
-          gap: '8px',
-          padding: '10px 20px',
-          borderBottom: '1px solid var(--border-glass)',
-          overflowX: 'auto',
           background: 'var(--bg-glass)',
-          WebkitOverflowScrolling: 'touch',
-          scrollbarWidth: 'none'
+          borderBottom: '1px solid var(--border-glass)'
         }}>
-          {[
-            { 
-              key: 'truf', 
-              icon: '🃏', 
-              label: t('rules_modal.tab_truf').replace(/^🃏\s*/, '') || 'Truf (Trup)', 
-              activeBg: 'var(--badge-purple-bg)', 
-              activeBorder: 'var(--badge-purple-border)', 
-              activeText: 'var(--badge-purple-text)' 
-            },
-            { 
-              key: 'bridge', 
-              icon: '🃏', 
-              label: t('rules_modal.tab_bridge') || 'Bridge', 
-              activeBg: 'rgba(129, 140, 248, 0.16)', 
-              activeBorder: 'rgba(129, 140, 248, 0.45)', 
-              activeText: '#818CF8' 
-            },
-            { 
-              key: 'spades', 
-              icon: '♠️', 
-              label: t('rules_modal.tab_spades') || 'Spades', 
-              activeBg: 'rgba(168, 85, 247, 0.16)', 
-              activeBorder: 'rgba(168, 85, 247, 0.45)', 
-              activeText: '#A855F7' 
-            },
-            { 
-              key: 'remi', 
-              icon: '🎴', 
-              label: t('rules_modal.tab_remi').replace(/^🎴\s*/, '') || 'Remi (7-Card)', 
-              activeBg: 'rgba(236, 72, 153, 0.16)', 
-              activeBorder: 'rgba(236, 72, 153, 0.45)', 
-              activeText: '#F472B6' 
-            },
-            { 
-              key: 'remi_jawa', 
-              icon: '🎴', 
-              label: t('rules_modal.tab_remi_jawa') || 'Remi Jawa', 
-              activeBg: 'rgba(245, 158, 11, 0.16)', 
-              activeBorder: 'rgba(245, 158, 11, 0.45)', 
-              activeText: '#F59E0B' 
-            },
-            { 
-              key: 'capsa', 
-              icon: '🎴', 
-              label: t('rules_modal.tab_capsa') || 'Capsa', 
-              activeBg: 'rgba(6, 182, 212, 0.16)', 
-              activeBorder: 'rgba(6, 182, 212, 0.45)', 
-              activeText: '#06B6D4' 
-            },
-            { 
-              key: 'domino', 
-              icon: '🀄', 
-              label: t('rules_modal.tab_domino') || 'Domino Gaple', 
-              activeBg: 'rgba(56, 189, 248, 0.16)', 
-              activeBorder: 'rgba(56, 189, 248, 0.45)', 
-              activeText: '#38BDF8' 
-            },
-            { 
-              key: 'omben', 
-              icon: '🍺', 
-              label: t('rules_modal.tab_omben').replace(/^🍺\s*/, '') || 'Omben (Cangkulan)', 
-              activeBg: 'var(--badge-gold-bg)', 
-              activeBorder: 'var(--badge-gold-border)', 
-              activeText: 'var(--badge-gold-text)' 
-            },
-            { 
-              key: 'chess', 
-              icon: '♟️', 
-              label: t('rules_modal.tab_chess').replace(/^♟️\s*/, '') || 'Jam Catur', 
-              activeBg: 'var(--badge-blue-bg)', 
-              activeBorder: 'var(--badge-blue-border)', 
-              activeText: 'var(--badge-blue-text)' 
-            }
-          ].map(tab => {
-            const isActive = activeTab === tab.key
-            return (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => handleTabChange(tab.key)}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '6px',
-                  height: '36px',
-                  padding: '0 14px',
-                  borderRadius: '10px',
-                  border: isActive ? `1.5px solid ${tab.activeBorder}` : '1.5px solid var(--border-glass)',
-                  background: isActive ? tab.activeBg : 'rgba(255, 255, 255, 0.03)',
-                  color: isActive ? tab.activeText : 'var(--text-dim)',
-                  fontWeight: isActive ? 800 : 600,
-                  fontSize: '0.82rem',
-                  cursor: 'pointer',
-                  whiteSpace: 'nowrap',
-                  flexShrink: 0,
-                  boxSizing: 'border-box',
-                  verticalAlign: 'middle',
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                <span style={{ fontSize: '1rem', lineHeight: 1, display: 'inline-flex', alignItems: 'center' }}>{tab.icon}</span>
-                <span style={{ lineHeight: 1, display: 'inline-flex', alignItems: 'center' }}>{tab.label}</span>
-              </button>
-            )
-          })}
+          {/* Left Arrow Button */}
+          {canScrollLeft && (
+            <button
+              type="button"
+              onClick={() => scrollTabs(-180)}
+              aria-label="Scroll tab ke kiri"
+              style={{
+                position: 'absolute',
+                left: '6px',
+                zIndex: 10,
+                width: '30px',
+                height: '30px',
+                borderRadius: '50%',
+                background: 'rgba(15, 23, 42, 0.9)',
+                border: '1px solid var(--border-glass-light)',
+                color: '#FFF',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.6)',
+                fontSize: '1.2rem',
+                fontWeight: 800,
+                lineHeight: 1
+              }}
+            >
+              ‹
+            </button>
+          )}
+
+          {/* Scrollable Tabs Container */}
+          <div 
+            ref={tabsRef}
+            onScroll={checkScroll}
+            onWheel={(e) => {
+              if (e.deltaY !== 0 && tabsRef.current) {
+                tabsRef.current.scrollLeft += e.deltaY
+                checkScroll()
+              }
+            }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '10px 16px',
+              overflowX: 'auto',
+              WebkitOverflowScrolling: 'touch',
+              scrollbarWidth: 'thin',
+              scrollbarColor: 'var(--border-glass) transparent',
+              width: '100%',
+              scrollBehavior: 'smooth'
+            }}
+          >
+            {tabList.map(tab => {
+              const isActive = activeTab === tab.key
+              return (
+                <button
+                  key={tab.key}
+                  data-tab-key={tab.key}
+                  type="button"
+                  onClick={() => handleTabChange(tab.key)}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    height: '36px',
+                    padding: '0 14px',
+                    borderRadius: '10px',
+                    border: isActive ? `1.5px solid ${tab.activeBorder}` : '1.5px solid var(--border-glass)',
+                    background: isActive ? tab.activeBg : 'rgba(255, 255, 255, 0.03)',
+                    color: isActive ? tab.activeText : 'var(--text-dim)',
+                    fontWeight: isActive ? 800 : 600,
+                    fontSize: '0.82rem',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0,
+                    boxSizing: 'border-box',
+                    verticalAlign: 'middle',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <span style={{ fontSize: '1rem', lineHeight: 1, display: 'inline-flex', alignItems: 'center' }}>{tab.icon}</span>
+                  <span style={{ lineHeight: 1, display: 'inline-flex', alignItems: 'center' }}>{tab.label}</span>
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Right Arrow Button */}
+          {canScrollRight && (
+            <button
+              type="button"
+              onClick={() => scrollTabs(180)}
+              aria-label="Scroll tab ke kanan"
+              style={{
+                position: 'absolute',
+                right: '6px',
+                zIndex: 10,
+                width: '30px',
+                height: '30px',
+                borderRadius: '50%',
+                background: 'rgba(15, 23, 42, 0.9)',
+                border: '1px solid var(--border-glass-light)',
+                color: '#FFF',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.6)',
+                fontSize: '1.2rem',
+                fontWeight: 800,
+                lineHeight: 1
+              }}
+            >
+              ›
+            </button>
+          )}
         </div>
 
         {/* Content Body */}
