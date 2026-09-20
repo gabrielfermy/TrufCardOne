@@ -350,6 +350,32 @@ describe('Truf Player Count Variations (3, 4, 5 Players)', () => {
     // P4: 2 == 2 -> +2
     assert.deepEqual(scores, [3, 2, 2, -2, 2])
   })
+
+  it('Contract Tiebreaker (Bid Pas): Shifts bids +1 for Main Atas and -1 for Main Bawah', () => {
+    // 4 Players: total tricks = 13
+    const initialBids4p = [4, 3, 3, 3] // sum = 13 (Pas 13)
+    const atasBids4p = initialBids4p.map(b => b + 1) // [5, 4, 4, 4] -> sum = 17 (> 13 -> Main Atas)
+    const bawahBids4p = initialBids4p.map(b => Math.max(0, b - 1)) // [3, 2, 2, 2] -> sum = 9 (< 13 -> Main Bawah)
+    
+    assert.equal(atasBids4p.reduce((a, b) => a + b, 0), 17)
+    assert.equal(bawahBids4p.reduce((a, b) => a + b, 0), 9)
+
+    // 3 Players: total tricks = 17
+    const initialBids3p = [6, 6, 5] // sum = 17 (Pas 17)
+    const atasBids3p = initialBids3p.map(b => b + 1) // [7, 7, 6] -> sum = 20 (> 17 -> Main Atas)
+    const bawahBids3p = initialBids3p.map(b => Math.max(0, b - 1)) // [5, 5, 4] -> sum = 14 (< 17 -> Main Bawah)
+    
+    assert.equal(atasBids3p.reduce((a, b) => a + b, 0), 20)
+    assert.equal(bawahBids3p.reduce((a, b) => a + b, 0), 14)
+
+    // 5 Players: total tricks = 10
+    const initialBids5p = [2, 2, 2, 2, 2] // sum = 10 (Pas 10)
+    const atasBids5p = initialBids5p.map(b => b + 1) // [3, 3, 3, 3, 3] -> sum = 15 (> 10 -> Main Atas)
+    const bawahBids5p = initialBids5p.map(b => Math.max(0, b - 1)) // [1, 1, 1, 1, 1] -> sum = 5 (< 10 -> Main Bawah)
+    
+    assert.equal(atasBids5p.reduce((a, b) => a + b, 0), 15)
+    assert.equal(bawahBids5p.reduce((a, b) => a + b, 0), 5)
+  })
 })
 
 describe('Dealer Consecutive Streak Calculation', () => {

@@ -63,12 +63,12 @@ export default function RemiPlay({
   // Scorer role state (defaults to Player 0 / Host)
   const [scorerIndex, setScorerIndex] = useState(session?.settings?.scorerIndex ?? 0)
   const [showTransferScorerModal, setShowTransferScorerModal] = useState(false)
-  const isScorer = isLocalOrOffline || isHost || myPlayerIndex === scorerIndex
-  const canChangeScorer = isLocalOrOffline || isHost || myPlayerIndex === scorerIndex
-  const canEditPlayer = (idx) => isScorer || myPlayerIndex === idx || (isHost && !livePlayerUserIds?.[idx])
+  const isScorer = isLocalOrOffline ? true : myPlayerIndex === scorerIndex
+  const canChangeScorer = isLocalOrOffline || isHost || isScorer
+  const canEditPlayer = (idx) => isScorer || isHost || myPlayerIndex === idx || !livePlayerUserIds?.[idx]
 
   const computeFallbackScorer = (playerUserIds = [], currentScorer = 0) => {
-    if (playerUserIds && playerUserIds[currentScorer]) return currentScorer
+    if (currentScorer >= 0 && playerUserIds && playerUserIds[currentScorer]) return currentScorer
     if (playerUserIds && playerUserIds[0]) return 0
     const firstOnline = playerUserIds ? playerUserIds.findIndex(id => Boolean(id)) : -1
     if (firstOnline !== -1) return firstOnline
@@ -214,6 +214,21 @@ export default function RemiPlay({
 
           if (isHost && session.id) {
             gameService.updateSessionPlayerUserIds(session.id, updatedIds)
+          }
+
+          if (isRelease && seatPayload.playerIndex === scorerIndex && !isLocalOrOffline) {
+            const fallbackIdx = computeFallbackScorer(updatedIds, -1)
+            setScorerIndex(fallbackIdx)
+            if (isHost && session?.id) {
+              gameService.updateSessionSettings(session.id, { ...(session.settings || {}), scorerIndex: fallbackIdx })
+              gameService.broadcastLiveState(channel, {
+                senderId: clientId,
+                penalties,
+                isTutupMurni,
+                activeKeypadPlayer,
+                scorerIndex: fallbackIdx
+              })
+            }
           }
         }
       },
@@ -493,16 +508,16 @@ export default function RemiPlay({
                   padding: '2px 6px',
                   borderRadius: '5px',
                   fontWeight: 700,
-                  background: isScorer ? '#FEF3C7' : '#F3F4F6',
-                  color: isScorer ? '#D97706' : '#4B5563',
-                  border: isScorer ? '1px solid #F59E0B' : '1px solid #E5E7EB',
+                  background: (myPlayerIndex === scorerIndex && !isLocalOrOffline) ? '#FEF3C7' : '#F3F4F6',
+                  color: (myPlayerIndex === scorerIndex && !isLocalOrOffline) ? '#D97706' : '#4B5563',
+                  border: (myPlayerIndex === scorerIndex && !isLocalOrOffline) ? '1px solid #F59E0B' : '1px solid #E5E7EB',
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '3px'
                 }}
               >
                 <span>✏️ Scorer:</span>
-                <strong>{playerNames[scorerIndex] || `P1`}</strong>
+                <strong>{playerNames[scorerIndex] || `P1`} {myPlayerIndex === scorerIndex && !isLocalOrOffline ? '(Anda)' : ''}</strong>
               </span>
               {canChangeScorer && (
                 <button

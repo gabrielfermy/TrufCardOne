@@ -1,3 +1,5 @@
+import { dedupeRounds } from '../../utils/roundUtils.js'
+
 /**
  * Truf Card Game Scoring Logic & Rule Engine
  */
@@ -79,17 +81,18 @@ export function determineTrufSuitWinner(bids) {
  * Otherwise, clockwise starting from (previous dealer + 1) % playerCount.
  */
 export function determineNextDealer(roundsList, firstDealer = 0, initialScores = [], playerCount = 4) {
-  if (!roundsList || roundsList.length === 0) {
+  const cleanList = dedupeRounds(roundsList)
+  if (!cleanList || cleanList.length === 0) {
     return firstDealer
   }
 
   const pCount = (initialScores && initialScores.length > 0)
     ? initialScores.length
-    : (roundsList?.[0]?.player_scores?.length || playerCount || 4)
+    : (cleanList?.[0]?.player_scores?.length || playerCount || 4)
 
   // Calculate cumulative scores
   const cumulativeScores = Array(pCount).fill(0).map((_, idx) => initialScores[idx] || 0)
-  const lastRound = roundsList[roundsList.length - 1]
+  const lastRound = cleanList[cleanList.length - 1]
   const lastScores = lastRound?.player_scores || lastRound?.playerScores || []
   const hasCumulative = lastScores.some(ps => (ps.score_cumulative !== undefined && ps.score_cumulative !== null) || (ps.scoreCumulative !== undefined && ps.scoreCumulative !== null))
 
@@ -101,7 +104,7 @@ export function determineNextDealer(roundsList, firstDealer = 0, initialScores =
       }
     })
   } else {
-    roundsList.forEach(r => {
+    cleanList.forEach(r => {
       const pScores = r.player_scores || r.playerScores || []
       pScores.forEach(ps => {
         const pIdx = ps.player_index ?? ps.playerIndex ?? 0
@@ -120,7 +123,7 @@ export function determineNextDealer(roundsList, firstDealer = 0, initialScores =
   }
 
   // Tie-breaker: If previous round dealer is among tied lowest scorers, keep them
-  const prevRound = roundsList[roundsList.length - 1]
+  const prevRound = cleanList[cleanList.length - 1]
   const prevDealer = prevRound.round_data?.dealerIndex ?? prevRound.round_data?.dealer_index ?? prevRound.roundData?.dealerIndex ?? prevRound.roundData?.dealer_index ?? prevRound.dealer_index ?? prevRound.dealerIndex ?? firstDealer
   if (lowestScorers.includes(prevDealer)) {
     return prevDealer
@@ -143,10 +146,11 @@ export const DEFAULT_DEALER_WORD = 'CHOLOKOPOK'
  * Calculates consecutive dealer streak from recorded rounds
  */
 export function getDealerConsecutiveStreak(roundsList, targetDealer, firstDealer = 0) {
-  if (!roundsList || roundsList.length === 0) return 0
+  const cleanList = dedupeRounds(roundsList)
+  if (!cleanList || cleanList.length === 0) return 0
   let count = 0
-  for (let i = roundsList.length - 1; i >= 0; i--) {
-    const r = roundsList[i]
+  for (let i = cleanList.length - 1; i >= 0; i--) {
+    const r = cleanList[i]
     const d = r.round_data?.dealerIndex ?? r.round_data?.dealer_index ?? r.roundData?.dealerIndex ?? r.roundData?.dealer_index ?? r.dealer_index ?? r.dealerIndex ?? (i === 0 ? firstDealer : null)
     if (d === targetDealer) {
       count++

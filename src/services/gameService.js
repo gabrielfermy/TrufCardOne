@@ -1,6 +1,7 @@
 import { supabase } from './supabaseClient.js'
 import { networkService } from './networkService.js'
 import { sanitizePlayerNames, sanitizeText, sanitizeRoomCode } from '../utils/securityUtils.js'
+import { dedupeRounds } from '../utils/roundUtils.js'
 import { auditService } from './auditService.js'
 
 const LOCAL_SESSIONS_KEY = 'gns_local_sessions'
@@ -327,14 +328,21 @@ export const gameService = {
           .order('round_number', { ascending: true })
 
         if (!roundsErr && rawRounds && rawRounds.length > 0) {
-          const roundIds = rawRounds.map(r => r.id)
+          // Deduplicate rawRounds by round_number in case cloud database has duplicate entries
+          const dedupedMap = new Map()
+          rawRounds.forEach(r => {
+            dedupedMap.set(Number(r.round_number), r)
+          })
+          const dedupedRounds = Array.from(dedupedMap.values()).sort((a, b) => Number(a.round_number) - Number(b.round_number))
+          const roundIds = dedupedRounds.map(r => r.id)
+
           const { data: rawScores } = await supabase
             .from('player_scores')
             .select('*')
             .in('round_id', roundIds)
             .order('player_index', { ascending: true })
 
-          session.game_rounds = rawRounds.map(r => ({
+          session.game_rounds = dedupedRounds.map(r => ({
             ...r,
             round_data: {
               dealerIndex: r.round_data?.dealerIndex ?? r.dealer_index ?? 0,
@@ -369,7 +377,27 @@ export const gameService = {
 
   // 4a. Helper to Save Round directly to Supabase Cloud
   async _saveRoundToCloud({ sessionId, roundNumber, roundData, playerScores }) {
-    // 1. Insert game round (supports both new JSONB round_data and legacy columns)
+    // 1. Check if a round with this session_id and round_number already exists in Supabase
+    let existingRoundId = null
+    try {
+      const { data: existingRows } = await supabase
+        .from('game_rounds')
+        .select('id')
+        .eq('session_id', sessionId)
+        .eq('round_number', roundNumber)
+
+      if (existingRows && existingRows.length > 0) {
+        existingRoundId = existingRows[0].id
+        // If there are duplicate rows in DB for the same round number, delete extraneous rows
+        if (existingRows.length > 1) {
+          const extraIds = existingRows.slice(1).map(r => r.id)
+          await supabase.from('game_rounds').delete().in('id', extraIds)
+        }
+      }
+    } catch (chkErr) {
+      console.warn('Existing round check note:', chkErr)
+    }
+
     const roundPayload = {
       session_id: sessionId,
       round_number: roundNumber,
@@ -379,34 +407,55 @@ export const gameService = {
       play_mode: roundData?.forcedPlayMode ?? null
     }
 
-    let { data: round, error: roundError } = await supabase
-      .from('game_rounds')
-      .insert([roundPayload])
-      .select()
-      .single()
-
-    // Fallback: If round_data column missing in DB, retry with legacy columns only
-    if (roundError) {
-      console.warn('Primary game_rounds insert error, trying legacy schema:', roundError.message)
-      const legacyRoundPayload = {
-        session_id: sessionId,
-        round_number: roundNumber,
-        dealer_index: roundData?.dealerIndex ?? 0,
-        truf_suit_index: roundData?.trufSuit ?? roundData?.truf_suit ?? 0,
-        play_mode: roundData?.forcedPlayMode ?? null
-      }
-      const { data: retryRound, error: retryRoundError } = await supabase
+    let round = null
+    if (existingRoundId) {
+      // Update existing round row to prevent duplicates
+      const { data: updatedRound, error: updateError } = await supabase
         .from('game_rounds')
-        .insert([legacyRoundPayload])
+        .update(roundPayload)
+        .eq('id', existingRoundId)
         .select()
         .single()
 
-      if (!retryRoundError && retryRound) {
-        round = retryRound
-        roundError = null
+      if (!updateError && updatedRound) {
+        round = updatedRound
+        // Clear previous player scores for this round before inserting fresh scores
+        await supabase.from('player_scores').delete().eq('round_id', existingRoundId)
+      }
+    }
+
+    if (!round) {
+      let { data: newRound, error: roundError } = await supabase
+        .from('game_rounds')
+        .insert([roundPayload])
+        .select()
+        .single()
+
+      // Fallback: If round_data column missing in DB, retry with legacy columns only
+      if (roundError) {
+        console.warn('Primary game_rounds insert error, trying legacy schema:', roundError.message)
+        const legacyRoundPayload = {
+          session_id: sessionId,
+          round_number: roundNumber,
+          dealer_index: roundData?.dealerIndex ?? 0,
+          truf_suit_index: roundData?.trufSuit ?? roundData?.truf_suit ?? 0,
+          play_mode: roundData?.forcedPlayMode ?? null
+        }
+        const { data: retryRound, error: retryRoundError } = await supabase
+          .from('game_rounds')
+          .insert([legacyRoundPayload])
+          .select()
+          .single()
+
+        if (!retryRoundError && retryRound) {
+          round = retryRound
+          roundError = null
+        } else {
+          console.error('❌ Supabase game_rounds insert failed:', retryRoundError || roundError)
+          throw retryRoundError || roundError
+        }
       } else {
-        console.error('❌ Supabase game_rounds insert failed:', retryRoundError || roundError)
-        throw retryRoundError || roundError
+        round = newRound
       }
     }
 
@@ -478,15 +527,15 @@ export const gameService = {
     const sessions = getLocalSessions()
     const targetSession = sessions.find(s => s.id === sessionId)
     if (targetSession) {
-      const existingRounds = targetSession.game_rounds || targetSession.rounds || []
-      const roundIdx = existingRounds.findIndex(r => r.round_number === roundNumber)
+      const existingRounds = dedupeRounds(targetSession.game_rounds || targetSession.rounds || [])
+      const roundIdx = existingRounds.findIndex(r => Number(r.round_number ?? r.roundNumber) === Number(roundNumber))
       if (roundIdx >= 0) {
         existingRounds[roundIdx] = localRound
       } else {
         existingRounds.push(localRound)
       }
-      targetSession.game_rounds = existingRounds
-      targetSession.rounds = existingRounds
+      targetSession.game_rounds = dedupeRounds(existingRounds)
+      targetSession.rounds = targetSession.game_rounds
       saveLocalSession(targetSession)
     }
 
@@ -554,26 +603,34 @@ export const gameService = {
   },
 
   // 5. Undo / Delete Round
-  async deleteRound(roundId, sessionId) {
+  async deleteRound(roundId, sessionId, roundNumber) {
     if (sessionId) {
       const sessions = getLocalSessions()
       const target = sessions.find(s => s.id === sessionId)
       if (target) {
-        target.game_rounds = (target.game_rounds || target.rounds || []).filter(r => r.id !== roundId)
+        target.game_rounds = (target.game_rounds || target.rounds || []).filter(r => {
+          const isIdMatch = roundId && r.id === roundId
+          const isNumMatch = roundNumber !== undefined && Number(r.round_number ?? r.roundNumber) === Number(roundNumber)
+          return !isIdMatch && !isNumMatch
+        })
         target.rounds = target.game_rounds
         saveLocalSession(target)
       }
     }
 
-    if (!roundId || String(roundId).startsWith('round-') || String(roundId).startsWith('local-')) return true
-
     try {
-      const { error } = await supabase
-        .from('game_rounds')
-        .delete()
-        .eq('id', roundId)
-
-      if (error) console.warn('Supabase deleteRound note:', error.message)
+      if (sessionId && roundNumber !== undefined) {
+        await supabase
+          .from('game_rounds')
+          .delete()
+          .eq('session_id', sessionId)
+          .eq('round_number', roundNumber)
+      } else if (roundId && !String(roundId).startsWith('round-') && !String(roundId).startsWith('local-')) {
+        await supabase
+          .from('game_rounds')
+          .delete()
+          .eq('id', roundId)
+      }
     } catch (err) {
       console.warn('deleteRound cloud sync exception:', err)
     }

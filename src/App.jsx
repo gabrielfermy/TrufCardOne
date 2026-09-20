@@ -6,6 +6,7 @@ import { sessionTimeoutService } from './services/sessionTimeoutService'
 import { gameService } from './services/gameService'
 import { deviceService } from './services/deviceService'
 import { networkService } from './services/networkService'
+import { dedupeRounds } from './utils/roundUtils'
 
 import AppHeader from './components/layout/AppHeader'
 import BottomNav from './components/layout/BottomNav'
@@ -154,7 +155,7 @@ function MainApp() {
   const [sessionRounds, setSessionRounds] = useState(() => {
     try {
       const saved = localStorage.getItem('gns_session_rounds')
-      return saved ? JSON.parse(saved) : []
+      return saved ? dedupeRounds(JSON.parse(saved)) : []
     } catch {
       return []
     }
@@ -173,7 +174,7 @@ function MainApp() {
 
   useEffect(() => {
     try {
-      localStorage.setItem('gns_session_rounds', JSON.stringify(sessionRounds))
+      localStorage.setItem('gns_session_rounds', JSON.stringify(dedupeRounds(sessionRounds)))
     } catch {}
   }, [sessionRounds])
 
@@ -195,7 +196,7 @@ function MainApp() {
             setTimeout(() => setSyncNotice(null), 5000)
             if (activeSession?.id) {
               gameService.getSession(activeSession.id).then(fresh => {
-                if (fresh?.game_rounds) setSessionRounds(fresh.game_rounds)
+                if (fresh?.game_rounds) setSessionRounds(dedupeRounds(fresh.game_rounds))
               })
             }
           }
@@ -223,7 +224,7 @@ function MainApp() {
       // If user is already bound to a seat in this room
       if (existingSeat !== null && existingSeat !== undefined) {
         setActiveSession(session)
-        setSessionRounds(session.game_rounds || session.rounds || [])
+        setSessionRounds(dedupeRounds(session.game_rounds || session.rounds || []))
         setCurrentView(session.game_type)
         setGameMode('play')
         return true
@@ -262,7 +263,7 @@ function MainApp() {
       refreshed.player_user_ids = userIds
     }
     setActiveSession(refreshed)
-    setSessionRounds(refreshed.game_rounds || refreshed.rounds || [])
+    setSessionRounds(dedupeRounds(refreshed.game_rounds || refreshed.rounds || []))
     setCurrentView(refreshed.game_type)
     setGameMode('play')
     setIsCheckInModalOpen(false)
@@ -274,7 +275,7 @@ function MainApp() {
     if (!pendingJoinSession) return
     deviceService.clearSessionSeat(pendingJoinSession.id)
     setActiveSession(pendingJoinSession)
-    setSessionRounds(pendingJoinSession.game_rounds || pendingJoinSession.rounds || [])
+    setSessionRounds(dedupeRounds(pendingJoinSession.game_rounds || pendingJoinSession.rounds || []))
     setCurrentView(pendingJoinSession.game_type)
     setGameMode('play')
     setIsCheckInModalOpen(false)
@@ -302,7 +303,7 @@ function MainApp() {
       userIds[playerIndex] = currentClientId
       refreshed.player_user_ids = userIds
       setActiveSession(refreshed)
-      setSessionRounds(refreshed.game_rounds || refreshed.rounds || [])
+      setSessionRounds(dedupeRounds(refreshed.game_rounds || refreshed.rounds || []))
     }
   }
 
@@ -315,7 +316,7 @@ function MainApp() {
     const refreshed = await gameService.getSession(activeSession.id)
     if (refreshed) {
       setActiveSession(refreshed)
-      setSessionRounds(refreshed.game_rounds || refreshed.rounds || [])
+      setSessionRounds(dedupeRounds(refreshed.game_rounds || refreshed.rounds || []))
     }
   }
 
@@ -323,7 +324,7 @@ function MainApp() {
   const handleOpenSession = async (session) => {
     const fullSession = await gameService.getSession(session.id) || session
     setActiveSession(fullSession)
-    setSessionRounds(fullSession.game_rounds || fullSession.rounds || [])
+    setSessionRounds(dedupeRounds(fullSession.game_rounds || fullSession.rounds || []))
     setCurrentView(fullSession.game_type)
     setGameMode('play')
   }
@@ -538,23 +539,25 @@ function MainApp() {
   }
 
   // 2. Save a Game Round
-  // 2. Save a Game Round
   const handleSaveRound = async (roundPayload) => {
     if (!activeSession) return
     const roundData = roundPayload.roundData || roundPayload.round_data || {}
     const playerScores = roundPayload.playerScores || roundPayload.player_scores || []
-    const roundNumber = roundPayload.roundNumber || roundPayload.round_number
+    const roundNumber = Number(roundPayload.roundNumber || roundPayload.round_number)
 
-    // Ensure sessionRounds has the optimistic payload immediately
-    setSessionRounds(prev => [...prev, {
-      ...roundPayload,
-      roundNumber,
-      round_number: roundNumber,
-      roundData,
-      round_data: roundData,
-      playerScores,
-      player_scores: playerScores
-    }])
+    // Ensure sessionRounds has the optimistic payload deduplicated immediately
+    setSessionRounds(prev => {
+      const filtered = dedupeRounds(prev).filter(r => Number(r.round_number ?? r.roundNumber) !== roundNumber)
+      return [...filtered, {
+        ...roundPayload,
+        roundNumber,
+        round_number: roundNumber,
+        roundData,
+        round_data: roundData,
+        playerScores,
+        player_scores: playerScores
+      }].sort((a, b) => Number(a.round_number ?? a.roundNumber) - Number(b.round_number ?? b.roundNumber))
+    })
 
     try {
       const saved = await gameService.saveRound({
@@ -578,9 +581,12 @@ function MainApp() {
   // 3. Undo Last Round
   const handleUndoRound = async () => {
     if (sessionRounds.length === 0 || !activeSession) return
-    const lastRound = sessionRounds[sessionRounds.length - 1]
-    await gameService.deleteRound(lastRound.id, activeSession.id)
-    setSessionRounds(prev => prev.slice(0, -1))
+    const cleanRounds = dedupeRounds(sessionRounds)
+    if (cleanRounds.length === 0) return
+    const lastRound = cleanRounds[cleanRounds.length - 1]
+    const lastRoundNum = Number(lastRound.round_number ?? lastRound.roundNumber)
+    await gameService.deleteRound(lastRound.id, activeSession.id, lastRoundNum)
+    setSessionRounds(cleanRounds.slice(0, -1))
     loadUserSessions(user?.id)
   }
 
