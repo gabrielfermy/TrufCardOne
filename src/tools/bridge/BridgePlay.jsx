@@ -62,8 +62,8 @@ export default function BridgePlay({
   // Scorer role state (defaults to Player 0 / Host)
   const [scorerIndex, setScorerIndex] = useState(session?.settings?.scorerIndex ?? 0)
 
-  const isScorer = isLocalOrOffline || isHost || myPlayerIndex === scorerIndex
-  const canChangeScorer = isLocalOrOffline || isHost || myPlayerIndex === scorerIndex
+  const isScorer = isLocalOrOffline ? true : myPlayerIndex === scorerIndex
+  const canChangeScorer = isLocalOrOffline || isHost || isScorer
 
   // Realtime Live Room listener
   useEffect(() => {

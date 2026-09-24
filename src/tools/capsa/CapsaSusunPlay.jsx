@@ -68,9 +68,14 @@ export default function CapsaSusunPlay({
   // Scorer role state (defaults to Player 0 / Host)
   const [scorerIndex, setScorerIndex] = useState(session?.settings?.scorerIndex ?? 0)
 
-  const isScorer = isLocalOrOffline || isHost || myPlayerIndex === scorerIndex
-  const canChangeScorer = isLocalOrOffline || isHost || myPlayerIndex === scorerIndex
-  const canEditPlayer = (idx) => isScorer || myPlayerIndex === idx || (isHost && !livePlayerUserIds?.[idx])
+  const isScorer = isLocalOrOffline ? true : myPlayerIndex === scorerIndex
+  const canChangeScorer = isLocalOrOffline || isHost || isScorer
+  const canEditPlayer = (idx) => {
+    if (isLocalOrOffline) return true
+    if (isScorer) return true
+    if (myPlayerIndex !== null && myPlayerIndex === idx) return true
+    return false
+  }
 
   // Realtime Live Room listener
   useEffect(() => {

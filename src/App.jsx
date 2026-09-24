@@ -187,6 +187,21 @@ function MainApp() {
 
   // Listen to network changes and auto-flush pending late sync queue
   useEffect(() => {
+    // Immediate flush on startup if online
+    if (networkService.isOnline()) {
+      gameService.flushPendingRounds().then(({ synced }) => {
+        if (synced > 0) {
+          setSyncNotice(`✅ ${synced} ronde berhasil disinkronkan ke cloud!`)
+          setTimeout(() => setSyncNotice(null), 5000)
+          if (activeSession?.id) {
+            gameService.getSession(activeSession.id).then(fresh => {
+              if (fresh?.game_rounds) setSessionRounds(dedupeRounds(fresh.game_rounds))
+            })
+          }
+        }
+      }).catch(() => {})
+    }
+
     const unsub = networkService.subscribe((online) => {
       setIsOnline(online)
       if (online) {

@@ -73,9 +73,14 @@ export default function SpadesPlay({
   // Scorer role state (defaults to Player 0 / Host)
   const [scorerIndex, setScorerIndex] = useState(session?.settings?.scorerIndex ?? 0)
 
-  const isScorer = isLocalOrOffline || isHost || myPlayerIndex === scorerIndex
-  const canChangeScorer = isLocalOrOffline || isHost || myPlayerIndex === scorerIndex
-  const canEditPlayer = (idx) => isScorer || myPlayerIndex === idx || (isHost && !livePlayerUserIds?.[idx])
+  const isScorer = isLocalOrOffline ? true : myPlayerIndex === scorerIndex
+  const canChangeScorer = isLocalOrOffline || isHost || isScorer
+  const canEditPlayer = (idx) => {
+    if (isLocalOrOffline) return true
+    if (isScorer) return true
+    if (myPlayerIndex !== null && myPlayerIndex === idx) return true
+    return false
+  }
 
   // Realtime Live Room listener
   useEffect(() => {
@@ -708,7 +713,13 @@ export default function SpadesPlay({
       )}
 
       {/* Action CTA (Gated to Scorer for saving) */}
-      {inputPhase === 'bid' ? (
+      {!isScorer ? (
+        <div style={{ textAlign: 'center', padding: '14px', color: 'var(--text-muted)', fontSize: '0.88rem', background: 'var(--bg-glass)', borderRadius: '12px', marginBottom: '24px', border: '1px solid var(--border-glass)' }}>
+          {inputPhase === 'bid'
+            ? `⏳ Menunggu Pencatat Skor (📝 ${players[scorerIndex] || 'Scorer'}) menyelesaikan target bid...`
+            : `⏳ Menunggu Pencatat Skor (📝 ${players[scorerIndex] || 'Scorer'}) menyimpan ronde ini.`}
+        </div>
+      ) : inputPhase === 'bid' ? (
         <button
           type="button"
           className="btn btn-primary"
@@ -717,7 +728,7 @@ export default function SpadesPlay({
         >
           Lanjut ke Input Hasil Trik (Won) →
         </button>
-      ) : isScorer ? (
+      ) : (
         <button
           type="button"
           className="btn btn-primary"
@@ -727,10 +738,6 @@ export default function SpadesPlay({
         >
           {totalWonSum === 13 ? `💾 Simpan Ronde ${currentRoundNum}` : `⚠️ Total Won Harus 13 (Saat Ini: ${totalWonSum})`}
         </button>
-      ) : (
-        <div style={{ textAlign: 'center', padding: '12px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-          ⏳ Hanya Pencatat Skor (📝 {players[effectiveScorerIndex] || 'Scorer'}) yang dapat menyimpan ronde ini.
-        </div>
       )}
 
       {/* Round Ledger */}

@@ -68,8 +68,13 @@ export default function TrufPlay({
   const isScorer = isLocalOrOffline ? true : myPlayerIndex === scorerIndex
   // Strict permission: Only the Host OR the current active Scorer can change the Scorer or Dealer
   const canChangeScorer = isLocalOrOffline || isHost || isScorer
-  // Only the active Scorer or Host can edit all players. Players can also edit their own input.
-  const canEditPlayer = (idx) => isScorer || isHost || myPlayerIndex === idx || !livePlayerUserIds?.[idx]
+  // Only the active Scorer can edit all players. Other players can ONLY edit their own input (myPlayerIndex === idx). Spectators cannot edit anyone.
+  const canEditPlayer = (idx) => {
+    if (isLocalOrOffline) return true
+    if (isScorer) return true
+    if (myPlayerIndex !== null && myPlayerIndex === idx) return true
+    return false
+  }
 
   // Helper to determine automatic Scorer fallback if current scorer goes offline / stands up:
   // 1. Host (seat 0 or host seat) if online
@@ -216,7 +221,7 @@ export default function TrufPlay({
     setShowTransferScorerModal(false)
     const newName = playerNames[newIdx] || `Pemain ${newIdx + 1}`
     addLog(`Peran Pencatat Skor (Scorer) dialihkan ke ${newName}`, 'role')
-    if (isHost && session?.id) {
+    if (session?.id) {
       gameService.updateSessionSettings(session.id, { ...(session.settings || {}), scorerIndex: newIdx })
     }
   }
@@ -294,8 +299,8 @@ export default function TrufPlay({
           setLivePlayerUserIds(updatedIds)
           if (session) session.player_user_ids = updatedIds
 
-          // Host (with auth write permission) saves the seat occupancy to Supabase game_sessions
-          if (isHost && session.id) {
+          // Persist seat occupancy to Supabase game_sessions
+          if (session?.id) {
             gameService.updateSessionPlayerUserIds(session.id, updatedIds)
           }
 
@@ -305,7 +310,7 @@ export default function TrufPlay({
             setScorerIndex(fallbackIdx)
             const fallbackName = playerNames[fallbackIdx] || `Pemain ${fallbackIdx + 1}`
             addLog(`Peran Pencatat Skor (Scorer) otomatis dialihkan ke ${fallbackName} karena ${pName} berdiri / offline.`, 'role')
-            if (isHost && session?.id) {
+            if (session?.id) {
               gameService.updateSessionSettings(session.id, { ...(session.settings || {}), scorerIndex: fallbackIdx })
               gameService.broadcastLiveState(channel, {
                 senderId: clientId,
@@ -363,7 +368,7 @@ export default function TrufPlay({
             const fallbackIdx = computeFallbackScorer(refreshed.player_user_ids, scorerIndex)
             if (fallbackIdx !== scorerIndex) {
               setScorerIndex(fallbackIdx)
-              if (isHost && session.id) {
+              if (session?.id) {
                 broadcastState({ scorerIndex: fallbackIdx })
                 gameService.updateSessionSettings(session.id, { ...(session.settings || {}), scorerIndex: fallbackIdx })
               }
@@ -409,7 +414,7 @@ export default function TrufPlay({
             const fallbackIdx = computeFallbackScorer(refreshed.player_user_ids, scorerIndex)
             if (fallbackIdx !== scorerIndex) {
               setScorerIndex(fallbackIdx)
-              if (isHost && session.id) {
+              if (session?.id) {
                 broadcastState({ scorerIndex: fallbackIdx })
                 gameService.updateSessionSettings(session.id, { ...(session.settings || {}), scorerIndex: fallbackIdx })
               }
@@ -529,6 +534,7 @@ export default function TrufPlay({
 
   // Handle Proceed to Won Phase (Pre-fills with exact bids so scorer only inputs deviations!)
   const handleProceedToWon = () => {
+    if (!isScorer) return
     setErrorMsg('')
     if (settings.bid13Decision && totalBid === totalTricks && !forcedPlayMode) {
       setShowBid13Modal(true)
@@ -548,6 +554,7 @@ export default function TrufPlay({
 
   // Handle Save Round (Instant Optimistic UI & Broadcast)
   const handleSaveRoundSubmit = async () => {
+    if (!isScorer) return
     setErrorMsg('')
     if (totalWon !== totalTricks) {
       try { hapticsService.warning() } catch {}
@@ -660,6 +667,7 @@ export default function TrufPlay({
 
   // Bid 13 Decider Handlers: Shifts all player bids by +1 (for Main Atas) or -1 (for Main Bawah)
   const handleBid13ChooseAtas = () => {
+    if (!isScorer) return
     const adjustedBids = bids.map(b => b + 1)
     const newTotal = adjustedBids.reduce((a, b) => a + b, 0)
     setBids(adjustedBids)
@@ -679,6 +687,7 @@ export default function TrufPlay({
   }
 
   const handleBid13ChooseBawah = () => {
+    if (!isScorer) return
     const adjustedBids = bids.map(b => Math.max(0, b - 1))
     const newTotal = adjustedBids.reduce((a, b) => a + b, 0)
     setBids(adjustedBids)

@@ -22,7 +22,14 @@ function saveLocalSession(session) {
     const sessions = getLocalSessions()
     const idx = sessions.findIndex(s => s.id === session.id)
     if (idx >= 0) {
-      sessions[idx] = { ...sessions[idx], ...session }
+      const existing = sessions[idx]
+      const mergedRounds = dedupeRounds([...(existing.game_rounds || existing.rounds || []), ...(session.game_rounds || session.rounds || [])])
+      sessions[idx] = { 
+        ...existing, 
+        ...session,
+        game_rounds: mergedRounds,
+        rounds: mergedRounds
+      }
     } else {
       sessions.unshift(session)
     }
@@ -360,6 +367,45 @@ export const gameService = {
       } catch (rErr) {
         console.warn('Could not fetch nested rounds, default to empty:', rErr)
         session.game_rounds = []
+      }
+
+      // 3. Reconcile with local session to prevent losing any locally saved/queued rounds (e.g. from guest scorer)
+      try {
+        const localMatch = getLocalSessions().find(s =>
+          (session.id && s.id === session.id) ||
+          (session.room_code && (s.room_code === session.room_code || s.room_code?.endsWith(session.room_code)))
+        )
+        if (localMatch) {
+          const localRounds = dedupeRounds(localMatch.game_rounds || localMatch.rounds || [])
+          const cloudRoundNumbers = new Set((session.game_rounds || []).map(r => Number(r.round_number ?? r.roundNumber)))
+          const missingInCloud = localRounds.filter(lr => !cloudRoundNumbers.has(Number(lr.round_number ?? lr.roundNumber)))
+
+          if (missingInCloud.length > 0) {
+            console.log(`🚀 [gameService] Found ${missingInCloud.length} local rounds not yet in cloud. Merging & uploading...`)
+            const merged = dedupeRounds([...(session.game_rounds || []), ...missingInCloud])
+            session.game_rounds = merged
+
+            // Asynchronously background upload missing rounds to Supabase Cloud
+            if (networkService.isOnline()) {
+              (async () => {
+                for (const mr of missingInCloud) {
+                  try {
+                    await this._saveRoundToCloud({
+                      sessionId: session.id,
+                      roundNumber: Number(mr.round_number ?? mr.roundNumber),
+                      roundData: mr.round_data || mr.roundData || {},
+                      playerScores: mr.player_scores || mr.playerScores || []
+                    })
+                  } catch (syncErr) {
+                    console.warn('Reconciliation cloud save error:', syncErr)
+                  }
+                }
+              })()
+            }
+          }
+        }
+      } catch (recErr) {
+        console.warn('Reconciliation note:', recErr)
       }
 
       saveLocalSession(session)
@@ -1037,6 +1083,19 @@ export const gameService = {
     } catch (e) {
       console.warn('broadcastRoundAdvance error:', e)
     }
+  },
+
+  // 10b. Broadcast Round (Accepts either sessionId or channel)
+  broadcastRound(sessionIdOrChannel, roundPayload) {
+    if (!sessionIdOrChannel) return
+    let channel = sessionIdOrChannel?.channel || sessionIdOrChannel
+    if (typeof sessionIdOrChannel === 'string') {
+      const room = this._roomChannels?.get(sessionIdOrChannel)
+      channel = room?.channel
+    }
+    if (!channel) return
+    const payload = roundPayload?.round ? roundPayload : { round: roundPayload }
+    this.broadcastRoundAdvance(channel, payload)
   },
 
   // 11. Broadcast Seat Claim to Tabletop Peers

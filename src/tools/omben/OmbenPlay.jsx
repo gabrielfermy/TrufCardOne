@@ -62,8 +62,8 @@ export default function OmbenPlay({
   const [scorerIndex, setScorerIndex] = useState(session?.settings?.scorerIndex ?? 0)
   const [showTransferScorerModal, setShowTransferScorerModal] = useState(false)
 
-  const isScorer = isLocalOrOffline || isHost || myPlayerIndex === scorerIndex
-  const canChangeScorer = isLocalOrOffline || isHost || myPlayerIndex === scorerIndex
+  const isScorer = isLocalOrOffline ? true : myPlayerIndex === scorerIndex
+  const canChangeScorer = isLocalOrOffline || isHost || isScorer
 
   // Finishing rank selection for current round (1 = Winner, N = Omben Loser)
   const [ranks, setRanks] = useState(() => playerNames.map((_, i) => i + 1))

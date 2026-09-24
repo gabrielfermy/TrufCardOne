@@ -87,8 +87,13 @@ export default function RemiJawaPlay({
   const [scorerIndex, setScorerIndex] = useState(session?.settings?.scorerIndex ?? 0)
   const [showTransferScorerModal, setShowTransferScorerModal] = useState(false)
   const isScorer = isLocalOrOffline ? true : myPlayerIndex === scorerIndex
-  const canChangeScorer = isLocalOrOffline || isHost || isScorer
-  const canEditPlayer = (idx) => isScorer || isHost || myPlayerIndex === idx || !livePlayerUserIds?.[idx]
+  // Only the active Scorer can edit all players. Other players can ONLY edit their own input (myPlayerIndex === idx). Spectators cannot edit anyone.
+  const canEditPlayer = (idx) => {
+    if (isLocalOrOffline) return true
+    if (isScorer) return true
+    if (myPlayerIndex !== null && myPlayerIndex === idx) return true
+    return false
+  }
 
   const computeFallbackScorer = (playerUserIds = [], currentScorer = 0) => {
     if (currentScorer >= 0 && playerUserIds && playerUserIds[currentScorer]) return currentScorer
@@ -170,7 +175,7 @@ export default function RemiJawaPlay({
     setScorerIndex(newIdx)
     broadcastState({ scorerIndex: newIdx })
     setShowTransferScorerModal(false)
-    if (isHost && session?.id) {
+    if (session?.id) {
       gameService.updateSessionSettings(session.id, { ...(session.settings || {}), scorerIndex: newIdx })
     }
   }
@@ -245,14 +250,14 @@ export default function RemiJawaPlay({
           setLivePlayerUserIds(updatedIds)
           if (session) session.player_user_ids = updatedIds
 
-          if (isHost && session.id) {
+          if (session?.id) {
             gameService.updateSessionPlayerUserIds(session.id, updatedIds)
           }
 
           if (isRelease && seatPayload.playerIndex === scorerIndex && !isLocalOrOffline) {
             const fallbackIdx = computeFallbackScorer(updatedIds, -1)
             setScorerIndex(fallbackIdx)
-            if (isHost && session?.id) {
+            if (session?.id) {
               gameService.updateSessionSettings(session.id, { ...(session.settings || {}), scorerIndex: fallbackIdx })
               gameService.broadcastLiveState(channel, {
                 senderId: clientId,
@@ -301,7 +306,7 @@ export default function RemiJawaPlay({
             const fallbackIdx = computeFallbackScorer(refreshed.player_user_ids, scorerIndex)
             if (fallbackIdx !== scorerIndex) {
               setScorerIndex(fallbackIdx)
-              if (isHost && session.id) {
+              if (session?.id) {
                 broadcastState({ scorerIndex: fallbackIdx })
                 gameService.updateSessionSettings(session.id, { ...(session.settings || {}), scorerIndex: fallbackIdx })
               }
@@ -336,7 +341,7 @@ export default function RemiJawaPlay({
             const fallbackIdx = computeFallbackScorer(refreshed.player_user_ids, scorerIndex)
             if (fallbackIdx !== scorerIndex) {
               setScorerIndex(fallbackIdx)
-              if (isHost && session.id) {
+              if (session?.id) {
                 broadcastState({ scorerIndex: fallbackIdx })
                 gameService.updateSessionSettings(session.id, { ...(session.settings || {}), scorerIndex: fallbackIdx })
               }
