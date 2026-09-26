@@ -6,6 +6,7 @@ export default function BridgeSetup({ onStartGame, onBack }) {
   const { t } = useTranslation()
   const [playerNames, setPlayerNames] = useState(['North (U)', 'East (T)', 'South (S)', 'West (B)'])
   const [scoringFormat, setScoringFormat] = useState('duplicate') // 'duplicate' | 'chicago'
+  const [hostSeat, setHostSeat] = useState(0) // 0..3 or -1
   const [roomMode, setRoomMode] = useState('multiplayer') // 'multiplayer' | 'offline'
   const [isRulesOpen, setIsRulesOpen] = useState(false)
 
@@ -19,6 +20,7 @@ export default function BridgeSetup({ onStartGame, onBack }) {
     e.preventDefault()
     onStartGame({
       playerNames,
+      hostSeat,
       isOfflineLocal: roomMode === 'offline',
       settings: {
         scoringFormat
@@ -169,6 +171,27 @@ export default function BridgeSetup({ onStartGame, onBack }) {
               />
             </div>
           </div>
+        </div>
+
+        <div className="form-group" style={{ marginBottom: '20px' }}>
+          <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>🪑 {t('room.host_seat_label') || 'Kursi Anda di Meja'}</span>
+            <span style={{ fontSize: '0.74rem', color: 'var(--badge-purple-text)', fontWeight: 800 }}>
+              {hostSeat === -1 ? '👀 Penonton / Wasit' : `👑 ${playerNames[hostSeat] || `Pemain ${hostSeat + 1}`}`}
+            </span>
+          </label>
+          <select 
+            className="form-select"
+            value={hostSeat}
+            onChange={e => setHostSeat(Number(e.target.value))}
+          >
+            {playerNames.map((name, idx) => (
+              <option key={idx} value={idx}>
+                👑 {name} (Kursi {idx + 1}){idx === 0 ? ' - Default' : ''}
+              </option>
+            ))}
+            <option value={-1}>👀 {t('room.host_seat_spectator') || 'Penonton / Wasit Saja (Tidak Duduk)'}</option>
+          </select>
         </div>
 
         <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '12px', fontSize: '1rem', fontWeight: 800 }}>

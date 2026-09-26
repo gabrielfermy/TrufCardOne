@@ -39,10 +39,12 @@ export default function RemiPlay({
 
   // Determine user role and claimed seat index
   const currentClientId = deviceService.getClientIdentifier(user)
-  const isLocalOrOffline = !session?.room_code || session?.settings?.isOfflineLocal || !session?.id || session.id.startsWith('guest-session') || session.id.startsWith('local-session')
+  const isLocalOrOffline = !session?.room_code || !session?.id || session.id.startsWith('local-session') || session.id.startsWith('guest-session')
   const isHost = isLocalOrOffline ||
-                 session?.user_id === user?.id || 
-                 (session?.id?.startsWith('guest-session') && deviceService.getSessionSeat(session.id) === 0)
+                 (Boolean(user?.id) && session?.user_id === user.id) || 
+                 deviceService.isSessionHost(session?.id) ||
+                 (Boolean(session?.settings?.creatorClientId) && session.settings.creatorClientId === currentClientId) ||
+                 (Boolean(session?.settings?.hostClientId) && session.settings.hostClientId === currentClientId)
 
   let effectiveSeat = propMyPlayerIndex !== undefined ? propMyPlayerIndex : null
   if (effectiveSeat === null) {
@@ -63,11 +65,12 @@ export default function RemiPlay({
   // Scorer role state (defaults to Player 0 / Host)
   const [scorerIndex, setScorerIndex] = useState(session?.settings?.scorerIndex ?? 0)
   const [showTransferScorerModal, setShowTransferScorerModal] = useState(false)
-  const isScorer = isLocalOrOffline ? true : myPlayerIndex === scorerIndex
+  const isScorer = isLocalOrOffline ? true : (isHost || myPlayerIndex === scorerIndex || (session?.settings?.isOfflineLocal && !isSpectator))
+  const canChangeScorer = isLocalOrOffline || isHost || isScorer
   // Only the active Scorer can edit all players. Other players can ONLY edit their own input (myPlayerIndex === idx). Spectators cannot edit anyone.
   const canEditPlayer = (idx) => {
     if (isLocalOrOffline) return true
-    if (isScorer) return true
+    if (isHost || isScorer) return true
     if (myPlayerIndex !== null && myPlayerIndex === idx) return true
     return false
   }

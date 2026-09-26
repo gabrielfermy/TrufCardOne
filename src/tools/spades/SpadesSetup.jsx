@@ -7,6 +7,7 @@ export default function SpadesSetup({ onStartGame, onBack }) {
   const { t } = useTranslation()
   const [spadesMode, setSpadesMode] = useState(SPADES_MODES.PARTNERSHIP_2V2)
   const [playerNames, setPlayerNames] = useState(['North (U)', 'East (T)', 'South (S)', 'West (B)'])
+  const [hostSeat, setHostSeat] = useState(0) // 0..3 or -1
   const [targetScore, setTargetScore] = useState(500)
   const [nilBonus, setNilBonus] = useState(100)
   const [blindNilBonus, setBlindNilBonus] = useState(200)
@@ -24,6 +25,7 @@ export default function SpadesSetup({ onStartGame, onBack }) {
     e.preventDefault()
     onStartGame({
       playerNames,
+      hostSeat,
       isOfflineLocal: roomMode === 'offline',
       settings: {
         spadesMode,
@@ -168,6 +170,27 @@ export default function SpadesSetup({ onStartGame, onBack }) {
               </div>
             ))}
           </div>
+        </div>
+
+        <div className="form-group" style={{ marginBottom: '20px' }}>
+          <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>🪑 {t('room.host_seat_label') || 'Kursi Anda di Meja'}</span>
+            <span style={{ fontSize: '0.74rem', color: 'var(--badge-purple-text)', fontWeight: 800 }}>
+              {hostSeat === -1 ? '👀 Penonton / Wasit' : `👑 ${playerNames[hostSeat] || `Pemain ${hostSeat + 1}`}`}
+            </span>
+          </label>
+          <select 
+            className="form-select"
+            value={hostSeat}
+            onChange={e => setHostSeat(Number(e.target.value))}
+          >
+            {playerNames.map((name, idx) => (
+              <option key={idx} value={idx}>
+                👑 {name} (Kursi {idx + 1}){idx === 0 ? ' - Default' : ''}
+              </option>
+            ))}
+            <option value={-1}>👀 {t('room.host_seat_spectator') || 'Penonton / Wasit Saja (Tidak Duduk)'}</option>
+          </select>
         </div>
 
         {/* Rule Settings */}

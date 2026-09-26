@@ -9,6 +9,7 @@ export default function DominoSetup({ onStartGame, onBack }) {
   const [teamMode, setTeamMode] = useState(GAPLE_TEAM_MODES.INDIVIDUAL) // 'individual' | 'teams_2v2'
   const [playerCount, setPlayerCount] = useState(4)
   const [playerNames, setPlayerNames] = useState(['Pemain 1', 'Pemain 2', 'Pemain 3', 'Pemain 4'])
+  const [hostSeat, setHostSeat] = useState(0) // 0..n or -1
   const [penaltyThreshold, setPenaltyThreshold] = useState(100)
   const [deadlockRule, setDeadlockRule] = useState('lowest_wins') // 'lowest_wins' | 'causer_punished'
   const [balakZeroPenalty, setBalakZeroPenalty] = useState(10)
@@ -27,6 +28,9 @@ export default function DominoSetup({ onStartGame, onBack }) {
       current.splice(count)
     }
     setPlayerNames(current)
+    if (hostSeat >= count) {
+      setHostSeat(0)
+    }
   }
 
   const handleNameChange = (idx, val) => {
@@ -39,6 +43,7 @@ export default function DominoSetup({ onStartGame, onBack }) {
     e.preventDefault()
     onStartGame({
       playerNames,
+      hostSeat,
       isOfflineLocal: roomMode === 'offline',
       settings: {
         dominoMode,
@@ -242,6 +247,27 @@ export default function DominoSetup({ onStartGame, onBack }) {
               </div>
             ))}
           </div>
+        </div>
+
+        <div className="form-group" style={{ marginBottom: '20px' }}>
+          <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>🪑 {t('room.host_seat_label') || 'Kursi Anda di Meja'}</span>
+            <span style={{ fontSize: '0.74rem', color: 'var(--badge-purple-text)', fontWeight: 800 }}>
+              {hostSeat === -1 ? '👀 Penonton / Wasit' : `👑 ${playerNames[hostSeat] || `Pemain ${hostSeat + 1}`}`}
+            </span>
+          </label>
+          <select 
+            className="form-select"
+            value={hostSeat}
+            onChange={e => setHostSeat(Number(e.target.value))}
+          >
+            {playerNames.map((name, idx) => (
+              <option key={idx} value={idx}>
+                👑 {name} (Kursi {idx + 1}){idx === 0 ? ' - Default' : ''}
+              </option>
+            ))}
+            <option value={-1}>👀 {t('room.host_seat_spectator') || 'Penonton / Wasit Saja (Tidak Duduk)'}</option>
+          </select>
         </div>
 
         {/* Gaple Settings */}

@@ -75,7 +75,7 @@ export const gameService = {
   deleteLocalSession,
 
   // 1. Create a Game Session (Cloud First or Local Offline)
-  async createSession({ userId, creatorClientId, gameType = 'truf', playerNames, firstDealer = 0, settings, title, isOfflineLocal = false }) {
+  async createSession({ userId, creatorClientId, gameType = 'truf', playerNames, firstDealer = 0, hostSeat = 0, settings, title, isOfflineLocal = false }) {
     const roomCode = generateRoomCode(gameType)
     const isRealUser = userId && userId !== 'guest-user'
     const hostClientId = creatorClientId || (isRealUser ? userId : 'host')
@@ -83,8 +83,9 @@ export const gameService = {
     const safeTitle = sanitizeText(title || `${gameType.toUpperCase()} Match - ${new Date().toLocaleDateString()}`)
 
     const initialUserIds = Array(safePlayerNames.length).fill(null)
-    if (initialUserIds.length > 0) {
-      initialUserIds[0] = hostClientId
+    const resolvedHostSeat = hostSeat !== undefined ? hostSeat : (settings?.hostSeat ?? 0)
+    if (resolvedHostSeat !== null && resolvedHostSeat !== -1 && resolvedHostSeat >= 0 && resolvedHostSeat < initialUserIds.length) {
+      initialUserIds[resolvedHostSeat] = hostClientId
     }
 
     const resolvedFirstDealer = firstDealer ?? settings?.first_dealer ?? settings?.firstDealer ?? 0
@@ -100,6 +101,9 @@ export const gameService = {
         ...settings,
         first_dealer: resolvedFirstDealer,
         firstDealer: resolvedFirstDealer,
+        hostSeat: resolvedHostSeat,
+        creatorClientId: hostClientId,
+        hostClientId: hostClientId,
         isOfflineLocal: Boolean(isOfflineLocal)
       },
       is_completed: false,
@@ -121,8 +125,8 @@ export const gameService = {
       details: { gameType, roomCode, title: safeTitle, players: safePlayerNames, isOfflineLocal }
     })
 
-    // If explicit offline local mode or offline, save immediately to local storage
-    if (isOfflineLocal || !networkService.isOnline()) {
+    // If device is offline (no network connection), save immediately to local storage
+    if (!networkService.isOnline()) {
       const localId = `local-session-${Date.now()}`
       const localSession = {
         ...dbPayload,
@@ -132,7 +136,7 @@ export const gameService = {
         rounds: []
       }
       saveLocalSession(localSession)
-      console.log('📱 Session created locally in LocalStorage:', localId)
+      console.log('📱 Session created locally in LocalStorage (Device Offline):', localId)
       return localSession
     }
 
@@ -585,8 +589,8 @@ export const gameService = {
       saveLocalSession(targetSession)
     }
 
-    // Check if session is offline local or temporary local
-    if (sessionId.startsWith('local-') || sessionId.startsWith('guest-') || targetSession?.settings?.isOfflineLocal) {
+    // Check if session is a local-only fallback session
+    if (sessionId.startsWith('local-') || sessionId.startsWith('guest-')) {
       return localRound
     }
 

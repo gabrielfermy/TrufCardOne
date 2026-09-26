@@ -22,6 +22,14 @@
     "spectating": "Spectating live...",
     "claim_seat": "Claim My Seat"
   },
+  "common": {
+    "players": "Players",
+    "player": "Player",
+    "round": "Round",
+    "score": "Score",
+    "total": "Total",
+    "dealer": "Dealer"
+  },
   "nav": {
     "home": "Home",
     "truf": "Truf",
@@ -435,6 +443,8 @@
     "login_to_host": "Sign In with Google to Host"
   },
   "room": {
+    "host_seat_label": "Your Seat at Table",
+    "host_seat_spectator": "Spectator / Referee Only (No Seat)",
     "lobby_tag": "MULTIPLAYER LOBBY",
     "share_table_title": "Share Game Table",
     "share_table_desc": "Invite friends by sharing the room code or table link. Friends can check in to track their own score or join as live spectators!",
