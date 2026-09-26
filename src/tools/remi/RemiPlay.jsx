@@ -39,10 +39,12 @@ export default function RemiPlay({
 
   // Determine user role and claimed seat index
   const currentClientId = deviceService.getClientIdentifier(user)
-  const isLocalOrOffline = !session?.room_code || session?.settings?.isOfflineLocal || !session?.id || session.id.startsWith('guest-session') || session.id.startsWith('local-session')
+  const isLocalOrOffline = !session?.room_code || !session?.id || session.id.startsWith('local-session') || session.id.startsWith('guest-session')
   const isHost = isLocalOrOffline ||
-                 session?.user_id === user?.id || 
-                 (session?.id?.startsWith('guest-session') && deviceService.getSessionSeat(session.id) === 0)
+                 (Boolean(user?.id) && session?.user_id === user.id) || 
+                 deviceService.isSessionHost(session?.id) ||
+                 (Boolean(session?.settings?.creatorClientId) && session.settings.creatorClientId === currentClientId) ||
+                 (Boolean(session?.settings?.hostClientId) && session.settings.hostClientId === currentClientId)
 
   let effectiveSeat = propMyPlayerIndex !== undefined ? propMyPlayerIndex : null
   if (effectiveSeat === null) {
@@ -63,9 +65,15 @@ export default function RemiPlay({
   // Scorer role state (defaults to Player 0 / Host)
   const [scorerIndex, setScorerIndex] = useState(session?.settings?.scorerIndex ?? 0)
   const [showTransferScorerModal, setShowTransferScorerModal] = useState(false)
-  const isScorer = isLocalOrOffline ? true : myPlayerIndex === scorerIndex
+  const isScorer = isLocalOrOffline ? true : (isHost || myPlayerIndex === scorerIndex || (session?.settings?.isOfflineLocal && !isSpectator))
   const canChangeScorer = isLocalOrOffline || isHost || isScorer
-  const canEditPlayer = (idx) => isScorer || isHost || myPlayerIndex === idx || !livePlayerUserIds?.[idx]
+  // Only the active Scorer can edit all players. Other players can ONLY edit their own input (myPlayerIndex === idx). Spectators cannot edit anyone.
+  const canEditPlayer = (idx) => {
+    if (isLocalOrOffline) return true
+    if (isHost || isScorer) return true
+    if (myPlayerIndex !== null && myPlayerIndex === idx) return true
+    return false
+  }
 
   const computeFallbackScorer = (playerUserIds = [], currentScorer = 0) => {
     if (currentScorer >= 0 && playerUserIds && playerUserIds[currentScorer]) return currentScorer
@@ -125,7 +133,7 @@ export default function RemiPlay({
     setScorerIndex(newIdx)
     broadcastState({ scorerIndex: newIdx })
     setShowTransferScorerModal(false)
-    if (isHost && session?.id) {
+    if (session?.id) {
       gameService.updateSessionSettings(session.id, { ...(session.settings || {}), scorerIndex: newIdx })
     }
   }
@@ -212,14 +220,14 @@ export default function RemiPlay({
           setLivePlayerUserIds(updatedIds)
           if (session) session.player_user_ids = updatedIds
 
-          if (isHost && session.id) {
+          if (session?.id) {
             gameService.updateSessionPlayerUserIds(session.id, updatedIds)
           }
 
           if (isRelease && seatPayload.playerIndex === scorerIndex && !isLocalOrOffline) {
             const fallbackIdx = computeFallbackScorer(updatedIds, -1)
             setScorerIndex(fallbackIdx)
-            if (isHost && session?.id) {
+            if (session?.id) {
               gameService.updateSessionSettings(session.id, { ...(session.settings || {}), scorerIndex: fallbackIdx })
               gameService.broadcastLiveState(channel, {
                 senderId: clientId,
@@ -241,7 +249,7 @@ export default function RemiPlay({
             const fallbackIdx = computeFallbackScorer(refreshed.player_user_ids, scorerIndex)
             if (fallbackIdx !== scorerIndex) {
               setScorerIndex(fallbackIdx)
-              if (isHost && session.id) {
+              if (session?.id) {
                 broadcastState({ scorerIndex: fallbackIdx })
                 gameService.updateSessionSettings(session.id, { ...(session.settings || {}), scorerIndex: fallbackIdx })
               }
@@ -280,7 +288,7 @@ export default function RemiPlay({
             const fallbackIdx = computeFallbackScorer(refreshed.player_user_ids, scorerIndex)
             if (fallbackIdx !== scorerIndex) {
               setScorerIndex(fallbackIdx)
-              if (isHost && session.id) {
+              if (session?.id) {
                 broadcastState({ scorerIndex: fallbackIdx })
                 gameService.updateSessionSettings(session.id, { ...(session.settings || {}), scorerIndex: fallbackIdx })
               }

@@ -62,10 +62,12 @@ export default function RemiJawaPlay({
 
   // Seat & Role determination
   const currentClientId = deviceService.getClientIdentifier(user)
-  const isLocalOrOffline = !session?.room_code || session?.settings?.isOfflineLocal || !session?.id || session.id.startsWith('guest-session') || session.id.startsWith('local-session')
+  const isLocalOrOffline = !session?.room_code || !session?.id || session.id.startsWith('local-session') || session.id.startsWith('guest-session')
   const isHost = isLocalOrOffline ||
-                 session?.user_id === user?.id || 
-                 (session?.id?.startsWith('guest-session') && deviceService.getSessionSeat(session.id) === 0)
+                 (Boolean(user?.id) && session?.user_id === user.id) || 
+                 deviceService.isSessionHost(session?.id) ||
+                 (Boolean(session?.settings?.creatorClientId) && session.settings.creatorClientId === currentClientId) ||
+                 (Boolean(session?.settings?.hostClientId) && session.settings.hostClientId === currentClientId)
 
   let effectiveSeat = propMyPlayerIndex !== undefined ? propMyPlayerIndex : null
   if (effectiveSeat === null) {
@@ -86,9 +88,15 @@ export default function RemiJawaPlay({
   // Scorer role state (defaults to Player 0 / Host)
   const [scorerIndex, setScorerIndex] = useState(session?.settings?.scorerIndex ?? 0)
   const [showTransferScorerModal, setShowTransferScorerModal] = useState(false)
-  const isScorer = isLocalOrOffline ? true : myPlayerIndex === scorerIndex
+  const isScorer = isLocalOrOffline ? true : (isHost || myPlayerIndex === scorerIndex || (session?.settings?.isOfflineLocal && !isSpectator))
   const canChangeScorer = isLocalOrOffline || isHost || isScorer
-  const canEditPlayer = (idx) => isScorer || isHost || myPlayerIndex === idx || !livePlayerUserIds?.[idx]
+  // Only the active Scorer can edit all players. Other players can ONLY edit their own input (myPlayerIndex === idx). Spectators cannot edit anyone.
+  const canEditPlayer = (idx) => {
+    if (isLocalOrOffline) return true
+    if (isHost || isScorer) return true
+    if (myPlayerIndex !== null && myPlayerIndex === idx) return true
+    return false
+  }
 
   const computeFallbackScorer = (playerUserIds = [], currentScorer = 0) => {
     if (currentScorer >= 0 && playerUserIds && playerUserIds[currentScorer]) return currentScorer
@@ -170,7 +178,7 @@ export default function RemiJawaPlay({
     setScorerIndex(newIdx)
     broadcastState({ scorerIndex: newIdx })
     setShowTransferScorerModal(false)
-    if (isHost && session?.id) {
+    if (session?.id) {
       gameService.updateSessionSettings(session.id, { ...(session.settings || {}), scorerIndex: newIdx })
     }
   }
@@ -245,14 +253,14 @@ export default function RemiJawaPlay({
           setLivePlayerUserIds(updatedIds)
           if (session) session.player_user_ids = updatedIds
 
-          if (isHost && session.id) {
+          if (session?.id) {
             gameService.updateSessionPlayerUserIds(session.id, updatedIds)
           }
 
           if (isRelease && seatPayload.playerIndex === scorerIndex && !isLocalOrOffline) {
             const fallbackIdx = computeFallbackScorer(updatedIds, -1)
             setScorerIndex(fallbackIdx)
-            if (isHost && session?.id) {
+            if (session?.id) {
               gameService.updateSessionSettings(session.id, { ...(session.settings || {}), scorerIndex: fallbackIdx })
               gameService.broadcastLiveState(channel, {
                 senderId: clientId,
@@ -301,7 +309,7 @@ export default function RemiJawaPlay({
             const fallbackIdx = computeFallbackScorer(refreshed.player_user_ids, scorerIndex)
             if (fallbackIdx !== scorerIndex) {
               setScorerIndex(fallbackIdx)
-              if (isHost && session.id) {
+              if (session?.id) {
                 broadcastState({ scorerIndex: fallbackIdx })
                 gameService.updateSessionSettings(session.id, { ...(session.settings || {}), scorerIndex: fallbackIdx })
               }
@@ -336,7 +344,7 @@ export default function RemiJawaPlay({
             const fallbackIdx = computeFallbackScorer(refreshed.player_user_ids, scorerIndex)
             if (fallbackIdx !== scorerIndex) {
               setScorerIndex(fallbackIdx)
-              if (isHost && session.id) {
+              if (session?.id) {
                 broadcastState({ scorerIndex: fallbackIdx })
                 gameService.updateSessionSettings(session.id, { ...(session.settings || {}), scorerIndex: fallbackIdx })
               }
@@ -570,7 +578,7 @@ export default function RemiJawaPlay({
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            {session?.room_code && !session.settings?.isOfflineLocal && (
+            {session?.room_code && (
               <button 
                 type="button" 
                 className="btn btn-sm btn-secondary"
@@ -722,7 +730,7 @@ export default function RemiJawaPlay({
         <div className="section-label" style={{ marginTop: 0 }}>🚪 Status Penutup Meja (Closing)</div>
         
         {/* Who Closed Selector */}
-        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${playerNames.length + 1}, 1fr)`, gap: '6px', marginBottom: '14px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fit, minmax(65px, 1fr))`, gap: '6px', marginBottom: '14px' }}>
           {playerNames.map((name, idx) => {
             const isSelected = !isDeckEmpty && closerIndex === idx
             return (
@@ -740,6 +748,10 @@ export default function RemiJawaPlay({
                   fontSize: '0.75rem',
                   fontWeight: 800,
                   padding: '8px 2px',
+                  minWidth: 0,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
                   background: isSelected ? 'var(--badge-purple-bg)' : undefined,
                   borderColor: isSelected ? 'var(--primary)' : undefined,
                   color: isSelected ? 'var(--badge-purple-text)' : undefined
@@ -761,6 +773,10 @@ export default function RemiJawaPlay({
               fontSize: '0.72rem',
               fontWeight: 800,
               padding: '8px 2px',
+              minWidth: 0,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
               background: isDeckEmpty ? 'rgba(239, 68, 68, 0.2)' : undefined,
               borderColor: isDeckEmpty ? 'var(--accent-red)' : undefined,
               color: isDeckEmpty ? '#FCA5A5' : undefined
@@ -787,9 +803,9 @@ export default function RemiJawaPlay({
                     setCloseType('atas')
                     broadcastState({ closeType: 'atas' })
                   }}
-                  style={{ fontSize: '0.78rem', fontWeight: 700 }}
+                  style={{ fontSize: '0.76rem', fontWeight: 700, padding: '8px 4px', minWidth: 0 }}
                 >
-                  🎴 Tutup Atas / Deck (+10)
+                  🎴 Tutup Atas (+10)
                 </button>
                 <button
                   type="button"
@@ -799,9 +815,9 @@ export default function RemiJawaPlay({
                     setCloseType('bawah')
                     broadcastState({ closeType: 'bawah' })
                   }}
-                  style={{ fontSize: '0.78rem', fontWeight: 700 }}
+                  style={{ fontSize: '0.76rem', fontWeight: 700, padding: '8px 4px', minWidth: 0 }}
                 >
-                  🗑️ Tutup Bawah / Sampah (+25)
+                  🗑️ Tutup Bawah (+25)
                 </button>
               </div>
             </div>
@@ -814,8 +830,8 @@ export default function RemiJawaPlay({
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
                 {[
                   { key: 'biasa', label: 'Biasa (+0)', bonus: 0 },
-                  { key: 'as', label: '🅰️ Kartu As (+5)', bonus: 5 },
-                  { key: 'joker', label: '🃏 Kartu Joker (+15)', bonus: 15 }
+                  { key: 'as', label: '🅰️ As (+5)', bonus: 5 },
+                  { key: 'joker', label: '🃏 Joker (+15)', bonus: 15 }
                 ].map(opt => (
                   <button
                     key={opt.key}
@@ -826,7 +842,7 @@ export default function RemiJawaPlay({
                       setCloseSpecialCard(opt.key)
                       broadcastState({ closeSpecialCard: opt.key })
                     }}
-                    style={{ fontSize: '0.72rem', fontWeight: 700, padding: '6px 2px' }}
+                    style={{ fontSize: '0.72rem', fontWeight: 700, padding: '6px 2px', minWidth: 0, whiteSpace: 'nowrap' }}
                   >
                     {opt.label}
                   </button>
@@ -864,11 +880,11 @@ export default function RemiJawaPlay({
             >
               {/* Player Card Header */}
               <div 
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', flexWrap: 'wrap' }}
               >
                 <div 
                   onClick={() => setExpandedPlayerCard(isExpanded ? null : pIdx)}
-                  style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', flex: 1 }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', flex: 1, flexWrap: 'wrap', minWidth: 0 }}
                 >
                   <span 
                     style={{
@@ -876,17 +892,18 @@ export default function RemiJawaPlay({
                       width: '8px',
                       height: '8px',
                       borderRadius: '50%',
-                      background: isOccupied ? '#10B981' : '#9CA3AF'
+                      background: isOccupied ? '#10B981' : '#9CA3AF',
+                      flexShrink: 0
                     }}
                     title={isOccupied ? 'Online di room' : 'Offline / Belum check-in'}
                   />
                   <span style={{ fontWeight: 800, fontSize: '0.95rem' }}>{name}</span>
-                  {pIdx === scorerIndex && <span style={{ fontSize: '0.68rem', padding: '2px 5px', borderRadius: '4px', background: '#FEF3C7', color: '#D97706', fontWeight: 800 }}>✏️ Scorer</span>}
-                  {isCloser && <span className="badge badge-purple" style={{ fontSize: '0.68rem', padding: '2px 6px' }}>🏆 Penutup</span>}
-                  {isDealer && <span className="badge badge-gold" style={{ fontSize: '0.68rem', padding: '2px 6px' }}>👑 Dealer</span>}
+                  {pIdx === scorerIndex && <span style={{ fontSize: '0.68rem', padding: '2px 5px', borderRadius: '4px', background: '#FEF3C7', color: '#D97706', fontWeight: 800, whiteSpace: 'nowrap' }}>✏️ Scorer</span>}
+                  {isCloser && <span className="badge badge-purple" style={{ fontSize: '0.68rem', padding: '2px 6px', whiteSpace: 'nowrap' }}>🏆 Penutup</span>}
+                  {isDealer && <span className="badge badge-gold" style={{ fontSize: '0.68rem', padding: '2px 6px', whiteSpace: 'nowrap' }}>👑 Dealer</span>}
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
                   {isMySeat && (
                     <button
                       type="button"
@@ -917,7 +934,8 @@ export default function RemiJawaPlay({
                       fontWeight: 900, 
                       fontSize: '0.95rem',
                       color: pCalc.totalScoreChange >= 0 ? 'var(--accent-green)' : 'var(--accent-red)',
-                      cursor: 'pointer'
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap'
                     }}
                   >
                     {pCalc.totalScoreChange >= 0 ? `+${pCalc.totalScoreChange}` : pCalc.totalScoreChange} pts
@@ -945,57 +963,63 @@ export default function RemiJawaPlay({
                     <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--accent-green)', marginBottom: '6px' }}>
                       ✅ Kartu Jadi / Melds (+):
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
                       {/* Angka (+1) */}
-                      <div style={{ background: 'var(--bg-glass)', padding: '8px', borderRadius: '8px', textAlign: 'center' }}>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Angka 2-10 (+1)</div>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', marginTop: '4px' }}>
+                      <div style={{ background: 'var(--bg-glass)', padding: '6px 4px', borderRadius: '8px', textAlign: 'center', minWidth: 0 }}>
+                        <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Angka (+1)</div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', marginTop: '4px' }}>
                           <button 
                             type="button" 
                             className="btn btn-xs btn-secondary" 
                             onClick={() => handleCounterChange(pIdx, 'jadiAngka', -1)}
+                            style={{ width: '26px', height: '26px', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.9rem', fontWeight: 800 }}
                           >-</button>
-                          <span style={{ fontWeight: 800, minWidth: '18px' }}>{pData.jadiAngka}</span>
+                          <span style={{ fontWeight: 800, minWidth: '16px', textAlign: 'center', fontSize: '0.88rem' }}>{pData.jadiAngka}</span>
                           <button 
                             type="button" 
                             className="btn btn-xs btn-secondary" 
                             onClick={() => handleCounterChange(pIdx, 'jadiAngka', 1)}
+                            style={{ width: '26px', height: '26px', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.9rem', fontWeight: 800 }}
                           >+</button>
                         </div>
                       </div>
 
                       {/* Gambar (+2) */}
-                      <div style={{ background: 'var(--bg-glass)', padding: '8px', borderRadius: '8px', textAlign: 'center' }}>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>J, Q, K (+2)</div>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', marginTop: '4px' }}>
+                      <div style={{ background: 'var(--bg-glass)', padding: '6px 4px', borderRadius: '8px', textAlign: 'center', minWidth: 0 }}>
+                        <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>J, Q, K (+2)</div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', marginTop: '4px' }}>
                           <button 
                             type="button" 
                             className="btn btn-xs btn-secondary" 
                             onClick={() => handleCounterChange(pIdx, 'jadiGambar', -1)}
+                            style={{ width: '26px', height: '26px', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.9rem', fontWeight: 800 }}
                           >-</button>
-                          <span style={{ fontWeight: 800, minWidth: '18px' }}>{pData.jadiGambar}</span>
+                          <span style={{ fontWeight: 800, minWidth: '16px', textAlign: 'center', fontSize: '0.88rem' }}>{pData.jadiGambar}</span>
                           <button 
                             type="button" 
                             className="btn btn-xs btn-secondary" 
                             onClick={() => handleCounterChange(pIdx, 'jadiGambar', 1)}
+                            style={{ width: '26px', height: '26px', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.9rem', fontWeight: 800 }}
                           >+</button>
                         </div>
                       </div>
 
                       {/* As (+3) */}
-                      <div style={{ background: 'var(--bg-glass)', padding: '8px', borderRadius: '8px', textAlign: 'center' }}>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Kartu As (+3)</div>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', marginTop: '4px' }}>
+                      <div style={{ background: 'var(--bg-glass)', padding: '6px 4px', borderRadius: '8px', textAlign: 'center', minWidth: 0 }}>
+                        <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>As (+3)</div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', marginTop: '4px' }}>
                           <button 
                             type="button" 
                             className="btn btn-xs btn-secondary" 
                             onClick={() => handleCounterChange(pIdx, 'jadiAs', -1)}
+                            style={{ width: '26px', height: '26px', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.9rem', fontWeight: 800 }}
                           >-</button>
-                          <span style={{ fontWeight: 800, minWidth: '18px' }}>{pData.jadiAs}</span>
+                          <span style={{ fontWeight: 800, minWidth: '16px', textAlign: 'center', fontSize: '0.88rem' }}>{pData.jadiAs}</span>
                           <button 
                             type="button" 
                             className="btn btn-xs btn-secondary" 
                             onClick={() => handleCounterChange(pIdx, 'jadiAs', 1)}
+                            style={{ width: '26px', height: '26px', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.9rem', fontWeight: 800 }}
                           >+</button>
                         </div>
                       </div>
@@ -1007,75 +1031,83 @@ export default function RemiJawaPlay({
                     <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--accent-red)', marginBottom: '6px' }}>
                       ❌ Kartu Mati / Sisa di Tangan (-):
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '4px' }}>
                       {/* Angka (-1) */}
-                      <div style={{ background: 'var(--bg-glass)', padding: '6px', borderRadius: '8px', textAlign: 'center' }}>
-                        <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Angka (-1)</div>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', marginTop: '4px' }}>
+                      <div style={{ background: 'var(--bg-glass)', padding: '6px 2px', borderRadius: '8px', textAlign: 'center', minWidth: 0 }}>
+                        <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Angka (-1)</div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '2px', marginTop: '4px' }}>
                           <button 
                             type="button" 
                             className="btn btn-xs btn-secondary" 
                             onClick={() => handleCounterChange(pIdx, 'matiAngka', -1)}
+                            style={{ width: '22px', height: '24px', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem', fontWeight: 800 }}
                           >-</button>
-                          <span style={{ fontWeight: 800, minWidth: '14px', fontSize: '0.8rem' }}>{pData.matiAngka}</span>
+                          <span style={{ fontWeight: 800, minWidth: '12px', fontSize: '0.82rem', textAlign: 'center' }}>{pData.matiAngka}</span>
                           <button 
                             type="button" 
                             className="btn btn-xs btn-secondary" 
                             onClick={() => handleCounterChange(pIdx, 'matiAngka', 1)}
+                            style={{ width: '22px', height: '24px', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem', fontWeight: 800 }}
                           >+</button>
                         </div>
                       </div>
 
                       {/* Gambar (-2) */}
-                      <div style={{ background: 'var(--bg-glass)', padding: '6px', borderRadius: '8px', textAlign: 'center' }}>
-                        <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>JQK (-2)</div>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', marginTop: '4px' }}>
+                      <div style={{ background: 'var(--bg-glass)', padding: '6px 2px', borderRadius: '8px', textAlign: 'center', minWidth: 0 }}>
+                        <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>JQK (-2)</div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '2px', marginTop: '4px' }}>
                           <button 
                             type="button" 
                             className="btn btn-xs btn-secondary" 
                             onClick={() => handleCounterChange(pIdx, 'matiGambar', -1)}
+                            style={{ width: '22px', height: '24px', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem', fontWeight: 800 }}
                           >-</button>
-                          <span style={{ fontWeight: 800, minWidth: '14px', fontSize: '0.8rem' }}>{pData.matiGambar}</span>
+                          <span style={{ fontWeight: 800, minWidth: '12px', fontSize: '0.82rem', textAlign: 'center' }}>{pData.matiGambar}</span>
                           <button 
                             type="button" 
                             className="btn btn-xs btn-secondary" 
                             onClick={() => handleCounterChange(pIdx, 'matiGambar', 1)}
+                            style={{ width: '22px', height: '24px', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem', fontWeight: 800 }}
                           >+</button>
                         </div>
                       </div>
 
                       {/* As (-3) */}
-                      <div style={{ background: 'var(--bg-glass)', padding: '6px', borderRadius: '8px', textAlign: 'center' }}>
-                        <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>As (-3)</div>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', marginTop: '4px' }}>
+                      <div style={{ background: 'var(--bg-glass)', padding: '6px 2px', borderRadius: '8px', textAlign: 'center', minWidth: 0 }}>
+                        <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>As (-3)</div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '2px', marginTop: '4px' }}>
                           <button 
                             type="button" 
                             className="btn btn-xs btn-secondary" 
                             onClick={() => handleCounterChange(pIdx, 'matiAs', -1)}
+                            style={{ width: '22px', height: '24px', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem', fontWeight: 800 }}
                           >-</button>
-                          <span style={{ fontWeight: 800, minWidth: '14px', fontSize: '0.8rem' }}>{pData.matiAs}</span>
+                          <span style={{ fontWeight: 800, minWidth: '12px', fontSize: '0.82rem', textAlign: 'center' }}>{pData.matiAs}</span>
                           <button 
                             type="button" 
                             className="btn btn-xs btn-secondary" 
                             onClick={() => handleCounterChange(pIdx, 'matiAs', 1)}
+                            style={{ width: '22px', height: '24px', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem', fontWeight: 800 }}
                           >+</button>
                         </div>
                       </div>
 
                       {/* Joker (-10) */}
-                      <div style={{ background: 'var(--bg-glass)', padding: '6px', borderRadius: '8px', textAlign: 'center' }}>
-                        <div style={{ fontSize: '0.68rem', color: '#FCA5A5' }}>Joker (-10)</div>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', marginTop: '4px' }}>
+                      <div style={{ background: 'var(--bg-glass)', padding: '6px 2px', borderRadius: '8px', textAlign: 'center', minWidth: 0 }}>
+                        <div style={{ fontSize: '0.65rem', color: '#FCA5A5', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Joker (-10)</div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '2px', marginTop: '4px' }}>
                           <button 
                             type="button" 
                             className="btn btn-xs btn-secondary" 
                             onClick={() => handleCounterChange(pIdx, 'matiJoker', -1)}
+                            style={{ width: '22px', height: '24px', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem', fontWeight: 800 }}
                           >-</button>
-                          <span style={{ fontWeight: 800, minWidth: '14px', fontSize: '0.8rem' }}>{pData.matiJoker}</span>
+                          <span style={{ fontWeight: 800, minWidth: '12px', fontSize: '0.82rem', textAlign: 'center' }}>{pData.matiJoker}</span>
                           <button 
                             type="button" 
                             className="btn btn-xs btn-secondary" 
                             onClick={() => handleCounterChange(pIdx, 'matiJoker', 1)}
+                            style={{ width: '22px', height: '24px', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem', fontWeight: 800 }}
                           >+</button>
                         </div>
                       </div>

@@ -22,6 +22,14 @@
     "spectating": "Sedang Menonton...",
     "claim_seat": "Klaim Kursi Saya"
   },
+  "common": {
+    "players": "Pemain",
+    "player": "Pemain",
+    "round": "Ronde",
+    "score": "Skor",
+    "total": "Total",
+    "dealer": "Dealer"
+  },
   "nav": {
     "home": "Beranda",
     "truf": "Truf",
@@ -435,6 +443,8 @@
     "login_to_host": "Masuk dengan Google untuk Bikin Room"
   },
   "room": {
+    "host_seat_label": "Kursi Anda di Meja",
+    "host_seat_spectator": "Penonton / Wasit Saja (Tidak Duduk)",
     "lobby_tag": "MULTIPLAYER LOBBY",
     "share_table_title": "Bagikan Meja Permainan",
     "share_table_desc": "Ajak teman bermain dengan membagikan kode room atau tautan meja. Teman bisa langsung check-in untuk mengisi skor mereka sendiri, atau bergabung sebagai penonton live!",

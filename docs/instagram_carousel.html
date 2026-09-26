@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KancaSela - Instagram Carousel Slides (1080x1080)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #0B0C14;
+      --bg-card: rgba(22, 26, 46, 0.85);
+      --primary: #8B5CF6;
+      --primary-glow: rgba(139, 92, 246, 0.4);
+      --cyan: #06B6D4;
+      --cyan-glow: rgba(6, 182, 212, 0.35);
+      --gold: #F59E0B;
+      --gold-glow: rgba(245, 158, 11, 0.35);
+      --green: #10B981;
+      --red: #EF4444;
+      --text-white: #F8FAFC;
+      --text-muted: #94A3B8;
+      --border-glass: rgba(255, 255, 255, 0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: #07080D;
+      color: var(--text-white);
+      font-family: 'Outfit', sans-serif;
+      padding: 40px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 40px;
+    }
+
+    .header-nav {
+      text-align: center;
+      max-width: 800px;
+    }
+
+    .header-nav h1 {
+      font-size: 32px;
+      font-weight: 800;
+      background: linear-gradient(135deg, #A78BFA, #06B6D4, #F59E0B);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 8px;
+    }
+
+    .header-nav p {
+      color: var(--text-muted);
+      font-size: 16px;
+    }
+
+    .slides-container {
+      display: flex;
+      flex-direction: column;
+      gap: 50px;
+      align-items: center;
+    }
+
+    /* 1:1 Instagram Slide Container */
+    .slide-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .slide-label {
+      font-size: 14px;
+      font-weight: 700;
+      color: #A78BFA;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      background: rgba(139, 92, 246, 0.15);
+      padding: 6px 16px;
+      border-radius: 20px;
+      border: 1px solid rgba(139, 92, 246, 0.3);
+    }
+
+    .slide {
+      width: 540px;
+      height: 540px;
+      background: var(--bg-dark);
+      border-radius: 24px;
+      border: 1px solid var(--border-glass);
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), 0 0 40px rgba(139, 92, 246, 0.15);
+      padding: 40px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    /* Ambient Glows */
+    .slide::before {
+      content: '';
+      position: absolute;
+      top: -30%;
+      left: -30%;
+      width: 80%;
+      height: 80%;
+      background: radial-gradient(circle, var(--primary-glow) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .slide::after {
+      content: '';
+      position: absolute;
+      bottom: -30%;
+      right: -30%;
+      width: 80%;
+      height: 80%;
+      background: radial-gradient(circle, var(--cyan-glow) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .brand-tag {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      color: #F8FAFC;
+      z-index: 2;
+    }
+
+    .brand-logo-icon {
+      width: 24px;
+      height: 24px;
+      background: linear-gradient(135deg, var(--primary), var(--cyan));
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 900;
+    }
+
+    .slide-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      color: var(--text-muted);
+      z-index: 2;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      padding-top: 14px;
+    }
+
+    .slide-footer span.swipe-cue {
+      color: var(--cyan);
+      font-weight: 700;
+    }
+
+    /* Typography inside slide */
+    .slide-title {
+      font-size: 28px;
+      font-weight: 800;
+      line-height: 1.25;
+      color: #FFF;
+      z-index: 2;
+    }
+
+    .highlight-cyan {
+      color: var(--cyan);
+    }
+    .highlight-gold {
+      color: var(--gold);
+    }
+    .highlight-purple {
+      color: #C084FC;
+    }
+
+    .content-box {
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .drama-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .drama-card {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .drama-time {
+      background: rgba(239, 68, 68, 0.2);
+      color: #F87171;
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      padding: 4px 10px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .feature-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      z-index: 2;
+    }
+
+    .feature-card {
+      background: rgba(255, 255, 255, 0.04);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      border-radius: 14px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .feature-card.full-width {
+      grid-column: span 2;
+    }
+
+    .feature-icon {
+      font-size: 20px;
+    }
+
+    .feature-card h4 {
+      font-size: 15px;
+      font-weight: 700;
+      color: #F8FAFC;
+    }
+
+    .feature-card p {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    .badge-pill {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 6px;
+      align-self: flex-start;
+    }
+
+    .badge-truf { background: rgba(59, 130, 246, 0.2); color: #60A5FA; border: 1px solid rgba(59, 130, 246, 0.4); }
+    .badge-remi { background: rgba(245, 158, 11, 0.2); color: #FBBF24; border: 1px solid rgba(245, 158, 11, 0.4); }
+    .badge-omben { background: rgba(16, 185, 129, 0.2); color: #34D399; border: 1px solid rgba(16, 185, 129, 0.4); }
+
+    .story-card-preview {
+      background: linear-gradient(145deg, rgba(24, 27, 44, 0.9), rgba(15, 17, 28, 0.95));
+      border: 1px solid rgba(245, 158, 11, 0.4);
+      border-radius: 16px;
+      padding: 16px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 10px 25px rgba(245, 158, 11, 0.15);
+    }
+
+    .crown-icon {
+      font-size: 36px;
+      filter: drop-shadow(0 0 10px rgba(245, 158, 11, 0.6));
+    }
+
+    .cta-button {
+      background: linear-gradient(135deg, var(--primary), #6366F1);
+      color: #FFF;
+      font-size: 16px;
+      font-weight: 800;
+      padding: 14px 28px;
+      border-radius: 14px;
+      text-align: center;
+      box-shadow: 0 10px 25px rgba(139, 92, 246, 0.4);
+      margin-top: 10px;
+      display: inline-block;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header-nav">
+    <h1>KancaSela (Konco Selo)</h1>
+    <p>Instagram Carousel Slides Deck (Format 1:1 Square - 7 Slide Lengkap)</p>
+  </div>
+
+  <div class="slides-container">
+
+    <!-- SLIDE 1: COVER -->
+    <div class="slide-wrapper">
+      <div class="slide-label">Slide 1: Cover (Hook)</div>
+      <div class="slide" style="justify-content: center; text-align: center; gap: 20px;">
+        <div class="brand-tag" style="justify-content: center;">
+          <div class="brand-logo-icon">K</div>
+          <span>KancaSela</span>
+        </div>
+        <div style="font-size: 44px; font-weight: 900; line-height: 1.15; text-transform: uppercase;">
+          BYE KERTAS<br><span style="background: linear-gradient(135deg, #06B6D4, #F59E0B); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">SOBEKAN!</span> 🃏
+        </div>
+        <p style="color: var(--text-muted); font-size: 16px; max-width: 400px; margin: 0 auto; line-height: 1.5;">
+          Papan Skor & Alat Pintar Buat Nemenin Main Kartu & Game Meja Bareng Teman.
+        </p>
+        <div style="display: flex; justify-content: center; gap: 10px; font-size: 24px;">
+          <span>♠️</span><span>♥️</span><span>♦️</span><span>♣️</span><span>⏱️</span><span>🎲</span>
+        </div>
+        <div class="slide-footer" style="position: absolute; bottom: 30px; left: 40px; right: 40px;">
+          <span>www.kancasela.my.id</span>
+          <span class="swipe-cue">Geser 👉</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 2: THE PROBLEM / RELATABLE DRAMA -->
+    <div class="slide-wrapper">
+      <div class="slide-label">Slide 2: Drama Tongkrongan</div>
+      <div class="slide">
+        <div class="brand-tag">
+          <div class="brand-logo-icon">K</div>
+          <span>KancaSela</span>
+        </div>
+        <div class="slide-title">
+          Drama Klasik Setiap Main Kartu di Tongkrongan 🤦‍♂️
+        </div>
+        <div class="drama-list">
+          <div class="drama-card">
+            <span class="drama-time">10 Menit</span>
+            <span>Sibuk keliling nyari kertas lecek & pulpen macet ✍️</span>
+          </div>
+          <div class="drama-card">
+            <span class="drama-time">15 Menit</span>
+            <span>Ribut salah hitung denda & rumus Main Atas/Bawah 🤯</span>
+          </div>
+          <div class="drama-card">
+            <span class="drama-time">5 Menit</span>
+            <span>Main kartunya doang... sisanya debat skor 🃏</span>
+          </div>
+        </div>
+        <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.25); padding: 12px; border-radius: 12px; font-size: 13px; color: #FCA5A5; text-align: center;">
+          💀 Kelar main, kertasnya disobek & rekor juaramu hilang gitu aja!
+        </div>
+        <div class="slide-footer">
+          <span>Solusinya?</span>
+          <span class="swipe-cue">Geser 👉</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 3: SMART CARD ENGINES -->
+    <div class="slide-wrapper">
+      <div class="slide-label">Slide 3: Mesin Hitung Kartu</div>
+      <div class="slide">
+        <div class="brand-tag">
+          <div class="brand-logo-icon">K</div>
+          <span>KancaSela</span>
+        </div>
+        <div class="slide-title">
+          Kalkulator Skor Kartu Otomatis & Akurat ♠️
+        </div>
+        <div class="feature-grid">
+          <div class="feature-card">
+            <span class="badge-pill badge-truf">TRUF / TRUP</span>
+            <h4>Main Atas vs Bawah</h4>
+            <p>Auto hitung klasifikasi >13 atau <13, denda lack/excess, & tiebreaker Bid 13.</p>
+          </div>
+          <div class="feature-card">
+            <span class="badge-pill badge-remi">REMI 7-KARTU</span>
+            <h4>Keypad Denda Cepat</h4>
+            <p>Input instan As 15, K/Q/J 10, Joker. Auto 2x lipat saat Tutup Murni.</p>
+          </div>
+          <div class="feature-card full-width">
+            <span class="badge-pill badge-omben">OMBEN / CANGKULAN</span>
+            <h4>Tally Hukuman & Urutan Out</h4>
+            <p>Mencatat Juara 1, 2, 3 dan akumulasi 'Kena Omben' buat nentuin siapa yang traktir kopi!</p>
+          </div>
+        </div>
+        <div class="slide-footer">
+          <span>Tersedia juga: Capsa, Gaple & Bridge</span>
+          <span class="swipe-cue">Geser 👉</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 4: HARDWARE & UTILITIES -->
+    <div class="slide-wrapper">
+      <div class="slide-label">Slide 4: Jam Catur & Dadu 3D</div>
+      <div class="slide">
+        <div class="brand-tag">
+          <div class="brand-logo-icon">K</div>
+          <span>KancaSela</span>
+        </div>
+        <div class="slide-title">
+          Bukan Cuma Kartu, Ada Jam Catur & Dadu! ⏱️🎲
+        </div>
+        <div class="feature-grid">
+          <div class="feature-card">
+            <div class="feature-icon">⏱️</div>
+            <h4>Dual Split-Screen Clock</h4>
+            <p>Layar atas terbalik 180°. Ditaruh di tengah meja + getar haptic & audio tick.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">🎲</div>
+            <h4>Dadu 3D (D4 s/d D20)</h4>
+            <p>Lempar 1-6 dadu dengan simulasi fisika untuk Board Game & RPG.</p>
+          </div>
+          <div class="feature-card full-width">
+            <div class="feature-icon">☝️</div>
+            <h4>Neon Finger Chooser</h4>
+            <p>Semua pemain tempel satu jari di layar HP. Sistem otomatis pilih acak siapa yang jalan pertama!</p>
+          </div>
+        </div>
+        <div class="slide-footer">
+          <span>Semua alat bisa dipakai 100% Offline</span>
+          <span class="swipe-cue">Geser 👉</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 5: ZERO-FRICTION MULTIPLAYER -->
+    <div class="slide-wrapper">
+      <div class="slide-label">Slide 5: Live Multiplayer</div>
+      <div class="slide">
+        <div class="brand-tag">
+          <div class="brand-logo-icon">K</div>
+          <span>KancaSela</span>
+        </div>
+        <div class="slide-title">
+          1 Link WhatsApp, Semua HP Sinkron Live! ⚡
+        </div>
+        <div class="content-box">
+          <div class="drama-card" style="border-color: rgba(6, 182, 212, 0.4); background: rgba(6, 182, 212, 0.08);">
+            <span style="font-size: 24px;">🔗</span>
+            <div>
+              <div style="font-weight: 800; color: #67E8F9;">Bikin Room & Kirim Link</div>
+              <div style="font-size: 12px; color: var(--text-muted);">Temen se-meja klik link & langsung nonton skor live di HP masing-masing.</div>
+            </div>
+          </div>
+          <div class="drama-card" style="border-color: rgba(16, 185, 129, 0.4); background: rgba(16, 185, 129, 0.08);">
+            <span style="font-size: 24px;">🚀</span>
+            <div>
+              <div style="font-weight: 800; color: #6EE7B7;">Zero Friction (Tanpa Install App)</div>
+              <div style="font-size: 12px; color: var(--text-muted);">Langsung jalan di browser, tanpa download file 40MB dan tanpa wajib login.</div>
+            </div>
+          </div>
+          <div class="drama-card" style="border-color: rgba(139, 92, 246, 0.4); background: rgba(139, 92, 246, 0.08);">
+            <span style="font-size: 24px;">💺</span>
+            <div>
+              <div style="font-weight: 800; color: #C084FC;">1-Tap Claim Kursi (Google SSO)</div>
+              <div style="font-size: 12px; color: var(--text-muted);">Pilih 'Saya Budi' untuk simpan rekor tanding seumur hidup di Match Diary.</div>
+            </div>
+          </div>
+        </div>
+        <div class="slide-footer">
+          <span>Realtime WebSocket Engine</span>
+          <span class="swipe-cue">Geser 👉</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 6: 9:16 STORY CARD -->
+    <div class="slide-wrapper">
+      <div class="slide-label">Slide 6: 9:16 Story Card</div>
+      <div class="slide">
+        <div class="brand-tag">
+          <div class="brand-logo-icon">K</div>
+          <span>KancaSela</span>
+        </div>
+        <div class="slide-title">
+          Kelar Tanding? 1-Klik Pamerin Rekor Juaramu! 👑
+        </div>
+        <div class="story-card-preview">
+          <div class="crown-icon">👑</div>
+          <div style="font-size: 18px; font-weight: 800; color: var(--gold);">JUARA 1 GAME NIGHT</div>
+          <div style="font-size: 13px; color: var(--text-muted);">Match Diary • 13 Ronde Truf</div>
+          <div style="display: flex; gap: 8px; margin-top: 4px;">
+            <span style="background: rgba(255,255,255,0.1); padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700;">MVP: Gabriel</span>
+            <span style="background: rgba(239,68,68,0.2); color: #FCA5A5; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700;">Omben: Budi</span>
+          </div>
+        </div>
+        <p style="font-size: 14px; text-align: center; color: var(--text-muted); line-height: 1.4;">
+          Ekspor otomatis format 9:16 HD vertikal. Siap langsung posting ke <strong style="color: #FFF;">Status WhatsApp & Instagram Stories</strong>!
+        </p>
+        <div class="slide-footer">
+          <span>Fitur Favorit Pemain</span>
+          <span class="swipe-cue">Geser 👉</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 7: CALL TO ACTION -->
+    <div class="slide-wrapper">
+      <div class="slide-label">Slide 7: Penutup & CTA</div>
+      <div class="slide" style="justify-content: center; text-align: center; gap: 20px;">
+        <div class="brand-tag" style="justify-content: center;">
+          <div class="brand-logo-icon">K</div>
+          <span>KancaSela</span>
+        </div>
+        <div style="font-size: 34px; font-weight: 900; line-height: 1.2;">
+          Upgrade Momen Nongkrong Kamu Sekarang! 🚀
+        </div>
+        <p style="color: var(--text-muted); font-size: 15px; max-width: 420px; margin: 0 auto; line-height: 1.5;">
+          Tanpa iklan mengganggu, 100% gratis, dan langsung buka di browser tanpa perlu download aplikasi apapun.
+        </p>
+        <div>
+          <a href="https://www.kancasela.my.id" target="_blank" class="cta-button">
+            🌐 Buka kancasela.my.id
+          </a>
+        </div>
+        <div style="font-size: 13px; color: var(--text-muted); margin-top: 8px;">
+          🔗 Link aktif tersedia di Bio Instagram!
+        </div>
+        <div class="slide-footer" style="position: absolute; bottom: 30px; left: 40px; right: 40px;">
+          <span>Tag temen tongkronganmu! 👇</span>
+          <span style="color: var(--gold); font-weight: 700;">#KancaSela</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</body>
+</html>

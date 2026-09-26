@@ -8,6 +8,7 @@ export default function TrufSetup({ onStartGame, onBack }) {
   const [playerCount, setPlayerCount] = useState(4)
   const [playerNames, setPlayerNames] = useState(['Pemain 1', 'Pemain 2', 'Pemain 3', 'Pemain 4'])
   const [firstDealer, setFirstDealer] = useState(0)
+  const [hostSeat, setHostSeat] = useState(0) // 0..n or -1 (Spectator)
   const [multiplier, setMultiplier] = useState(1)
   const [bid0Bonus, setBid0Bonus] = useState(0)
   const [bid13Decision, setBid13Decision] = useState(true)
@@ -38,6 +39,9 @@ export default function TrufSetup({ onStartGame, onBack }) {
     if (firstDealer >= count) {
       setFirstDealer(0)
     }
+    if (hostSeat >= count) {
+      setHostSeat(0)
+    }
   }
 
   const handleNameChange = (index, value) => {
@@ -66,6 +70,7 @@ export default function TrufSetup({ onStartGame, onBack }) {
     onStartGame({
       playerNames,
       firstDealer,
+      hostSeat,
       isOfflineLocal: roomMode === 'offline',
       settings: {
         multiplier,
@@ -214,6 +219,27 @@ export default function TrufSetup({ onStartGame, onBack }) {
               />
             </div>
           ))}
+        </div>
+
+        <div className="form-group" style={{ marginBottom: '16px' }}>
+          <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>🪑 {t('room.host_seat_label') || 'Kursi Anda di Meja'}</span>
+            <span style={{ fontSize: '0.74rem', color: 'var(--badge-purple-text)', fontWeight: 800 }}>
+              {hostSeat === -1 ? '👀 Penonton / Wasit' : `👑 ${playerNames[hostSeat] || `Pemain ${hostSeat + 1}`}`}
+            </span>
+          </label>
+          <select 
+            className="form-select"
+            value={hostSeat}
+            onChange={e => setHostSeat(Number(e.target.value))}
+          >
+            {playerNames.map((name, idx) => (
+              <option key={idx} value={idx}>
+                👑 {name} (Kursi {idx + 1}){idx === 0 ? ' - Default' : ''}
+              </option>
+            ))}
+            <option value={-1}>👀 {t('room.host_seat_spectator') || 'Penonton / Wasit Saja (Tidak Duduk)'}</option>
+          </select>
         </div>
 
         <div className="form-group">

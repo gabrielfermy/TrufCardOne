@@ -187,6 +187,21 @@ function MainApp() {
 
   // Listen to network changes and auto-flush pending late sync queue
   useEffect(() => {
+    // Immediate flush on startup if online
+    if (networkService.isOnline()) {
+      gameService.flushPendingRounds().then(({ synced }) => {
+        if (synced > 0) {
+          setSyncNotice(`✅ ${synced} ronde berhasil disinkronkan ke cloud!`)
+          setTimeout(() => setSyncNotice(null), 5000)
+          if (activeSession?.id) {
+            gameService.getSession(activeSession.id).then(fresh => {
+              if (fresh?.game_rounds) setSessionRounds(dedupeRounds(fresh.game_rounds))
+            })
+          }
+        }
+      }).catch(() => {})
+    }
+
     const unsub = networkService.subscribe((online) => {
       setIsOnline(online)
       if (online) {
@@ -502,35 +517,37 @@ function MainApp() {
     loadUserSessions(user?.id)
   }
 
-  // 1. Start a New Game Session (Host binds to Seat 0)
+  // 1. Start a New Game Session (Host binds to selected seat, default seat 0)
   const handleStartGame = async (gameType, setupData) => {
     const isOfflineLocal = Boolean(setupData?.isOfflineLocal) || !networkService.isOnline()
-
-    // Host Login Enforcement: Creating a shareable multiplayer room requires login
-    if (!isOfflineLocal && !user) {
-      alert(t('room_mode.host_login_required'))
-      setIsAuthModalOpen(true)
-      return
-    }
-
     const currentClientId = deviceService.getClientIdentifier(user)
     const firstDealer = setupData?.firstDealer ?? 0
+    const hostSeat = setupData?.hostSeat !== undefined ? setupData.hostSeat : 0
+
     const session = await gameService.createSession({
-      userId: user?.id || 'guest-user',
+      userId: user?.id || null,
       creatorClientId: currentClientId,
       gameType,
       playerNames: setupData.playerNames,
       firstDealer,
+      hostSeat,
       settings: {
         ...setupData.settings,
         first_dealer: firstDealer,
-        firstDealer: firstDealer
+        firstDealer: firstDealer,
+        hostSeat
       },
       title: `${gameType.toUpperCase()} - ${new Date().toLocaleDateString()}`,
       isOfflineLocal
     })
 
-    deviceService.setSessionSeat(session.id, 0)
+    deviceService.setSessionHost(session.id, true)
+    if (hostSeat !== null && hostSeat !== -1 && hostSeat >= 0) {
+      deviceService.setSessionSeat(session.id, hostSeat)
+    } else {
+      deviceService.clearSessionSeat(session.id)
+    }
+
     setActiveSession(session)
     setSessionRounds([])
     setCurrentView(gameType)
@@ -568,7 +585,7 @@ function MainApp() {
       })
 
       if (saved) {
-        if (!activeSession.settings?.isOfflineLocal && activeSession.id) {
+        if (activeSession.id && !activeSession.id.startsWith('local-')) {
           gameService.broadcastRound(activeSession.id, saved)
         }
         loadUserSessions(user?.id)

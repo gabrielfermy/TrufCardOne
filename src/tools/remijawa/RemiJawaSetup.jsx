@@ -8,6 +8,7 @@ export default function RemiJawaSetup({ onStartGame, onBack }) {
   const [playerCount, setPlayerCount] = useState(4)
   const [playerNames, setPlayerNames] = useState(['Pemain 1', 'Pemain 2', 'Pemain 3', 'Pemain 4'])
   const [firstDealer, setFirstDealer] = useState(0)
+  const [hostSeat, setHostSeat] = useState(0) // 0..n or -1
   const [roomMode, setRoomMode] = useState('multiplayer') // 'multiplayer' | 'offline'
 
   // End Game Settings
@@ -31,6 +32,9 @@ export default function RemiJawaSetup({ onStartGame, onBack }) {
     if (firstDealer >= count) {
       setFirstDealer(0)
     }
+    if (hostSeat >= count) {
+      setHostSeat(0)
+    }
   }
 
   const handleNameChange = (idx, val) => {
@@ -44,6 +48,7 @@ export default function RemiJawaSetup({ onStartGame, onBack }) {
     onStartGame({
       playerNames,
       firstDealer,
+      hostSeat,
       isOfflineLocal: roomMode === 'offline',
       settings: {
         firstDealer,
@@ -125,14 +130,14 @@ export default function RemiJawaSetup({ onStartGame, onBack }) {
         {/* Player Count */}
         <div style={{ marginBottom: '20px' }}>
           <label className="form-label">{t('remi_jawa.player_count') || 'Jumlah Pemain (2 - 4 Orang)'}</label>
-          <div style={{ display: 'flex', gap: '8px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
             {[2, 3, 4].map(count => (
               <button
                 key={count}
                 type="button"
-                className={`btn flex-1 ${playerCount === count ? 'btn-primary' : 'btn-secondary'}`}
+                className={`btn ${playerCount === count ? 'btn-primary' : 'btn-secondary'}`}
                 onClick={() => handleCountChange(count)}
-                style={{ fontWeight: 800 }}
+                style={{ fontWeight: 800, padding: '10px 4px', fontSize: '0.9rem', minWidth: 0 }}
               >
                 {count} {t('common.players') || 'Pemain'}
               </button>
@@ -160,7 +165,8 @@ export default function RemiJawaSetup({ onStartGame, onBack }) {
                   onClick={() => setFirstDealer(idx)}
                   className={`btn btn-sm ${firstDealer === idx ? 'btn-primary' : 'btn-secondary'}`}
                   style={{
-                    minWidth: '105px',
+                    minWidth: '95px',
+                    flexShrink: 0,
                     fontSize: '0.75rem',
                     fontWeight: 800,
                     background: firstDealer === idx ? 'var(--badge-gold-bg)' : undefined,
@@ -177,6 +183,27 @@ export default function RemiJawaSetup({ onStartGame, onBack }) {
           <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '6px' }}>
             💡 Dealer ronde berikutnya akan ditentukan otomatis bagi pemain dengan skor terendah.
           </div>
+        </div>
+
+        <div className="form-group" style={{ marginBottom: '20px' }}>
+          <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>🪑 {t('room.host_seat_label') || 'Kursi Anda di Meja'}</span>
+            <span style={{ fontSize: '0.74rem', color: 'var(--badge-purple-text)', fontWeight: 800 }}>
+              {hostSeat === -1 ? '👀 Penonton / Wasit' : `👑 ${playerNames[hostSeat] || `Pemain ${hostSeat + 1}`}`}
+            </span>
+          </label>
+          <select 
+            className="form-select"
+            value={hostSeat}
+            onChange={e => setHostSeat(Number(e.target.value))}
+          >
+            {playerNames.map((name, idx) => (
+              <option key={idx} value={idx}>
+                👑 {name} (Kursi {idx + 1}){idx === 0 ? ' - Default' : ''}
+              </option>
+            ))}
+            <option value={-1}>👀 {t('room.host_seat_spectator') || 'Penonton / Wasit Saja (Tidak Duduk)'}</option>
+          </select>
         </div>
 
         {/* End Game Rules Section */}
@@ -197,7 +224,7 @@ export default function RemiJawaSetup({ onStartGame, onBack }) {
                 type="button"
                 className={`btn btn-sm ${targetWin === opt.val ? 'btn-primary' : 'btn-secondary'}`}
                 onClick={() => setTargetWin(opt.val)}
-                style={{ fontSize: '0.75rem', fontWeight: 700, padding: '8px 4px' }}
+                style={{ fontSize: '0.75rem', fontWeight: 700, padding: '8px 2px', minWidth: 0, whiteSpace: 'nowrap' }}
               >
                 {opt.label}
               </button>
@@ -220,7 +247,7 @@ export default function RemiJawaSetup({ onStartGame, onBack }) {
                 type="button"
                 className={`btn btn-sm ${streakLimit === opt.val ? 'btn-primary' : 'btn-secondary'}`}
                 onClick={() => setStreakLimit(opt.val)}
-                style={{ fontSize: '0.72rem', fontWeight: 700, padding: '8px 2px' }}
+                style={{ fontSize: '0.72rem', fontWeight: 700, padding: '8px 2px', minWidth: 0, whiteSpace: 'nowrap' }}
               >
                 {opt.label}
               </button>

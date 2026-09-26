@@ -71,5 +71,31 @@ export const deviceService = {
     try {
       localStorage.removeItem(`${SEAT_PREFIX}${sessionId}`)
     } catch {}
+  },
+
+  /**
+   * Mark this device as the creator/host of the session.
+   */
+  setSessionHost: (sessionId, isHost = true) => {
+    if (!sessionId) return
+    try {
+      if (isHost) {
+        localStorage.setItem(`gns_session_host_${sessionId}`, '1')
+      } else {
+        localStorage.removeItem(`gns_session_host_${sessionId}`)
+      }
+    } catch {}
+  },
+
+  /**
+   * Check if this device created the session.
+   */
+  isSessionHost: (sessionId) => {
+    if (!sessionId) return false
+    try {
+      return localStorage.getItem(`gns_session_host_${sessionId}`) === '1'
+    } catch {
+      return false
+    }
   }
 }

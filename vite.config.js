@@ -1,9 +1,26 @@
+import fs from 'node:fs'
 import http from 'node:http'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import react from '@vitejs/plugin-react'
-import basicSsl from '@vitejs/plugin-basic-ssl'
 import { defineConfig } from 'vite'
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const buildTime = new Date().toISOString()
+
+function getHttpsConfig() {
+  const keyPath = path.resolve(__dirname, '.certs/key.pem')
+  const certPath = path.resolve(__dirname, '.certs/cert.pem')
+  if (fs.existsSync(keyPath) && fs.existsSync(certPath)) {
+    return {
+      key: fs.readFileSync(keyPath),
+      cert: fs.readFileSync(certPath),
+    }
+  }
+  return true
+}
+
+const httpsConfig = getHttpsConfig()
 
 function httpToHttpsRedirectPlugin() {
   return {
@@ -52,7 +69,11 @@ function versionPlugin() {
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), basicSsl(), httpToHttpsRedirectPlugin(), versionPlugin()],
+  plugins: [
+    react(),
+    httpToHttpsRedirectPlugin(),
+    versionPlugin(),
+  ],
   define: {
     __APP_BUILD_TIME__: JSON.stringify(buildTime),
   },
@@ -60,6 +81,7 @@ export default defineConfig({
     host: true, // Listen on all network addresses (0.0.0.0)
     port: process.env.PORT ? parseInt(process.env.PORT) : 443,
     strictPort: false, // If port 443 is in use, seamlessly falls back to 5173
+    https: httpsConfig,
     allowedHosts: true, // Allow subdomains like admin.localhost, kancasela.test, admin.kancasela.test
     watch: {
       usePolling: true, // Essential for real-time change detection on Windows drives

@@ -22,7 +22,14 @@ function saveLocalSession(session) {
     const sessions = getLocalSessions()
     const idx = sessions.findIndex(s => s.id === session.id)
     if (idx >= 0) {
-      sessions[idx] = { ...sessions[idx], ...session }
+      const existing = sessions[idx]
+      const mergedRounds = dedupeRounds([...(existing.game_rounds || existing.rounds || []), ...(session.game_rounds || session.rounds || [])])
+      sessions[idx] = { 
+        ...existing, 
+        ...session,
+        game_rounds: mergedRounds,
+        rounds: mergedRounds
+      }
     } else {
       sessions.unshift(session)
     }
@@ -68,7 +75,7 @@ export const gameService = {
   deleteLocalSession,
 
   // 1. Create a Game Session (Cloud First or Local Offline)
-  async createSession({ userId, creatorClientId, gameType = 'truf', playerNames, firstDealer = 0, settings, title, isOfflineLocal = false }) {
+  async createSession({ userId, creatorClientId, gameType = 'truf', playerNames, firstDealer = 0, hostSeat = 0, settings, title, isOfflineLocal = false }) {
     const roomCode = generateRoomCode(gameType)
     const isRealUser = userId && userId !== 'guest-user'
     const hostClientId = creatorClientId || (isRealUser ? userId : 'host')
@@ -76,8 +83,9 @@ export const gameService = {
     const safeTitle = sanitizeText(title || `${gameType.toUpperCase()} Match - ${new Date().toLocaleDateString()}`)
 
     const initialUserIds = Array(safePlayerNames.length).fill(null)
-    if (initialUserIds.length > 0) {
-      initialUserIds[0] = hostClientId
+    const resolvedHostSeat = hostSeat !== undefined ? hostSeat : (settings?.hostSeat ?? 0)
+    if (resolvedHostSeat !== null && resolvedHostSeat !== -1 && resolvedHostSeat >= 0 && resolvedHostSeat < initialUserIds.length) {
+      initialUserIds[resolvedHostSeat] = hostClientId
     }
 
     const resolvedFirstDealer = firstDealer ?? settings?.first_dealer ?? settings?.firstDealer ?? 0
@@ -93,6 +101,9 @@ export const gameService = {
         ...settings,
         first_dealer: resolvedFirstDealer,
         firstDealer: resolvedFirstDealer,
+        hostSeat: resolvedHostSeat,
+        creatorClientId: hostClientId,
+        hostClientId: hostClientId,
         isOfflineLocal: Boolean(isOfflineLocal)
       },
       is_completed: false,
@@ -114,8 +125,8 @@ export const gameService = {
       details: { gameType, roomCode, title: safeTitle, players: safePlayerNames, isOfflineLocal }
     })
 
-    // If explicit offline local mode or offline, save immediately to local storage
-    if (isOfflineLocal || !networkService.isOnline()) {
+    // If device is offline (no network connection), save immediately to local storage
+    if (!networkService.isOnline()) {
       const localId = `local-session-${Date.now()}`
       const localSession = {
         ...dbPayload,
@@ -125,7 +136,7 @@ export const gameService = {
         rounds: []
       }
       saveLocalSession(localSession)
-      console.log('📱 Session created locally in LocalStorage:', localId)
+      console.log('📱 Session created locally in LocalStorage (Device Offline):', localId)
       return localSession
     }
 
@@ -362,6 +373,45 @@ export const gameService = {
         session.game_rounds = []
       }
 
+      // 3. Reconcile with local session to prevent losing any locally saved/queued rounds (e.g. from guest scorer)
+      try {
+        const localMatch = getLocalSessions().find(s =>
+          (session.id && s.id === session.id) ||
+          (session.room_code && (s.room_code === session.room_code || s.room_code?.endsWith(session.room_code)))
+        )
+        if (localMatch) {
+          const localRounds = dedupeRounds(localMatch.game_rounds || localMatch.rounds || [])
+          const cloudRoundNumbers = new Set((session.game_rounds || []).map(r => Number(r.round_number ?? r.roundNumber)))
+          const missingInCloud = localRounds.filter(lr => !cloudRoundNumbers.has(Number(lr.round_number ?? lr.roundNumber)))
+
+          if (missingInCloud.length > 0) {
+            console.log(`🚀 [gameService] Found ${missingInCloud.length} local rounds not yet in cloud. Merging & uploading...`)
+            const merged = dedupeRounds([...(session.game_rounds || []), ...missingInCloud])
+            session.game_rounds = merged
+
+            // Asynchronously background upload missing rounds to Supabase Cloud
+            if (networkService.isOnline()) {
+              (async () => {
+                for (const mr of missingInCloud) {
+                  try {
+                    await this._saveRoundToCloud({
+                      sessionId: session.id,
+                      roundNumber: Number(mr.round_number ?? mr.roundNumber),
+                      roundData: mr.round_data || mr.roundData || {},
+                      playerScores: mr.player_scores || mr.playerScores || []
+                    })
+                  } catch (syncErr) {
+                    console.warn('Reconciliation cloud save error:', syncErr)
+                  }
+                }
+              })()
+            }
+          }
+        }
+      } catch (recErr) {
+        console.warn('Reconciliation note:', recErr)
+      }
+
       saveLocalSession(session)
       console.log('✅ Session loaded successfully:', session.room_code || session.id)
       return session
@@ -539,8 +589,8 @@ export const gameService = {
       saveLocalSession(targetSession)
     }
 
-    // Check if session is offline local or temporary local
-    if (sessionId.startsWith('local-') || sessionId.startsWith('guest-') || targetSession?.settings?.isOfflineLocal) {
+    // Check if session is a local-only fallback session
+    if (sessionId.startsWith('local-') || sessionId.startsWith('guest-')) {
       return localRound
     }
 
@@ -1037,6 +1087,19 @@ export const gameService = {
     } catch (e) {
       console.warn('broadcastRoundAdvance error:', e)
     }
+  },
+
+  // 10b. Broadcast Round (Accepts either sessionId or channel)
+  broadcastRound(sessionIdOrChannel, roundPayload) {
+    if (!sessionIdOrChannel) return
+    let channel = sessionIdOrChannel?.channel || sessionIdOrChannel
+    if (typeof sessionIdOrChannel === 'string') {
+      const room = this._roomChannels?.get(sessionIdOrChannel)
+      channel = room?.channel
+    }
+    if (!channel) return
+    const payload = roundPayload?.round ? roundPayload : { round: roundPayload }
+    this.broadcastRoundAdvance(channel, payload)
   },
 
   // 11. Broadcast Seat Claim to Tabletop Peers
